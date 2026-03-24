@@ -19,25 +19,13 @@ Modern, kullanıcı dostu ve yapay zeka destekli ehliyet sınavına hazırlık m
 - **Icons**: [Lucide React Native](https://lucide.dev/)
 - **Haptics**: Expo Haptics ile dokunsal geri bildirimler.
 
-## 📦 Kurulum
+## ⚠️ Lisans ve Kullanım Şartları
 
-1. Projeyi klonlayın:
-   ```bash
-   git clone https://github.com/emircan0/ehliyet-sinavi-mobile.git
-   ```
-2. Bağımlılıkları yükleyin:
-   ```bash
-   npm install
-   ```
-3. `.env` dosyasını oluşturun ve Supabase anahtarlarınızı ekleyin:
-   ```env
-   EXPO_PUBLIC_SUPABASE_URL=your_url
-   EXPO_PUBLIC_SUPABASE_ANON_KEY=your_key
-   ```
-4. Uygulamayı başlatın:
-   ```bash
-   npx expo start
-   ```
+Bu proje **açık kaynak kodlu (Open Source) değildir**. Tüm hakları saklıdır. Bu depo (repository), yalnızca geliştiricinin yeteneklerini ve proje sürecini sergilemek amacıyla **portfolyo / showcase** olarak paylaşılmıştır.
+
+- **Kopyalanamaz / Çoğaltılamaz**: Kodlar izinsiz olarak başka projelerde kullanılamaz.
+- **Kurulum Desteği Yoktur**: Bu proje genel kullanıma veya yerel kuruluma açık bir şablondan ziyade, özel bir mülkiyettir.
+- **Veritabanı ve API**: Uygulamanın çalışması için gerekli olan Supabase yapılandırması ve servis anahtarları özeldir, paylaşılmaz.
 
 ## 📈 Versiyonlama
 
@@ -46,4 +34,4 @@ Bu proje [Semantic Versioning](https://semver.org/) prensiplerine göre versiyon
 - **v1.0.0**: İlk stabil sürüm. Ana sayfa tasarımı, sınav navigasyonu ve AI Tutor temel özellikleri tamamlandı.
 
 ---
-Geliştiren: [emircan0](https://github.com/emircan0)
+© 2026 [emircan0](https://github.com/emircan0). All rights reserved.
