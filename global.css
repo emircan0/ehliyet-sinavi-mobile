@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  .text-h1 {
+    @apply text-4xl font-bold text-slate-900 leading-tight;
+  }
+  .text-h2 {
+    @apply text-3xl font-bold text-slate-900 leading-snug;
+  }
+  .text-h3 {
+    @apply text-2xl font-bold text-slate-900 leading-snug;
+  }
+  .text-body {
+    @apply text-base text-slate-600 leading-relaxed;
+  }
+  .text-caption {
+    @apply text-sm text-slate-500;
+  }
+}
+
+@layer components {
+  .container-padding {
+    @apply px-6;
+  }
+  .shadow-soft {
+    @apply shadow-lg shadow-black/5;
+  }
+}
