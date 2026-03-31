@@ -14,8 +14,8 @@ import {
 } from 'lucide-react-native';
 
 const SectionHeader = ({ title }: { title: string }) => (
-    <View className="px-6 mt-8 mb-2">
-        <Text className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+    <View className="px-5 mt-8 mb-2">
+        <Text className="text-[13px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1">
             {title}
         </Text>
     </View>
@@ -25,24 +25,23 @@ const SettingItem = ({
     icon: Icon, label, value, type = 'link', onPress, isLast = false, color = '#0f172a'
 }: {
     icon: any, label: string, value?: string | boolean, type?: 'link' | 'toggle' | 'value' | 'action',
-    onPress?: () => void, isLast?: boolean, color?: string
+    onPress?: any, isLast?: boolean, color?: string // onPress tipini any yaptık ki parametre alabilsin
 }) => {
     const { colorScheme } = useColorScheme();
     const isDarkMode = colorScheme === 'dark';
-    // Karanlık modda varsayılan renk uyumu
-    const iconColor = color === '#0f172a' && isDarkMode ? '#f8fafc' : color;
+    const iconColor = color === '#0f172a' && isDarkMode ? '#ffffff' : color;
 
     return (
         <TouchableOpacity
             activeOpacity={type === 'toggle' ? 1 : 0.7}
             onPress={type === 'toggle' ? undefined : onPress}
-            className={`flex-row items-center justify-between py-4 px-4 bg-white dark:bg-slate-900 ${!isLast ? 'border-b border-slate-100 dark:border-slate-800' : ''}`}
+            className={`flex-row items-center justify-between py-3.5 px-4 bg-white dark:bg-[#1C1C1E] ${!isLast ? 'border-b border-slate-100 dark:border-white/10' : ''}`}
         >
             <View className="flex-row items-center gap-3">
-                <View className={`w-8 h-8 rounded-lg items-center justify-center bg-slate-50 dark:bg-slate-800`}>
+                <View className={`w-8 h-8 rounded-lg items-center justify-center ${isDarkMode ? 'bg-white/10' : 'bg-slate-100'}`}>
                     <Icon size={18} color={iconColor} strokeWidth={2} />
                 </View>
-                <Text className={`font-medium text-[15px] tracking-tight ${type === 'action' ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-slate-100'}`}>
+                <Text className={`font-medium text-[16px] tracking-tight ${type === 'action' ? 'text-red-500' : 'text-slate-900 dark:text-white'}`}>
                     {label}
                 </Text>
             </View>
@@ -51,19 +50,20 @@ const SettingItem = ({
                 {type === 'toggle' && (
                     <Switch
                         value={value as boolean}
-                        onValueChange={onPress}
-                        trackColor={{ false: "#e2e8f0", true: "#3b82f6" }}
+                        // KRİTİK DÜZELTME: Switch'in true/false değerini yakalayıp onPress'e gönderiyoruz
+                        onValueChange={(newValue) => onPress && onPress(newValue)}
+                        trackColor={{ false: "#e5e5ea", true: "#34C759" }} // Apple Green
                         thumbColor={"#ffffff"}
-                        ios_backgroundColor="#e2e8f0"
+                        ios_backgroundColor="#e5e5ea"
                     />
                 )}
                 {type === 'value' && (
                     <View className="flex-row items-center">
-                        <Text className="text-slate-500 font-medium text-sm mr-2">{value as string}</Text>
-                        <ChevronRight size={16} color="#cbd5e1" />
+                        <Text className="text-slate-500 dark:text-slate-400 font-medium text-[15px] mr-2">{value as string}</Text>
+                        <ChevronRight size={18} color={isDarkMode ? "#5c5c62" : "#c7c7cc"} />
                     </View>
                 )}
-                {type === 'link' && <ChevronRight size={18} color="#cbd5e1" strokeWidth={2.5} />}
+                {type === 'link' && <ChevronRight size={18} color={isDarkMode ? "#5c5c62" : "#c7c7cc"} strokeWidth={2.5} />}
             </View>
         </TouchableOpacity>
     );
@@ -73,13 +73,18 @@ export default function SettingsScreen() {
     const router = useRouter();
     const isPro = useSubscriptionStore(state => state.isPro);
 
-    // Tema Yönetimi
-    const { colorScheme, setColorScheme } = useColorScheme();
-    const isDarkMode = colorScheme === 'dark';
-
-    // Bildirim ve Ayarlar Store
+    // Zustand State
     const notificationsEnabled = useSettingsStore(state => state.notificationsEnabled);
     const setNotificationsEnabled = useSettingsStore(state => state.setNotificationsEnabled);
+    const theme = useSettingsStore(state => state.theme); // Zustand'daki mevcut temayı çektik
+    const setTheme = useSettingsStore(state => state.setTheme);
+
+    // NativeWind State
+    const { colorScheme, setColorScheme } = useColorScheme();
+
+    // KRİTİK DÜZELTME 2: Switch'in durumu doğrudan kullanıcının kaydettiği Zustand verisine bakmalı
+    // Eğer tema 'dark' ise veya tema 'system' olup da cihazın geneli karanlıksa Switch açık görünür
+    const isDarkMode = theme === 'dark' || (theme === 'system' && colorScheme === 'dark');
 
     const [userName, setUserName] = useState('');
     const [userEmail, setUserEmail] = useState('');
@@ -105,10 +110,7 @@ export default function SettingsScreen() {
                     text: "Çıkış Yap",
                     style: "destructive",
                     onPress: async () => {
-                        // 1. Arka planda oturumu kapat
                         await supabase.auth.signOut();
-
-                        // 2. Hiçbir şeyi beklemeden ANINDA Login ekranına fırlat!
                         router.replace('/auth/login');
                     }
                 }
@@ -116,28 +118,36 @@ export default function SettingsScreen() {
         );
     };
 
-    const toggleNotifications = () => {
+    const handleNotificationChange = (newValue: boolean) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        const newState = !notificationsEnabled;
-        setNotificationsEnabled(newState);
+        setNotificationsEnabled(newValue);
         Toast.show({
             type: 'success',
-            text1: 'Bildirim Tercihleri Güncellendi',
-            text2: newState ? 'Bildirimler başarıyla açıldı.' : 'Bildirimler kapatıldı.',
+            text1: 'Bildirim Tercihleri',
+            text2: newValue ? 'Bildirimler açıldı.' : 'Bildirimler kapatıldı.',
         });
     };
 
-    const toggleDarkMode = () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        setColorScheme(isDarkMode ? 'light' : 'dark');
+    // KRİTİK DÜZELTME 3: Fonksiyon artık Switch'in gönderdiği boolean değeri alıyor
+    const toggleDarkMode = (newValue: boolean) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+        // Switch sağa çekildiyse dark, sola çekildiyse light yap
+        const newTheme = newValue ? 'dark' : 'light';
+
+        // 1. Önce durumu Zustand'a kaydet (Switch'in ANINDA hareket etmesini sağlar)
+        setTheme(newTheme);
+
+        // 2. Sonra arayüz renklerini değiştir (NativeWind)
+        setColorScheme(newTheme);
     };
 
     return (
-        <ScreenLayout className="bg-[#F2F2F7] dark:bg-slate-950">
-            <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} backgroundColor={isDarkMode ? "#020617" : "#F2F2F7"} />
+        <ScreenLayout className="bg-[#F2F2F7] dark:bg-black">
+            <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
 
             <View className="px-6 pt-4 pb-2">
-                <Text className="text-[34px] font-bold text-slate-900 dark:text-white tracking-tight">Ayarlar</Text>
+                <Text className="text-[34px] font-bold text-black dark:text-white tracking-tight">Ayarlar</Text>
             </View>
 
             <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
@@ -145,24 +155,24 @@ export default function SettingsScreen() {
                 <TouchableOpacity
                     activeOpacity={0.8}
                     onPress={() => router.push('/profile')}
-                    className="mx-4 mt-4 p-4 bg-white dark:bg-slate-900 rounded-2xl flex-row items-center shadow-sm border border-slate-200 dark:border-slate-800"
+                    className="mx-5 mt-4 p-4 bg-white dark:bg-[#1C1C1E] rounded-[20px] flex-row items-center"
                 >
-                    <View className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 items-center justify-center mr-4 border border-slate-200 dark:border-slate-700">
-                        <User size={28} color={isDarkMode ? "#94a3b8" : "#64748b"} />
+                    <View className="w-16 h-16 rounded-full bg-slate-100 dark:bg-white/10 items-center justify-center mr-4">
+                        <User size={28} color={isDarkMode ? "#EBEBF599" : "#64748b"} />
                     </View>
                     <View className="flex-1">
-                        <Text className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">{userName}</Text>
-                        <Text className="text-slate-500 dark:text-slate-400 text-sm">{userEmail}</Text>
+                        <Text className="text-[20px] font-semibold text-black dark:text-white tracking-tight">{userName}</Text>
+                        <Text className="text-slate-500 dark:text-[#EBEBF599] text-[14px] mt-0.5">{userEmail}</Text>
                     </View>
-                    <ChevronRight size={20} color={isDarkMode ? "#475569" : "#cbd5e1"} />
+                    <ChevronRight size={20} color={isDarkMode ? "#5c5c62" : "#c7c7cc"} />
                 </TouchableOpacity>
 
                 {!isPro && (
-                    <View className="mx-4 mt-6">
+                    <View className="mx-5 mt-6">
                         <TouchableOpacity
                             activeOpacity={0.9}
                             onPress={() => router.push('/premium')}
-                            className="bg-[#1e1b4b] rounded-[24px] p-6 shadow-xl shadow-indigo-900/20 overflow-hidden relative"
+                            className="bg-[#1e1b4b] dark:bg-[#1e1b4b] rounded-[20px] p-6 overflow-hidden relative"
                         >
                             <View className="absolute top-0 right-0 w-32 h-32 bg-amber-500/20 rounded-full blur-3xl -mr-10 -mt-10" />
                             <View className="flex-row items-center mb-3">
@@ -171,8 +181,8 @@ export default function SettingsScreen() {
                                 </View>
                                 <Text className="text-amber-400 font-bold text-xs tracking-widest uppercase">PRO ÜYELİK</Text>
                             </View>
-                            <Text className="text-white text-2xl font-bold leading-7 mb-2">Sınırsız Soru Çöz</Text>
-                            <Text className="text-indigo-200 text-xs font-medium max-w-[220px] leading-5 mb-4">
+                            <Text className="text-white text-[22px] font-bold leading-7 mb-2">Sınırsız Soru Çöz</Text>
+                            <Text className="text-indigo-200 text-[13px] font-medium max-w-[220px] leading-5 mb-4">
                                 Reklamsız deneyim ve detaylı analizlerle sınavı ilk seferde geç.
                             </Text>
                             <View className="flex-row items-center justify-between">
@@ -186,30 +196,30 @@ export default function SettingsScreen() {
                 )}
 
                 <SectionHeader title="Hesap" />
-                <View className="mx-4 bg-white dark:bg-slate-900 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm">
+                <View className="mx-5 bg-white dark:bg-[#1C1C1E] rounded-[16px] overflow-hidden">
                     <SettingItem icon={CreditCard} label="Aboneliklerim" onPress={() => router.push('/subscriptions')} />
                     <SettingItem icon={User} label="Kişisel Bilgiler" isLast onPress={() => router.push('/profile/edit')} />
                 </View>
 
                 <SectionHeader title="Tercihler" />
-                <View className="mx-4 bg-white dark:bg-slate-900 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm">
-                    <SettingItem icon={Bell} label="Bildirimler" type="toggle" value={notificationsEnabled} onPress={toggleNotifications} />
+                <View className="mx-5 bg-white dark:bg-[#1C1C1E] rounded-[16px] overflow-hidden">
+                    <SettingItem icon={Bell} label="Bildirimler" type="toggle" value={notificationsEnabled} onPress={handleNotificationChange} />
                     <SettingItem icon={Moon} label="Karanlık Mod" type="toggle" value={isDarkMode} isLast onPress={toggleDarkMode} />
                 </View>
 
                 <SectionHeader title="Destek" />
-                <View className="mx-4 bg-white dark:bg-slate-900 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm">
+                <View className="mx-5 bg-white dark:bg-[#1C1C1E] rounded-[16px] overflow-hidden">
                     <SettingItem icon={HelpCircle} label="Yardım Merkezi" onPress={() => router.push('/support')} />
                     <SettingItem icon={Mail} label="Bize Ulaşın" onPress={() => router.push('/contact')} />
                     <SettingItem icon={FileText} label="Gizlilik Politikası" isLast onPress={() => router.push('/privacy')} />
                 </View>
 
-                <View className="mx-4 mt-6 mb-8 bg-white dark:bg-slate-900 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm">
-                    <SettingItem icon={LogOut} label="Çıkış Yap" type="action" color="#dc2626" isLast onPress={handleLogout} />
+                <View className="mx-5 mt-8 mb-8 bg-white dark:bg-[#1C1C1E] rounded-[16px] overflow-hidden">
+                    <SettingItem icon={LogOut} label="Çıkış Yap" type="action" color="#ff3b30" isLast onPress={handleLogout} />
                 </View>
 
                 <View className="items-center mb-8">
-                    <Text className="text-slate-400 dark:text-slate-600 text-xs font-semibold">EhliyetApp v1.0.2 (Build 142)</Text>
+                    <Text className="text-slate-400 dark:text-[#EBEBF54D] text-[13px] font-medium">Ehliyet Hocam v1.0.2</Text>
                 </View>
             </ScrollView>
         </ScreenLayout>

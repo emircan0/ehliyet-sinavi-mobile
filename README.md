@@ -1,4 +1,4 @@
-# EhliyetApp 🚗
+# Ehliyet Hocam 🚗
 
 Modern, kullanıcı dostu ve yapay zeka destekli ehliyet sınavına hazırlık mobil uygulaması. Expo ve React Native kullanılarak geliştirilmiştir.
 

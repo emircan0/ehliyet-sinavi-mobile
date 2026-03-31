@@ -1,11 +1,13 @@
 import React from 'react';
-import { SafeAreaView, View, StatusBar, Platform, ViewStyle, StyleSheet } from 'react-native';
+import { View, StatusBar, Platform, ViewStyle, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { cn } from '../utils/cn';
+import { useColorScheme } from 'nativewind';
 
 interface ScreenLayoutProps {
     children: React.ReactNode;
     className?: string;
-    withScrollView?: boolean; // We might want to pass this prop if we were using a custom ScrollView wrapper here, but for now we'll keep it simple.
+    withScrollView?: boolean;
     backgroundColor?: string;
     style?: ViewStyle;
 }
@@ -14,17 +16,25 @@ export const ScreenLayout = ({
     children,
     className,
     style,
-    backgroundColor = "bg-[#F8FAFC]",
+    backgroundColor = "bg-[#F8FAFC] dark:bg-slate-950",
 }: ScreenLayoutProps) => {
+    const { colorScheme } = useColorScheme();
+    const isDarkMode = colorScheme === 'dark';
+    
+    // Determine status bar color from background
     const flattenedStyle = StyleSheet.flatten(style);
-    const statusBarColor = (flattenedStyle?.backgroundColor as string) || "#F8FAFC";
+    const statusBarBg = (flattenedStyle?.backgroundColor as string) || (isDarkMode ? "#020617" : "#F8FAFC");
 
     return (
         <SafeAreaView
             className={cn("flex-1", backgroundColor, className)}
             style={style}
         >
-            <StatusBar barStyle="dark-content" backgroundColor={statusBarColor} />
+            <StatusBar 
+                barStyle={isDarkMode ? "light-content" : "dark-content"} 
+                backgroundColor={statusBarBg} 
+                translucent={Platform.OS === 'android'}
+            />
             <View className="flex-1 w-full max-w-md mx-auto">
                 {children}
             </View>

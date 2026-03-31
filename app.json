@@ -1,34 +1,37 @@
 {
   "expo": {
-    "name": "EhliyetApp",
-    "slug": "EhliyetApp",
-    "plugins": [
-      "expo-router"
-    ],
-    "version": "1.0.0",
-    "scheme": "ehliyet-app",
+    "name": "Ehliyet Hocam – AI Destekli Eğitim",
+    "slug": "ehliyet-hocam",
+    "version": "1.2.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "scheme": "ehliyet-sinavi",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.ehliyet.ai.sinav",
+      "usesAppleSignIn": true
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "package": "com.ehliyet.ai.sinav",
+      "edgeToEdgeEnabled": true
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-apple-authentication"
+    ]
   }
 }

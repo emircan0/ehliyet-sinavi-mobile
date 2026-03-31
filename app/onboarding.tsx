@@ -4,7 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Car, Bike, Truck, Calendar, Clock, Bell, ChevronRight, CheckCircle2 } from 'lucide-react-native';
-import { scheduleDailyReminder } from '../src/api/notifications'; // Bildirim fonksiyonumuz
+import { useColorScheme } from 'nativewind';
+import { scheduleDailyReminder } from '../src/api/notifications';
 
 
 const { width } = Dimensions.get('window');
@@ -55,6 +56,7 @@ const ONBOARDING_STEPS = [
 
 export default function OnboardingScreen() {
     const router = useRouter();
+    const { colorScheme } = useColorScheme();
     const [currentStep, setCurrentStep] = useState(0);
     const [preferences, setPreferences] = useState<Record<string, string>>({});
 
@@ -84,26 +86,26 @@ export default function OnboardingScreen() {
     const isOptionSelected = !!preferences[stepData.id];
 
     return (
-        <SafeAreaView className="flex-1 bg-white">
+        <SafeAreaView className="flex-1 bg-white dark:bg-slate-950">
             {/* Üst İlerleme Çubuğu (Progress Bar) */}
             <View className="px-6 pt-8 pb-4">
-                <View className="h-2 w-full bg-slate-100 rounded-full overflow-hidden flex-row">
+                <View className="h-2 w-full bg-slate-100 dark:bg-slate-900 rounded-full overflow-hidden flex-row">
                     <View
-                        className="h-full bg-blue-600 rounded-full transition-all duration-300"
+                        className="h-full bg-blue-600 rounded-full transition-all duration-300 shadow-sm shadow-blue-500/50"
                         style={{ width: `${((currentStep + 1) / ONBOARDING_STEPS.length) * 100}%` }}
                     />
                 </View>
-                <Text className="text-slate-400 text-xs font-bold text-center mt-3 uppercase tracking-widest">
+                <Text className="text-slate-400 dark:text-slate-500 text-xs font-bold text-center mt-3 uppercase tracking-widest">
                     Adım {currentStep + 1} / {ONBOARDING_STEPS.length}
                 </Text>
             </View>
 
             {/* Soru İçeriği */}
             <View className="flex-1 px-6 pt-6">
-                <Text className="text-3xl font-black text-slate-900 tracking-tight mb-2">
+                <Text className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-2">
                     {stepData.title}
                 </Text>
-                <Text className="text-slate-500 text-base mb-10 leading-6">
+                <Text className="text-slate-500 dark:text-slate-400 text-base mb-10 leading-6">
                     {stepData.subtitle}
                 </Text>
 
@@ -117,13 +119,13 @@ export default function OnboardingScreen() {
                             <Pressable
                                 key={index}
                                 onPress={() => handleSelect(option.value)}
-                                className={`flex-row items-center p-5 rounded-2xl border-2 transition-colors ${isSelected ? 'border-blue-600 bg-blue-50' : 'border-slate-100 bg-white'
+                                className={`flex-row items-center p-5 rounded-2xl border-2 transition-colors ${isSelected ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900'
                                     }`}
                             >
-                                <View className={`p-3 rounded-xl mr-4 ${isSelected ? 'bg-blue-600' : 'bg-slate-100'}`}>
-                                    <Icon size={24} color={isSelected ? 'white' : '#64748b'} />
+                                <View className={`p-3 rounded-xl mr-4 ${isSelected ? 'bg-blue-600' : 'bg-slate-100 dark:bg-slate-800'}`}>
+                                    <Icon size={24} color={isSelected ? 'white' : (colorScheme === 'dark' ? '#94a3b8' : '#64748b')} />
                                 </View>
-                                <Text className={`flex-1 font-bold text-base ${isSelected ? 'text-blue-900' : 'text-slate-700'}`}>
+                                <Text className={`flex-1 font-bold text-base ${isSelected ? 'text-blue-900 dark:text-blue-400' : 'text-slate-700 dark:text-slate-300'}`}>
                                     {option.label}
                                 </Text>
                                 {isSelected && <CheckCircle2 size={24} color="#2563eb" />}
@@ -134,11 +136,11 @@ export default function OnboardingScreen() {
             </View>
 
             {/* İleri Butonu */}
-            <View className="p-6 pb-10 border-t border-slate-50 bg-white">
+            <View className="p-6 pb-10 border-t border-slate-50 dark:border-slate-800 bg-white dark:bg-slate-950">
                 <Pressable
                     disabled={!isOptionSelected}
                     onPress={handleNext}
-                    style={{ height: 64, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: isOptionSelected ? '#2563eb' : '#f1f5f9' }}
+                    style={{ height: 64, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: isOptionSelected ? '#2563eb' : (colorScheme === 'dark' ? '#1e293b' : '#f1f5f9') }}
                 >
                     <Text className={`font-bold text-lg mr-2 ${isOptionSelected ? 'text-white' : 'text-slate-400'}`}>
                         {currentStep === ONBOARDING_STEPS.length - 1 ? 'Programımı Oluştur' : 'Devam Et'}

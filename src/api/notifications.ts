@@ -1,20 +1,19 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import { supabase } from './supabase';
 
 // Bildirimlerin nasıl davranacağını ayarla (Örn: Uygulama açıkken bildirim gelsin mi?)
-// src/api/notifications.ts içindeki ilgili kısım
-
 Notifications.setNotificationHandler({
     handleNotification: async () => ({
         shouldShowAlert: true,
         shouldPlaySound: true,
-        shouldSetBadge: false,
-        // Eksik olan özellikler eklendi:
-        shouldShowBanner: true, // Bildirimin üstten açılır pencere olarak görünmesi için
-        shouldShowList: true,   // Bildirim merkezinde listelenmesi için
+        shouldSetBadge: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
     }),
 });
-// 1. Bildirim İzni Al ve Bildirimleri Başlat
+
+// 1. Bildirim İzni Al ve Push Token Döndür
 export async function registerForPushNotificationsAsync() {
     let token;
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -26,48 +25,83 @@ export async function registerForPushNotificationsAsync() {
     }
 
     if (finalStatus !== 'granted') {
-        alert('Bildirim izni verilmedi! Hatırlatıcılar çalışmayacak.');
-        return;
+        return null;
+    }
+
+    // Expo projenizin 'extra.eas.projectId' değerini app.json'dan alması için
+    // Gerçek cihazlarda ve EAS Build kullanıldığında gereklidir.
+    try {
+        const tokenData = await Notifications.getExpoPushTokenAsync({
+            projectId: '7be1223e-64c8-472d-862d-0b7c7b808933', // Örnek Project ID
+        });
+        token = tokenData.data;
+    } catch (e) {
+        console.warn('Push token alınamadı:', e);
     }
 
     if (Platform.OS === 'android') {
-        Notifications.setNotificationChannelAsync('default', {
+        await Notifications.setNotificationChannelAsync('default', {
             name: 'default',
             importance: Notifications.AndroidImportance.MAX,
             vibrationPattern: [0, 250, 250, 250],
             lightColor: '#FF231F7C',
         });
     }
+
+    return token;
 }
 
-// 2. Anlık Bildirim Gönder (Örn: Sınav bitince)
-export async function sendImmediateNotification(title: string, body: string) {
+// 2. Token'ı Supabase'e Kaydet
+export async function savePushToken(userId: string, token: string) {
+    try {
+        const { error } = await supabase
+            .from('profiles')
+            .update({ expo_push_token: token })
+            .eq('id', userId);
+
+        if (error) throw error;
+        console.log('✅ Push Token Supabase’e kaydedildi.');
+        return true;
+    } catch (error) {
+        console.error('❌ Push Token kaydedilirken hata:', error);
+        return false;
+    }
+}
+
+// 3. Anlık Bildirim Gönder (Local)
+export async function sendImmediateNotification(title: string, body: string, data?: any) {
     await Notifications.scheduleNotificationAsync({
         content: {
             title: title,
             body: body,
-            data: { data: 'özel veri buraya' },
+            data: data || {},
+            // Android için kanal belirlenmiş olmalı
+            ...(Platform.OS === 'android' ? { channelId: 'default' } : {}),
         },
-        trigger: null, // trigger null ise hemen gönderir
+        trigger: null,
     });
 }
 
-// 3. Günlük Hatırlatıcı Planla
+// 4. Günlük Hatırlatıcı Programla
 export async function scheduleDailyReminder(hour: number, minute: number) {
-    // Önce eski planlanmış bildirimleri temizle (üst üste binmesin)
+    // Önceki tüm bildirimleri temizle (hatırlatıcıyı güncellemek için)
     await Notifications.cancelAllScheduledNotificationsAsync();
 
     await Notifications.scheduleNotificationAsync({
         content: {
-            title: "Direksiyon başına! 🚗",
-            body: "Bugünkü ehliyet hazırlık testini hala çözmedin. Hadi 5 dakikanı ayır!",
+            title: "Sınav vaktin geldi! 🚗",
+            body: "Bugün hedeflerine ulaşmak için 10 soru çözmeye ne dersin?",
+            sound: true,
+            // Android için kanal belirlenmiş olmalı
+            ...(Platform.OS === 'android' ? { channelId: 'default' } : {}),
         },
-        // ÇÖZÜM BURADA: TypeScript'e bunun geçerli bir tetikleyici olduğunu söylüyoruz
         trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
             hour: hour,
             minute: minute,
             repeats: true,
-            type: 'calendar',
-        } as Notifications.NotificationTriggerInput,
+            // Hata mesajına istinaden channelId buraya da eklenebilir veya sadece tip belirtilebilir
+            ...(Platform.OS === 'android' ? { channelId: 'default' } : {}),
+        } as any, // SDK tip tanımlarında bazı uyuşmazlıklar olabiliyor, any ile zorluyoruz
     });
 }

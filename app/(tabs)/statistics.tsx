@@ -81,7 +81,6 @@ export default function StatisticsScreen() {
     // --- DURUM 2: HATA EKRANI (İnternet/Supabase hatası) ---
     if (error) return (
         <ScreenLayout className="bg-[#F8FAFC]">
-            <Stack.Screen options={{ headerShown: false }} />
             <View className="flex-1 items-center justify-center px-6">
                 <View className="bg-red-50 p-6 rounded-full mb-6">
                     <AlertTriangle size={40} color="#ef4444" />
@@ -101,7 +100,7 @@ export default function StatisticsScreen() {
     // --- DURUM 3: BAŞARILI DURUM (Veri var veya Henüz soru çözülmemiş) ---
     return (
         <ScreenLayout className="bg-[#F8FAFC]">
-            <Stack.Screen options={{ headerShown: false }} />
+
 
             <View className="px-6 pt-4 pb-4 bg-white border-b border-slate-100">
                 <Text className="text-2xl font-bold text-slate-900 tracking-tight">İstatistikler</Text>

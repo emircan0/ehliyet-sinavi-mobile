@@ -132,13 +132,15 @@ export const saveQuizResults = async (
 
         // 2. Detaylı cevapları kaydet (UPSERT KULLANIYORUZ!)
         // Upsert: Eğer bu soruyu daha önce çözdüyse üzerine yazar, çözmediyse yeni ekler.
-        const answersToInsert = answers.map(ans => ({
-            user_id: userId,
-            question_id: ans.questionId,
-            selected_option: ans.selectedOption,
-            is_correct: ans.isCorrect,
-            solved_at: new Date().toISOString() // DÜZELTİLDİ: Tablondaki gerçek isim olan solved_at kullanıldı!
-        }));
+        const answersToInsert = answers
+            .filter(ans => ans != null) // SAVUNMACI: null gelenleri ayıkla
+            .map(ans => ({
+                user_id: userId,
+                question_id: ans.questionId,
+                selected_option: ans.selectedOption,
+                is_correct: ans.isCorrect,
+                solved_at: new Date().toISOString()
+            }));
 
         // NOT: Bunun çalışması için Supabase'de `user_answers` tablosunda (user_id, question_id) 
         // ikilisinin UNIQUE (Benzersiz) anahtar olarak ayarlanmış olması gerekir.
@@ -239,6 +241,82 @@ export const fetchExams = async () => {
         return data || [];
     } catch (error) {
         return handleApiError('fetchExams', error, []);
+    }
+};
+
+/**
+ * Kişi bazlı sınav takibi için gelişmiş sorgu.
+ * Her sınav için toplam soru sayısını ve kullanıcının cevapladığı soru sayısını getirir.
+ */
+export const fetchExamsWithProgress = async (userId: string) => {
+    try {
+        // 1. Tüm aktif sınavları getir
+        const { data: exams, error: examsError } = await supabase
+            .from('exams')
+            .select('*')
+            .eq('is_active', true)
+            .order('created_at', { ascending: false });
+
+        if (examsError) throw examsError;
+
+        // 2. Sınavlara ait soru sayılarını (toplam) getir
+        const { data: qCounts, error: qError } = await supabase
+            .from('exam_questions')
+            .select('exam_id');
+
+        if (qError) throw qError;
+
+        // Her sınav için toplam soru sayısını bir haritada sakla
+        const examTotalMap: Record<string, number> = {};
+        qCounts.forEach(q => {
+            examTotalMap[q.exam_id] = (examTotalMap[q.exam_id] || 0) + 1;
+        });
+
+        // 3. Kullanıcının bu sınavlara ait cevaplarını getir (Join mantığı)
+        // Kullanıcının cevaplarını çekiyoruz
+        const { data: userAnswers, error: uaError } = await supabase
+            .from('user_answers')
+            .select('question_id')
+            .eq('user_id', userId);
+
+        if (uaError) throw uaError;
+
+        // Kullanıcının hangi soruları çözdüğünü bir set'e atalım
+        const solvedQuestionIds = new Set(userAnswers.map(ua => ua.question_id));
+
+        // Şimdi her sınavın sorularını çekip kullanıcının kaçını çözdüğünü bulmalıyız
+        // (Performans için toplu çekiyoruz)
+        const { data: allExamQuestions, error: aeqError } = await supabase
+            .from('exam_questions')
+            .select('exam_id, question_id');
+
+        if (aeqError) throw aeqError;
+
+        const examSolvedMap: Record<string, number> = {};
+        allExamQuestions.forEach(eq => {
+            if (solvedQuestionIds.has(eq.question_id)) {
+                examSolvedMap[eq.exam_id] = (examSolvedMap[eq.exam_id] || 0) + 1;
+            }
+        });
+
+        // 4. Verileri birleştir
+        const formattedExams = exams.map(exam => {
+            const total = examTotalMap[exam.id] || 0;
+            const solved = examSolvedMap[exam.id] || 0;
+            const percentage = total > 0 ? Math.round((solved / total) * 100) : 0;
+
+            return {
+                ...exam,
+                total_questions: total,
+                solved_questions: solved,
+                progress_percentage: percentage,
+                status: percentage === 100 ? 'completed' : (percentage > 0 ? 'in_progress' : 'new')
+            };
+        });
+
+        return formattedExams;
+    } catch (error) {
+        return handleApiError('fetchExamsWithProgress', error, []);
     }
 };
 

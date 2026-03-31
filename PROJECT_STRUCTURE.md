@@ -1,4 +1,4 @@
-EhliyetApp
+Ehliyet Hocam
 ├── PROJECT_STRUCTURE.md
 ├── app
 │   ├── _layout.tsx

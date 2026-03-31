@@ -1,4 +1,4 @@
-ehliyetapp@1.0.0 /Users/emircanmert/Projeler/EhliyetApp
+ehliyet-hocam@1.0.0 /Users/emircanmert/Projeler/EhliyetApp
 ├── @react-native-async-storage/async-storage@2.2.0
 ├── @supabase/supabase-js@2.95.3
 ├── @tanstack/react-query@5.90.21

@@ -1,35 +1,52 @@
 import { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
-import { Redirect } from 'expo-router'; // YÖNLENDİRME İÇİN GEREKLİ
+import { Redirect, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '../src/api/supabase';
 
 export default function Index() {
-    const [isFirstLaunch, setIsFirstLaunch] = useState<boolean | null>(null);
+    const [initialRoute, setInitialRoute] = useState<string | null>(null);
 
     useEffect(() => {
-        const checkFirstLaunch = async () => {
-            const hasCompleted = await AsyncStorage.getItem('has_completed_onboarding');
-            if (hasCompleted === 'true') {
-                setIsFirstLaunch(false);
-            } else {
-                setIsFirstLaunch(true);
+        const checkNavigationState = async () => {
+            try {
+                // 1. Onboarding kontrolü
+                const hasCompletedOnboarding = await AsyncStorage.getItem('has_completed_onboarding');
+                if (hasCompletedOnboarding !== 'true') {
+                    setInitialRoute('/onboarding');
+                    return;
+                }
+
+                // 2. Oturum kontrolü
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session) {
+                    setInitialRoute('/(tabs)');
+                    return;
+                }
+
+                // 3. Misafir girişi kontrolü
+                const isGuest = await AsyncStorage.getItem('is_guest');
+                if (isGuest === 'true') {
+                    setInitialRoute('/(tabs)');
+                    return;
+                }
+
+                // Hiçbiri değilse login'e gönder (Ziyaretçi Modu burada devreye girer)
+                setInitialRoute('/auth/login');
+            } catch (error) {
+                setInitialRoute('/auth/login');
             }
         };
-        checkFirstLaunch();
+        checkNavigationState();
     }, []);
 
-    if (isFirstLaunch === null) {
+    if (initialRoute === null) {
         return (
             <View className="flex-1 items-center justify-center bg-white">
-                <ActivityIndicator size="large" color="#2563eb" />
+                <ActivityIndicator size="large" color="#007AFF" />
             </View>
         );
     }
 
-    // DİKKAT: Burada <OnboardingScreen /> YAZMAMALI. Redirect kullanılmalı!
-    if (isFirstLaunch) {
-        return <Redirect href="/onboarding" />;
-    } else {
-        return <Redirect href="/(tabs)/" />;
-    }
+    return <Redirect href={initialRoute as any} />;
 }
