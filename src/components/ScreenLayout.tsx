@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StatusBar, Platform, ViewStyle, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { cn } from '../utils/cn';
-import { useColorScheme } from 'nativewind';
+import { useThemeMode } from '../hooks/useThemeMode';
 
 interface ScreenLayoutProps {
     children: React.ReactNode;
@@ -16,18 +16,16 @@ export const ScreenLayout = ({
     children,
     className,
     style,
-    backgroundColor = "bg-[#F8FAFC] dark:bg-slate-950",
+    backgroundColor = "bg-base",
 }: ScreenLayoutProps) => {
-    const { colorScheme } = useColorScheme();
-    const isDarkMode = colorScheme === 'dark';
+    const { isDarkMode, colorScheme } = useThemeMode();
     
-    // Determine status bar color from background
-    const flattenedStyle = StyleSheet.flatten(style);
-    const statusBarBg = (flattenedStyle?.backgroundColor as string) || (isDarkMode ? "#020617" : "#F8FAFC");
+    // Determine status bar color from theme
+    const statusBarBg = isDarkMode ? "#020617" : "#F8FAFC";
 
     return (
         <SafeAreaView
-            className={cn("flex-1", backgroundColor, className)}
+            className={cn("flex-1", isDarkMode ? "bg-slate-950" : "bg-slate-50", className)}
             style={style}
         >
             <StatusBar 

@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Switch, TouchableOpacity, StatusBar, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSubscriptionStore } from '../../src/store/useSubscriptionStore';
 import { ScreenLayout } from '../../src/components/ScreenLayout';
 import { supabase } from '../../src/api/supabase';
-import { useColorScheme } from 'nativewind';
+import { useThemeMode } from '../../src/hooks/useThemeMode';
 import { useSettingsStore } from '../../src/store/useSettingsStore';
 import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
 import {
     User, Bell, Moon, ChevronRight, Crown,
-    LogOut, HelpCircle, CreditCard, FileText, Mail
+    LogOut, HelpCircle, CreditCard, FileText, Mail, Trash2, Clock
 } from 'lucide-react-native';
+import { scheduleDailyReminder, cancelAllReminders } from '../../src/api/notifications';
+import { Modal } from 'react-native';
 
 const SectionHeader = ({ title }: { title: string }) => (
     <View className="px-5 mt-8 mb-2">
@@ -27,15 +30,14 @@ const SettingItem = ({
     icon: any, label: string, value?: string | boolean, type?: 'link' | 'toggle' | 'value' | 'action',
     onPress?: any, isLast?: boolean, color?: string // onPress tipini any yaptık ki parametre alabilsin
 }) => {
-    const { colorScheme } = useColorScheme();
-    const isDarkMode = colorScheme === 'dark';
+    const { isDarkMode, colorScheme } = useThemeMode();
     const iconColor = color === '#0f172a' && isDarkMode ? '#ffffff' : color;
 
     return (
         <TouchableOpacity
             activeOpacity={type === 'toggle' ? 1 : 0.7}
             onPress={type === 'toggle' ? undefined : onPress}
-            className={`flex-row items-center justify-between py-3.5 px-4 bg-white dark:bg-[#1C1C1E] ${!isLast ? 'border-b border-slate-100 dark:border-white/10' : ''}`}
+            className={`flex-row items-center justify-between py-3.5 px-4 bg-white dark:bg-slate-900 ${!isLast ? 'border-b border-slate-100 dark:border-slate-800' : ''}`}
         >
             <View className="flex-row items-center gap-3">
                 <View className={`w-8 h-8 rounded-lg items-center justify-center ${isDarkMode ? 'bg-white/10' : 'bg-slate-100'}`}>
@@ -78,16 +80,21 @@ export default function SettingsScreen() {
     const setNotificationsEnabled = useSettingsStore(state => state.setNotificationsEnabled);
     const theme = useSettingsStore(state => state.theme); // Zustand'daki mevcut temayı çektik
     const setTheme = useSettingsStore(state => state.setTheme);
+    const isReminderEnabled = useSettingsStore(state => state.isReminderEnabled);
+    const setReminderEnabled = useSettingsStore(state => state.setReminderEnabled);
+    const reminderTime = useSettingsStore(state => state.reminderTime);
+    const setReminderTime = useSettingsStore(state => state.setReminderTime);
 
     // NativeWind State
-    const { colorScheme, setColorScheme } = useColorScheme();
+    const { isDarkMode, colorScheme, setColorScheme  } = useThemeMode();
 
-    // KRİTİK DÜZELTME 2: Switch'in durumu doğrudan kullanıcının kaydettiği Zustand verisine bakmalı
-    // Eğer tema 'dark' ise veya tema 'system' olup da cihazın geneli karanlıksa Switch açık görünür
-    const isDarkMode = theme === 'dark' || (theme === 'system' && colorScheme === 'dark');
-
+    // Switch, isDarkMode değerini doğrudan useThemeMode'dan alır.
+    
     const [userName, setUserName] = useState('');
     const [userEmail, setUserEmail] = useState('');
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [showTimePicker, setShowTimePicker] = useState(false);
+    const [tempTime, setTempTime] = useState({ hour: 20, minute: 0 });
 
     useEffect(() => {
         const fetchUserData = async () => {
@@ -99,24 +106,6 @@ export default function SettingsScreen() {
         };
         fetchUserData();
     }, []);
-
-    const handleLogout = () => {
-        Alert.alert(
-            "Çıkış Yap",
-            "Hesabınızdan çıkış yapmak istediğinize emin misiniz?",
-            [
-                { text: "Vazgeç", style: "cancel" },
-                {
-                    text: "Çıkış Yap",
-                    style: "destructive",
-                    onPress: async () => {
-                        await supabase.auth.signOut();
-                        router.replace('/auth/login');
-                    }
-                }
-            ]
-        );
-    };
 
     const handleNotificationChange = (newValue: boolean) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -142,8 +131,44 @@ export default function SettingsScreen() {
         setColorScheme(newTheme);
     };
 
+    const handleReminderToggle = async (newValue: boolean) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        setReminderEnabled(newValue);
+        
+        if (newValue) {
+            await scheduleDailyReminder(reminderTime.hour, reminderTime.minute);
+            Toast.show({
+                type: 'success',
+                text1: 'Hatırlatıcı Aktif',
+                text2: `Her gün ${reminderTime.hour.toString().padStart(2, '0')}:${reminderTime.minute.toString().padStart(2, '0')} saatinde bildirim alacaksınız.`,
+            });
+        } else {
+            await cancelAllReminders();
+            Toast.show({
+                type: 'info',
+                text1: 'Hatırlatıcı Kapatıldı',
+                text2: 'Günlük hatırlatma bildirimleri durduruldu.',
+            });
+        }
+    };
+
+    const handleSaveTime = async () => {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setReminderTime(tempTime.hour, tempTime.minute);
+        setShowTimePicker(false);
+        
+        if (isReminderEnabled) {
+            await scheduleDailyReminder(tempTime.hour, tempTime.minute);
+            Toast.show({
+                type: 'success',
+                text1: 'Saat Güncellendi',
+                text2: `Hatırlatıcı ${tempTime.hour.toString().padStart(2, '0')}:${tempTime.minute.toString().padStart(2, '0')} olarak ayarlandı.`,
+            });
+        }
+    };
+
     return (
-        <ScreenLayout className="bg-[#F2F2F7] dark:bg-black">
+        <ScreenLayout className="bg-base">
             <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
 
             <View className="px-6 pt-4 pb-2">
@@ -155,7 +180,7 @@ export default function SettingsScreen() {
                 <TouchableOpacity
                     activeOpacity={0.8}
                     onPress={() => router.push('/profile')}
-                    className="mx-5 mt-4 p-4 bg-white dark:bg-[#1C1C1E] rounded-[20px] flex-row items-center"
+                    className="mx-5 mt-4 p-4 bg-white dark:bg-slate-900 rounded-[20px] flex-row items-center shadow-sm dark:shadow-none border border-slate-100 dark:border-slate-800"
                 >
                     <View className="w-16 h-16 rounded-full bg-slate-100 dark:bg-white/10 items-center justify-center mr-4">
                         <User size={28} color={isDarkMode ? "#EBEBF599" : "#64748b"} />
@@ -196,32 +221,136 @@ export default function SettingsScreen() {
                 )}
 
                 <SectionHeader title="Hesap" />
-                <View className="mx-5 bg-white dark:bg-[#1C1C1E] rounded-[16px] overflow-hidden">
-                    <SettingItem icon={CreditCard} label="Aboneliklerim" onPress={() => router.push('/subscriptions')} />
-                    <SettingItem icon={User} label="Kişisel Bilgiler" isLast onPress={() => router.push('/profile/edit')} />
+                <View className="mx-5 bg-white dark:bg-slate-900 rounded-[16px] overflow-hidden border border-slate-100 dark:border-slate-800 shadow-sm dark:shadow-none">
+                    <SettingItem icon={CreditCard} label="Aboneliklerim" isLast onPress={() => router.push('/subscriptions')} />
                 </View>
 
                 <SectionHeader title="Tercihler" />
-                <View className="mx-5 bg-white dark:bg-[#1C1C1E] rounded-[16px] overflow-hidden">
+                <View className="mx-5 bg-white dark:bg-slate-900 rounded-[16px] overflow-hidden border border-slate-100 dark:border-slate-800 shadow-sm dark:shadow-none">
                     <SettingItem icon={Bell} label="Bildirimler" type="toggle" value={notificationsEnabled} onPress={handleNotificationChange} />
+                    <SettingItem 
+                        icon={Clock} 
+                        label="Çalışma Hatırlatıcısı" 
+                        type="toggle" 
+                        value={isReminderEnabled} 
+                        onPress={handleReminderToggle} 
+                    />
+                    {isReminderEnabled && (
+                        <SettingItem 
+                            icon={Clock} 
+                            label="Hatırlatma Saati" 
+                            type="value" 
+                            value={`${reminderTime.hour.toString().padStart(2, '0')}:${reminderTime.minute.toString().padStart(2, '0')}`} 
+                            onPress={() => {
+                                setTempTime(reminderTime);
+                                setShowTimePicker(true);
+                            }} 
+                        />
+                    )}
                     <SettingItem icon={Moon} label="Karanlık Mod" type="toggle" value={isDarkMode} isLast onPress={toggleDarkMode} />
                 </View>
 
                 <SectionHeader title="Destek" />
-                <View className="mx-5 bg-white dark:bg-[#1C1C1E] rounded-[16px] overflow-hidden">
+                <View className="mx-5 bg-white dark:bg-slate-900 rounded-[16px] overflow-hidden border border-slate-100 dark:border-slate-800 shadow-sm dark:shadow-none">
                     <SettingItem icon={HelpCircle} label="Yardım Merkezi" onPress={() => router.push('/support')} />
                     <SettingItem icon={Mail} label="Bize Ulaşın" onPress={() => router.push('/contact')} />
-                    <SettingItem icon={FileText} label="Gizlilik Politikası" isLast onPress={() => router.push('/privacy')} />
+                    <SettingItem icon={FileText} label="Gizlilik Politikası" onPress={() => router.push('/privacy')} />
+                    <SettingItem icon={FileText} label="Kullanım Koşulları" isLast onPress={() => router.push('/terms')} />
                 </View>
 
-                <View className="mx-5 mt-8 mb-8 bg-white dark:bg-[#1C1C1E] rounded-[16px] overflow-hidden">
-                    <SettingItem icon={LogOut} label="Çıkış Yap" type="action" color="#ff3b30" isLast onPress={handleLogout} />
-                </View>
+                {/* Removed Logout actions per user request */}
 
                 <View className="items-center mb-8">
                     <Text className="text-slate-400 dark:text-[#EBEBF54D] text-[13px] font-medium">Ehliyet Hocam v1.0.2</Text>
                 </View>
             </ScrollView>
+
+            {/* CUSTOM TIME PICKER MODAL */}
+            <Modal
+                visible={showTimePicker}
+                transparent
+                animationType="fade"
+                statusBarTranslucent
+            >
+                <View className="flex-1 bg-black/60 items-center justify-center px-6">
+                    <View className="w-full bg-white dark:bg-slate-900 rounded-[32px] p-6 shadow-2xl border border-slate-100 dark:border-slate-800">
+                        <Text className="text-xl font-black text-slate-900 dark:text-white text-center mb-6">
+                            Hatırlatma Saati Seçin
+                        </Text>
+                        
+                        <View className="flex-row items-center justify-center gap-x-8 mb-8">
+                            {/* Hour Selector */}
+                            <View className="items-center">
+                                <TouchableOpacity 
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        setTempTime(t => ({ ...t, hour: (t.hour + 1) % 24 }));
+                                    }}
+                                    className="w-12 h-12 bg-slate-100 dark:bg-white/10 rounded-full items-center justify-center mb-2"
+                                >
+                                    <View className="rotate-0"><ChevronRight size={24} color={isDarkMode ? "white" : "black"} className="-rotate-90" /></View>
+                                </TouchableOpacity>
+                                <Text className="text-5xl font-black text-slate-900 dark:text-white w-16 text-center">
+                                    {tempTime.hour.toString().padStart(2, '0')}
+                                </Text>
+                                <TouchableOpacity 
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        setTempTime(t => ({ ...t, hour: t.hour === 0 ? 23 : t.hour - 1 }));
+                                    }}
+                                    className="w-12 h-12 bg-slate-100 dark:bg-white/10 rounded-full items-center justify-center mt-2"
+                                >
+                                    <View className="rotate-0"><ChevronRight size={24} color={isDarkMode ? "white" : "black"} className="rotate-90" /></View>
+                                </TouchableOpacity>
+                                <Text className="text-[10px] text-slate-400 font-bold uppercase mt-2">SAAT</Text>
+                            </View>
+
+                            <Text className="text-4xl font-black text-slate-300 dark:text-white/20">:</Text>
+
+                            {/* Minute Selector */}
+                            <View className="items-center">
+                                <TouchableOpacity 
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        setTempTime(t => ({ ...t, minute: (t.minute + 5) % 60 }));
+                                    }}
+                                    className="w-12 h-12 bg-slate-100 dark:bg-white/10 rounded-full items-center justify-center mb-2"
+                                >
+                                    <View className="rotate-0"><ChevronRight size={24} color={isDarkMode ? "white" : "black"} className="-rotate-90" /></View>
+                                </TouchableOpacity>
+                                <Text className="text-5xl font-black text-slate-900 dark:text-white w-16 text-center">
+                                    {tempTime.minute.toString().padStart(2, '0')}
+                                </Text>
+                                <TouchableOpacity 
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        setTempTime(t => ({ ...t, minute: t.minute < 5 ? 55 : t.minute - 5 }));
+                                    }}
+                                    className="w-12 h-12 bg-slate-100 dark:bg-white/10 rounded-full items-center justify-center mt-2"
+                                >
+                                    <View className="rotate-0"><ChevronRight size={24} color={isDarkMode ? "white" : "black"} className="rotate-90" /></View>
+                                </TouchableOpacity>
+                                <Text className="text-[10px] text-slate-400 font-bold uppercase mt-2">DAKİKA</Text>
+                            </View>
+                        </View>
+
+                        <View className="flex-row gap-3">
+                            <TouchableOpacity 
+                                onPress={() => setShowTimePicker(false)}
+                                className="flex-1 bg-slate-100 dark:bg-white/5 py-4 rounded-2xl items-center"
+                            >
+                                <Text className="text-slate-600 dark:text-slate-400 font-bold text-base">Vazgeç</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity 
+                                onPress={handleSaveTime}
+                                className="flex-[1.5] bg-blue-600 py-4 rounded-2xl items-center shadow-lg shadow-blue-600/30"
+                            >
+                                <Text className="text-white font-black text-base">Kaydet</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </ScreenLayout>
     );
 }

@@ -2,45 +2,53 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+export type NotificationType = 'success' | 'warning' | 'info' | 'system';
+
 export interface AppNotification {
     id: string;
     title: string;
-    body: string;
+    message: string;
     time: string;
-    type: 'success' | 'warning' | 'info' | 'error' | 'promo';
+    type: NotificationType;
     isRead: boolean;
     data?: any;
 }
 
 interface NotificationState {
     notifications: AppNotification[];
-    addNotification: (notification: Omit<AppNotification, 'isRead'>) => void;
-    removeNotification: (id: string) => void;
+    addNotification: (notif: Omit<AppNotification, 'id' | 'isRead' | 'time'>) => void;
     markAsRead: (id: string) => void;
+    markAllAsRead: () => void;
     clearAll: () => void;
-    unreadCount: () => number;
 }
 
 export const useNotificationStore = create<NotificationState>()(
     persist(
-        (set, get) => ({
+        (set) => ({
             notifications: [],
-            addNotification: (notification) => set((state) => ({
-                notifications: [
-                    { ...notification, isRead: false },
-                    ...state.notifications
-                ].slice(0, 50) // Limit to 50 notifications
-            })),
-            removeNotification: (id) => set((state) => ({
-                notifications: state.notifications.filter((n) => n.id !== id)
-            })),
+            addNotification: (notif) => set((state) => {
+                // Aynı ID'ye sahip bildirim tekrar eklenmesin (spama karşı)
+                return {
+                    notifications: [
+                        {
+                            ...notif,
+                            id: `notif-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+                            isRead: false,
+                            time: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
+                        },
+                        ...state.notifications,
+                    ],
+                };
+            }),
             markAsRead: (id) => set((state) => ({
-                notifications: state.notifications.map((n) => 
+                notifications: state.notifications.map((n) =>
                     n.id === id ? { ...n, isRead: true } : n
-                )
+                ),
+            })),
+            markAllAsRead: () => set((state) => ({
+                notifications: state.notifications.map((n) => ({ ...n, isRead: true }))
             })),
             clearAll: () => set({ notifications: [] }),
-            unreadCount: () => get().notifications.filter((n) => !n.isRead).length,
         }),
         {
             name: 'notification-storage',

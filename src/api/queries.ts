@@ -454,9 +454,22 @@ export const fetchMistakeQuestions = async (userId: string) => {
 // Favoriye alınan soruları çeker
 export const fetchFavoriteQuestions = async (userId: string) => {
     try {
-        const { data, error } = await supabase.rpc('get_user_favorites', { p_user_id: userId });
-        if (error) throw error;
-        return data || [];
+        const { data: saved, error: savedError } = await supabase
+            .from('saved_questions')
+            .select('question_id')
+            .eq('user_id', userId);
+
+        if (savedError || !saved || saved.length === 0) return [];
+
+        const questionIds = saved.map(s => s.question_id);
+
+        const { data: questions, error: qError } = await supabase
+            .from('questions')
+            .select('*')
+            .in('id', questionIds);
+
+        if (qError) throw qError;
+        return questions || [];
     } catch (error) {
         return handleApiError('fetchFavoriteQuestions', error, []);
     }

@@ -76,8 +76,22 @@ module.exports = {
           900: '#7f1d1d',
           950: '#450a0a',
         },
-        background: '#F8FAFC',
-        surface: '#FFFFFF',
+        background: {
+          light: '#F8FAFC',
+          dark: '#020617', // Slate 950
+        },
+        surface: {
+          light: '#FFFFFF',
+          dark: '#0F172A', // Slate 900
+        },
+        card: {
+          light: '#FFFFFF',
+          dark: '#1E293B', // Slate 800
+        },
+        border: {
+          light: '#E2E8F0',
+          dark: '#334155', // Slate 700
+        }
       },
       fontFamily: {
         sans: ['System', 'sans-serif'],

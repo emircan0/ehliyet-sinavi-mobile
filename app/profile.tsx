@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Modal, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Modal, ActivityIndicator, Alert, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { supabase } from '../src/api/supabase'; // Supabase eklendi
 import {
     User, Bell, Car, Calendar, Clock, ChevronRight,
-    LogOut, ShieldCheck, X, CheckCircle2, Mail, Trash2
+    LogOut, ShieldCheck, X, CheckCircle2, Mail, Trash2, KeyRound
 } from 'lucide-react-native';
 import { scheduleDailyReminder } from '../src/api/notifications';
-import { useColorScheme } from 'nativewind';
+import { useThemeMode } from '../src/hooks/useThemeMode';
 
 // Ayar Seçenekleri
 const SETTING_OPTIONS = {
@@ -38,7 +38,7 @@ const SETTING_OPTIONS = {
 
 export default function ProfileScreen() {
     const router = useRouter();
-    const { colorScheme } = useColorScheme();
+    const { isDarkMode, colorScheme } = useThemeMode();
 
     // Kullanıcı Bilgileri State'leri
     const [userName, setUserName] = useState('Yükleniyor...');
@@ -51,6 +51,11 @@ export default function ProfileScreen() {
     // Modal State'leri
     const [modalVisible, setModalVisible] = useState(false);
     const [currentSettingKey, setCurrentSettingKey] = useState<keyof typeof SETTING_OPTIONS | null>(null);
+
+    const [isUpdatingInfo, setIsUpdatingInfo] = useState(false);
+    const [isEditingProfile, setIsEditingProfile] = useState(false);
+    const [tempName, setTempName] = useState('');
+    const [tempEmail, setTempEmail] = useState('');
 
     // Verileri Yükle (Hem Supabase Hem AsyncStorage)
     useEffect(() => {
@@ -78,7 +83,6 @@ export default function ProfileScreen() {
         loadData();
     }, []);
 
-    // Ayarı Değiştir ve Kaydet
     const updateSetting = async (key: keyof typeof SETTING_OPTIONS, value: string) => {
         const newPrefs = { ...preferences, [key]: value };
         setPreferences(newPrefs);
@@ -99,6 +103,62 @@ export default function ProfileScreen() {
         }
     };
 
+    const startEditing = () => {
+        setTempName(userName);
+        setTempEmail(userEmail);
+        setIsEditingProfile(true);
+    };
+
+    const handleUpdateProfile = async () => {
+        const trimmedName = tempName.trim();
+        const trimmedEmail = tempEmail.trim();
+
+        if (!trimmedName || !trimmedEmail) {
+            Alert.alert("Hata", "Lütfen isim ve e-posta alanlarını boş bırakmayın.");
+            return;
+        }
+
+        setIsUpdatingInfo(true);
+        try {
+            const updates: any = {};
+            let emailChanged = false;
+
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            if (trimmedName !== user.user_metadata?.full_name) {
+                updates.data = { full_name: trimmedName };
+            }
+            if (trimmedEmail !== user.email) {
+                updates.email = trimmedEmail;
+                emailChanged = true;
+            }
+
+            if (Object.keys(updates).length > 0) {
+                const { error } = await supabase.auth.updateUser(updates);
+                if (error) {
+                    Alert.alert('Güncelleme Başarısız', error.message);
+                } else {
+                    setUserName(trimmedName);
+                    setUserEmail(trimmedEmail);
+                    setIsEditingProfile(false);
+                    if (emailChanged) {
+                        Alert.alert('Doğrulama Gönderildi', 'E-posta veya isim bilginiz güncellendi. Yeni e-posta adresinize doğrulama postası gönderilmiş olabilir, lütfen e-postanızı kontrol edin.');
+                    } else {
+                        Alert.alert('Başarılı', 'Kişisel bilgileriniz başarıyla güncellendi.');
+                    }
+                }
+            } else {
+                Alert.alert('Bilgi', 'Değiştirilen bir bilgi bulunamadı.');
+            }
+        } catch (error) {
+            console.error('Güncelleme hatası', error);
+            Alert.alert("Bağlantı Hatası", "Bilgiler güncellenemedi.");
+        } finally {
+            setIsUpdatingInfo(false);
+        }
+    };
+
     const openSettingModal = (key: keyof typeof SETTING_OPTIONS) => {
         setCurrentSettingKey(key);
         setModalVisible(true);
@@ -116,20 +176,64 @@ export default function ProfileScreen() {
                     onPress: async () => {
                         try {
                             setIsLoading(true);
-                            // 1. Supabase Auth'dan çıkış yap
-                            await supabase.auth.signOut();
+                            const { data: { user } } = await supabase.auth.getUser();
                             
-                            // 2. Yerel verileri temizle
-                            await AsyncStorage.clear();
-                            
-                            // 3. Login ekranına yönlendir
-                            router.replace('/auth/login');
-                            
-                            Alert.alert("Başarılı", "Hesabınız silinme kuyruğuna alındı ve oturumunuz kapatıldı.");
+                            if (user) {
+                                // 1. Veritabanında pasife al (Opsiyonel/Hata alsa da devam et)
+                                try {
+                                    const { error: profileError } = await supabase
+                                        .from('profiles')
+                                        .update({ is_active: false })
+                                        .eq('id', user.id);
+
+                                    if (profileError) {
+                                        console.warn('Hesap pasife alınamadı (DB hatası):', profileError.message);
+                                    }
+                                } catch (e) {
+                                    console.warn('DB Güncelleme hatası:', e);
+                                }
+
+                                // 2. Supabase Auth'dan çıkış yap
+                                await supabase.auth.signOut();
+                                
+                                // 3. Yerel verileri temizle
+                                await AsyncStorage.clear();
+                                
+                                // 4. Login ekranına yönlendir
+                                router.replace('/auth/login');
+                                
+                                Alert.alert("Başarılı", "Hesabınız başarıyla silindi ve oturumunuz kapatıldı.");
+                            }
                         } catch (error) {
-                            Alert.alert("Hata", "Hesap silinirken bir sorun oluştu.");
+                            console.error("Profil silme genel hata:", error);
+                            Alert.alert("Sistem Hatası", "İşlem yapılırken bir sorun oluştu. Lütfen tekrar deneyin.");
                         } finally {
                             setIsLoading(false);
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
+    const handleResetPassword = () => {
+        Alert.alert(
+            "Parola Değiştir",
+            "Mevcut e-posta adresinize bir şifre sıfırlama bağlantısı gönderilecektir. Onaylıyor musunuz?",
+            [
+                { text: "Vazgeç", style: "cancel" },
+                {
+                    text: "Gönder",
+                    onPress: async () => {
+                        try {
+                            const { error } = await supabase.auth.resetPasswordForEmail(userEmail);
+                            if (error) {
+                                Alert.alert("Hata", error.message);
+                            } else {
+                                Alert.alert("Başarılı", "Şifre sıfırlama bağlantısı e-postanıza gönderildi.");
+                            }
+                        } catch (err) {
+                            Alert.alert("Hata", "Bir sorun oluştu.");
                         }
                     }
                 }
@@ -170,21 +274,86 @@ export default function ProfileScreen() {
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
 
                 {/* --- PROFİL BAŞLIĞI --- */}
-                <View className="px-6 pt-6 pb-8 items-center">
-                    <View className="w-24 h-24 bg-blue-100 dark:bg-blue-900/30 rounded-full items-center justify-center mb-4 border-4 border-white dark:border-slate-800 shadow-sm shadow-blue-200 dark:shadow-black">
-                        <User size={40} color="#2563eb" />
+                <View className="px-6 pt-6 pb-4">
+                    <View className="flex-row justify-between mb-4">
+                        <View className="w-20 h-20 bg-blue-100 dark:bg-blue-900/30 rounded-full items-center justify-center border-4 border-white dark:border-slate-800 shadow-sm shadow-blue-200 dark:shadow-black">
+                            <User size={32} color="#2563eb" />
+                        </View>
+                        <View className="items-end justify-center">
+                            <View className="bg-emerald-50 dark:bg-emerald-900/20 px-3 py-1.5 rounded-full border border-emerald-100 dark:border-emerald-800 flex-row items-center">
+                                <ShieldCheck size={14} color="#059669" className="mr-1.5" />
+                                <Text className="text-emerald-700 dark:text-emerald-500 text-xs font-bold uppercase tracking-widest">Plan Aktif</Text>
+                            </View>
+                        </View>
                     </View>
-                    <Text className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{userName}</Text>
 
-                    {/* E-posta Bilgisi */}
-                    <View className="flex-row items-center mt-2 opacity-60">
-                        <Mail size={14} color={colorScheme === 'dark' ? '#94a3b8' : '#0f172a'} className="mr-1.5" />
-                        <Text className="text-slate-900 dark:text-slate-300 text-sm font-medium">{userEmail}</Text>
+                    <View className="flex-row items-center justify-between mb-2">
+                        <Text className="text-slate-900 dark:text-white font-bold text-[13px] ml-1">Kişisel Bilgiler</Text>
+                        {!isEditingProfile && (
+                            <TouchableOpacity onPress={startEditing} className="flex-row items-center bg-blue-50 dark:bg-blue-900/20 px-3 py-1 rounded-full">
+                                <Text className="text-blue-600 dark:text-blue-400 text-[11px] font-bold">Düzenle</Text>
+                            </TouchableOpacity>
+                        )}
                     </View>
-
-                    <View className="flex-row items-center mt-4 bg-emerald-50 dark:bg-emerald-900/20 px-3 py-1.5 rounded-full border border-emerald-100 dark:border-emerald-800">
-                        <ShieldCheck size={14} color="#059669" className="mr-1.5" />
-                        <Text className="text-emerald-700 dark:text-emerald-500 text-xs font-bold uppercase tracking-widest">Plan Aktif</Text>
+                    <View className="bg-white dark:bg-slate-900 rounded-[20px] p-4 border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden mb-4">
+                        {isEditingProfile ? (
+                            <View>
+                                <View className="mb-4">
+                                    <Text className="text-slate-400 dark:text-slate-500 text-xs font-bold uppercase tracking-widest mb-1.5">Ad Soyad</Text>
+                                    <TextInput
+                                        className="text-[17px] font-semibold text-slate-900 dark:text-white p-0"
+                                        value={tempName}
+                                        onChangeText={setTempName}
+                                        placeholder="Ad Soyad"
+                                        placeholderTextColor="#94a3b8"
+                                    />
+                                </View>
+                                <View className="h-[1px] bg-slate-100 dark:bg-slate-800 mb-4" />
+                                <View className="mb-4">
+                                    <Text className="text-slate-400 dark:text-slate-500 text-xs font-bold uppercase tracking-widest mb-1.5">E-posta</Text>
+                                    <TextInput
+                                        className="text-[15px] font-medium text-slate-900 dark:text-slate-300 p-0"
+                                        value={tempEmail}
+                                        onChangeText={setTempEmail}
+                                        placeholder="E-posta"
+                                        autoCapitalize="none"
+                                        keyboardType="email-address"
+                                        placeholderTextColor="#94a3b8"
+                                    />
+                                </View>
+                                <View className="flex-row gap-3">
+                                    <TouchableOpacity 
+                                        onPress={() => setIsEditingProfile(false)}
+                                        className="flex-1 py-3.5 rounded-xl border border-slate-200 dark:border-slate-700 items-center justify-center"
+                                    >
+                                        <Text className="text-slate-600 dark:text-slate-400 font-bold text-[15px]">Vazgeç</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity 
+                                        onPress={handleUpdateProfile}
+                                        disabled={isUpdatingInfo}
+                                        className={`flex-1 py-3.5 rounded-xl items-center justify-center flex-row ${isUpdatingInfo ? 'bg-blue-100 dark:bg-blue-900/50' : 'bg-blue-500 dark:bg-blue-600'}`}
+                                    >
+                                        {isUpdatingInfo ? (
+                                            <ActivityIndicator size="small" color="#2563eb" />
+                                        ) : (
+                                            <Text className="text-white font-bold text-[15px]">Kaydet</Text>
+                                        )}
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        ) : (
+                            <View>
+                                <View className="mb-3">
+                                    <Text className="text-slate-400 dark:text-slate-500 text-xs font-bold uppercase tracking-widest mb-1">Ad Soyad</Text>
+                                    <Text className="text-[17px] font-semibold text-slate-900 dark:text-white">{userName}</Text>
+                                </View>
+                                <View className="h-[1px] bg-slate-100 dark:bg-slate-800 mb-3" />
+                                <View>
+                                    <Text className="text-slate-400 dark:text-slate-500 text-xs font-bold uppercase tracking-widest mb-1">E-posta</Text>
+                                    <Text className="text-[15px] font-medium text-slate-900 dark:text-slate-300">{userEmail}</Text>
+                                </View>
+                            </View>
+                        )}
                     </View>
                 </View>
 
@@ -224,7 +393,18 @@ export default function ProfileScreen() {
                 </View>
 
                 {/* --- HESAP İŞLEMLERİ --- */}
-                <View className="px-6 gap-y-4">
+                <View className="px-6 gap-y-4 pt-4">
+                    <TouchableOpacity
+                        onPress={handleResetPassword}
+                        className="bg-white dark:bg-slate-900 p-5 rounded-2xl flex-row items-center justify-between border border-slate-100 dark:border-slate-800 shadow-sm shadow-slate-200 dark:shadow-none"
+                    >
+                        <View className="flex-row items-center">
+                            <KeyRound size={20} color={colorScheme === 'dark' ? '#94a3b8' : '#64748b'} className="mr-3" />
+                            <Text className="text-slate-700 dark:text-slate-200 font-bold text-[15px]">Parolamı Değiştir</Text>
+                        </View>
+                        <ChevronRight size={18} color={colorScheme === 'dark' ? '#475569' : '#cbd5e1'} />
+                    </TouchableOpacity>
+
                     <TouchableOpacity
                         onPress={() => {
                             Alert.alert("Çıkış Yap", "Oturumu kapatmak istediğinize emin misiniz?", [
@@ -296,8 +476,7 @@ export default function ProfileScreen() {
 
 // Alt Bileşen: Ayar Satırı
 const SettingItem = ({ icon: Icon, color, title, value, onPress, isFirst = false, isLast = false }: any) => {
-    const { colorScheme } = useColorScheme();
-    const isDarkMode = colorScheme === 'dark';
+    const { isDarkMode, colorScheme } = useThemeMode();
 
     return (
         <TouchableOpacity

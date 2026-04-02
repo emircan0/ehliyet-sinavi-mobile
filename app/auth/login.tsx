@@ -29,13 +29,13 @@ import Animated, {
 } from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
-import { useColorScheme } from 'nativewind';
+import { useThemeMode } from '../../src/hooks/useThemeMode';
 
 const { width, height } = Dimensions.get('window');
 
 export default function LoginScreen() {
     const router = useRouter();
-    const { colorScheme } = useColorScheme();
+    const { isDarkMode, colorScheme } = useThemeMode();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -75,7 +75,8 @@ export default function LoginScreen() {
             } else {
                 await AsyncStorage.removeItem('is_guest');
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                router.replace('/(tabs)');
+                // Index sayfasına yönlendir, onboarding kontrolünü o yapacak
+                router.replace('/');
             }
         } catch (error: any) {
             triggerShake();
@@ -86,6 +87,7 @@ export default function LoginScreen() {
     };
 
     const handleAppleSignIn = async () => {
+        setIsLoading(true);
         try {
             const credential = await AppleAuthentication.signInAsync({
                 requestedScopes: [
@@ -100,23 +102,29 @@ export default function LoginScreen() {
                     token: credential.identityToken,
                 });
 
-                if (error) throw error;
+                if (error) {
+                    console.error('Supabase Apple Auth Error:', error.message);
+                    throw error;
+                }
+                
                 await AsyncStorage.removeItem('is_guest');
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                router.replace('/(tabs)');
+                router.replace('/');
+            } else {
+                throw new Error('Apple Identity Token bulunamadı.');
             }
         } catch (e: any) {
+            console.error('Apple Sign-In Error Detail:', e);
             if (e.code !== 'ERR_REQUEST_CANCELED') {
-                Alert.alert('Apple Girişi Hatası', 'Giriş yapılamadı.');
+                Alert.alert('Apple Girişi Hatası', 'Giriş yapılamadı. Lütfen tekrar deneyin.');
             }
+        } finally {
+            setIsLoading(false);
         }
     };
 
-    const handleGuestAccess = async () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        await AsyncStorage.setItem('is_guest', 'true');
-        router.replace('/(tabs)');
-    };
+    // handleGuestAccess kaldırıldı (Zorunlu kayıt)
+
 
     const primaryBlue = '#0A84FF'; // iOS Dark Mode Blue - daha okunabilir
     const placeholderColor = '#EBEBF599'; // Cam üzerinde okunabilir açık gri
@@ -138,25 +146,8 @@ export default function LoginScreen() {
                         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                         className="flex-1 px-6 justify-center"
                     >
-                        {/* --- Atla Butonu --- */}
-                        <Animated.View
-                            entering={FadeInUp.delay(200)}
-                            className="absolute top-16 right-6 z-20"
-                        >
-                            <TouchableOpacity
-                                onPress={handleGuestAccess}
-                                activeOpacity={0.6}
-                            >
-                                <BlurView
-                                    intensity={30}
-                                    tint="dark"
-                                    className="rounded-full px-4 py-2 flex-row items-center border border-white/20 overflow-hidden"
-                                >
-                                    <Text className="text-white/90 text-[14px] font-medium mr-1">Atla</Text>
-                                    <ChevronRight size={14} color="rgba(255,255,255,0.9)" strokeWidth={2.5} />
-                                </BlurView>
-                            </TouchableOpacity>
-                        </Animated.View>
+                        {/* Atla butonu kaldırıldı */}
+
 
                         {/* --- Ana Giriş Kartı --- */}
                         <Animated.View
@@ -224,9 +215,11 @@ export default function LoginScreen() {
                                         />
                                     </View>
 
-                                    <TouchableOpacity className="self-end mt-1" activeOpacity={0.6}>
-                                        <Text className="text-white/70 text-[13px] font-medium">Şifremi Unuttum</Text>
-                                    </TouchableOpacity>
+                                    <Link href="/auth/forgot-password" asChild>
+                                        <TouchableOpacity className="self-end mt-1" activeOpacity={0.6}>
+                                            <Text className="text-white/70 text-[13px] font-medium">Şifremi Unuttum</Text>
+                                        </TouchableOpacity>
+                                    </Link>
                                 </View>
 
                                 {/* --- Butonlar --- */}
@@ -248,10 +241,10 @@ export default function LoginScreen() {
                                     </TouchableOpacity>
 
                                     {/* Apple Butonu - Yüksekliği giriş butonu ile eşitlendi (48px) */}
-                                    {Platform.OS === 'ios' && (
+                                    {Platform.OS === 'ios' && !isLoading && (
                                         <AppleAuthentication.AppleAuthenticationButton
                                             buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-                                            buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE_OUTLINE}
+                                            buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
                                             cornerRadius={16}
                                             style={{ width: '100%', height: 48 }}
                                             onPress={handleAppleSignIn}

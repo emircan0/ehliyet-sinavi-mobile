@@ -219,7 +219,7 @@ export default function QuizScreen() {
     if (!currentQuestion) {
         return (
             <View className="flex-1 items-center justify-center bg-[#F2F2F7] px-8">
-                <View className="w-24 h-24 bg-white rounded-full items-center justify-center mb-6 shadow-sm border border-[#E5E5EA]">
+                <View className="w-24 h-24 bg-white dark:bg-slate-900 rounded-full items-center justify-center mb-6 shadow-sm border border-[#E5E5EA]">
                     <Sparkles size={40} color="#007AFF" />
                 </View>
                 <Text className="text-black text-[22px] font-bold text-center mb-3">Soru Bulunamadı</Text>
@@ -235,12 +235,12 @@ export default function QuizScreen() {
     const hasAnswered = currentSelection !== undefined;
 
     return (
-        <SafeAreaView className="flex-1 bg-white">
+        <SafeAreaView className="flex-1 bg-base">
             <StatusBar barStyle="dark-content" />
 
             {/* Header */}
-            <View className="flex-row items-center justify-between px-6 py-4 bg-white border-b border-slate-100">
-                <TouchableOpacity onPress={handleQuit} className="w-10 h-10 bg-slate-50 rounded-full items-center justify-center border border-slate-100">
+            <View className="flex-row items-center justify-between px-6 py-4 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
+                <TouchableOpacity onPress={handleQuit} className="w-10 h-10 bg-slate-50 dark:bg-slate-800 rounded-full items-center justify-center border border-slate-100 dark:border-slate-800">
                     <X size={20} color="#64748b" />
                 </TouchableOpacity>
 
@@ -261,11 +261,11 @@ export default function QuizScreen() {
             <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
                 <View className="px-6 py-8">
                     {currentQuestion.image_url && (
-                        <View className="w-full h-48 bg-slate-50 rounded-3xl mb-6 items-center justify-center border border-slate-100">
+                        <View className="w-full h-48 bg-slate-50 dark:bg-slate-800 rounded-3xl mb-6 items-center justify-center border border-slate-100 dark:border-slate-800">
                             <Sparkles size={32} color="#cbd5e1" />
                         </View>
                     )}
-                    <Text className="text-xl font-black text-slate-900 leading-8">
+                    <Text className="text-xl font-black text-slate-900 dark:text-slate-50 leading-8">
                         {currentQuestion.content}
                     </Text>
                 </View>
@@ -275,8 +275,8 @@ export default function QuizScreen() {
                         const isSelected = currentSelection === index;
                         const isCorrectOption = currentQuestion.correct_option === index;
                         
-                        let borderColor = 'border-slate-100';
-                        let bgColor = 'bg-white';
+                        let borderColor = 'border-slate-100 dark:border-slate-800';
+                        let bgColor = 'bg-white dark:bg-slate-900';
                         
                         if (hasAnswered) {
                             if (isCorrectOption) { borderColor = 'border-emerald-500'; bgColor = 'bg-emerald-50'; }
@@ -309,7 +309,7 @@ export default function QuizScreen() {
                             <Sparkles size={18} color="#2563eb" />
                             <Text className="ml-2 font-black text-blue-900">AI Hoca Yanıtı</Text>
                         </View>
-                        <Text className="text-slate-600 leading-6">{currentQuestion.explanation}</Text>
+                        <Text className="text-slate-600 dark:text-slate-300 leading-6">{currentQuestion.explanation}</Text>
                     </View>
                 )}
             </ScrollView>
@@ -318,7 +318,7 @@ export default function QuizScreen() {
                 <TouchableOpacity
                     onPress={handlePrev}
                     disabled={currentIndex === 0}
-                    className="h-14 w-14 rounded-2xl border-2 border-slate-100 items-center justify-center"
+                    className="h-14 w-14 rounded-2xl border-2 border-slate-100 dark:border-slate-800 items-center justify-center"
                 >
                     <ChevronRight size={24} color="#64748b" style={{ transform: [{ rotate: '180deg' }] }} />
                 </TouchableOpacity>
@@ -336,10 +336,10 @@ export default function QuizScreen() {
             {/* Report Modal */}
             <Modal visible={reportModalVisible} animationType="fade" transparent>
                 <View className="flex-1 justify-center bg-black/50 px-6">
-                    <View className="bg-white p-6 rounded-[32px]">
+                    <View className="bg-white dark:bg-slate-900 p-6 rounded-[32px]">
                         <Text className="text-xl font-bold mb-4">Soruyu Bildir</Text>
                         <TextInput
-                            className="h-32 bg-slate-50 p-4 rounded-2xl border border-slate-100 mb-6"
+                            className="h-32 bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 mb-6"
                             placeholder="Hata detayını belirtin..."
                             multiline
                             value={reportReason}

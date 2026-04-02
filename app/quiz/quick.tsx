@@ -5,9 +5,11 @@ import { ChevronLeft, Check, X, ArrowRight, Zap, RefreshCcw } from 'lucide-react
 import { ScreenLayout } from '../../src/components/ScreenLayout';
 import { fetchQuickPracticeQuestions } from '../../src/api/queries';
 import { supabase } from '../../src/api/supabase';
+import { useThemeMode } from '../../src/hooks/useThemeMode';
 
 export default function QuickPracticeScreen() {
     const router = useRouter();
+    const { isDarkMode } = useThemeMode();
     const [questions, setQuestions] = useState<any[]>([]);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isLoading, setIsLoading] = useState(true);
@@ -81,7 +83,7 @@ export default function QuickPracticeScreen() {
 
     if (isLoading) {
         return (
-            <ScreenLayout className="bg-[#F8FAFC] justify-center items-center">
+            <ScreenLayout className="bg-base justify-center items-center">
                 <ActivityIndicator size="large" color="#10b981" />
                 <Text className="mt-4 text-emerald-600 font-bold">Sorular Hazırlanıyor...</Text>
             </ScreenLayout>
@@ -90,8 +92,8 @@ export default function QuickPracticeScreen() {
 
     if (!questions || questions.length === 0) {
         return (
-            <ScreenLayout className="bg-[#F8FAFC] justify-center items-center px-6">
-                <Text className="text-slate-900 font-bold text-lg text-center">Şu an havuzda soru bulunmuyor.</Text>
+            <ScreenLayout className="bg-base justify-center items-center px-6">
+                <Text className="text-slate-900 dark:text-slate-50 font-bold text-lg text-center">Şu an havuzda soru bulunmuyor.</Text>
                 <TouchableOpacity onPress={() => router.back()} className="mt-6 bg-emerald-500 py-3 px-6 rounded-xl">
                     <Text className="text-white font-bold">Geri Dön</Text>
                 </TouchableOpacity>
@@ -112,8 +114,8 @@ export default function QuickPracticeScreen() {
                         Kısa sürede beynini zinde tuttun.
                     </Text>
 
-                    <View className="bg-white w-full rounded-[32px] p-6 shadow-2xl shadow-emerald-900/50 mb-8 flex-row justify-between">
-                        <View className="items-center flex-1 border-r border-slate-100">
+                    <View className="bg-white dark:bg-slate-900 w-full rounded-[32px] p-6 shadow-2xl shadow-emerald-900/50 mb-8 flex-row justify-between">
+                        <View className="items-center flex-1 border-r border-slate-100 dark:border-slate-800">
                             <Text className="text-slate-400 font-bold text-xs uppercase mb-1">Doğru</Text>
                             <Text className="text-emerald-500 text-3xl font-black">{correctCount}</Text>
                         </View>
@@ -153,11 +155,11 @@ export default function QuickPracticeScreen() {
     const currentQuestion = questions[currentIndex];
 
     return (
-        <ScreenLayout className="bg-[#F8FAFC]">
-            <StatusBar barStyle="dark-content" />
+        <ScreenLayout className="bg-base">
+            <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
 
-            <View className="px-6 py-4 flex-row justify-between items-center bg-white border-b border-slate-100">
-                <TouchableOpacity onPress={() => router.back()} className="p-2 -ml-2 rounded-full active:bg-slate-50">
+            <View className="px-6 py-4 flex-row justify-between items-center bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
+                <TouchableOpacity onPress={() => router.back()} className="p-2 -ml-2 rounded-full active:bg-slate-50 dark:bg-slate-800">
                     <ChevronLeft size={24} color="#0f172a" />
                 </TouchableOpacity>
                 <View className="flex-row items-center bg-emerald-50 px-3 py-1.5 rounded-full">
@@ -172,7 +174,7 @@ export default function QuickPracticeScreen() {
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 24, paddingBottom: 100 }}>
 
                 <View className="mb-8">
-                    <Text className="text-slate-900 text-xl font-bold leading-8">
+                    <Text className="text-slate-900 dark:text-slate-50 text-xl font-bold leading-8">
                         {currentQuestion?.content}
                     </Text>
                 </View>
@@ -182,8 +184,8 @@ export default function QuickPracticeScreen() {
                         const isSelected = selectedOption === index;
                         const isCorrect = currentQuestion.correct_option === index;
 
-                        let bgColor = "bg-white";
-                        let borderColor = "border-slate-200";
+                        let bgColor = "bg-white dark:bg-slate-900";
+                        let borderColor = "border-slate-200 dark:border-slate-800";
                         let textColor = "text-slate-700";
                         let opacityClass = "";
 
@@ -242,12 +244,12 @@ export default function QuickPracticeScreen() {
             </ScrollView>
 
             {/* --- ALT BUTONLAR (Footer) --- */}
-            <View className="p-6 bg-white border-t border-slate-100 shadow-xl flex-row gap-3">
+            <View className="p-6 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 shadow-xl flex-row gap-3">
                 {/* GERİ BUTONU */}
                 <TouchableOpacity
                     onPress={handlePrev}
                     disabled={currentIndex === 0}
-                    className={`h-14 w-14 rounded-2xl items-center justify-center border ${currentIndex === 0 ? 'border-slate-100 bg-slate-50 opacity-40' : 'border-slate-200 bg-white'}`}
+                    className={`h-14 w-14 rounded-2xl items-center justify-center border ${currentIndex === 0 ? 'border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 opacity-40' : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900'}`}
                 >
                     <ChevronLeft size={24} color={currentIndex === 0 ? "#cbd5e1" : "#64748b"} />
                 </TouchableOpacity>

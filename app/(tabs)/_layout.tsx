@@ -7,8 +7,11 @@ import {
     BrainCircuit,
     BarChart3
 } from 'lucide-react-native';
+import { useThemeMode } from '../../src/hooks/useThemeMode';
 
 export default function TabLayout() {
+    const { isDarkMode } = useThemeMode();
+
     return (
         <Tabs
             screenOptions={{
@@ -21,14 +24,14 @@ export default function TabLayout() {
                     right: 0,
                     elevation: 0,
                     borderTopWidth: 1,
-                    borderTopColor: 'rgba(226, 232, 240, 0.6)',
-                    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+                    borderTopColor: isDarkMode ? 'rgba(30, 41, 59, 0.8)' : 'rgba(226, 232, 240, 0.6)',
+                    backgroundColor: isDarkMode ? 'rgba(2, 6, 23, 0.95)' : 'rgba(255, 255, 255, 0.92)',
                     height: Platform.OS === 'ios' ? 88 : 70,
                     paddingTop: 8,
                     paddingBottom: Platform.OS === 'ios' ? 28 : 12,
                 },
-                tabBarActiveTintColor: '#2563eb',
-                tabBarInactiveTintColor: '#94a3b8',
+                tabBarActiveTintColor: isDarkMode ? '#3b82f6' : '#2563eb',
+                tabBarInactiveTintColor: isDarkMode ? '#475569' : '#94a3b8',
                 tabBarLabelStyle: {
                     fontSize: 10,
                     fontWeight: '600',

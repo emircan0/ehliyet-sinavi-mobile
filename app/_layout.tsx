@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { View } from "react-native";
 import { Stack, router } from "expo-router"; // <-- useRouter yerine router nesnesini import ettik
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -10,26 +11,34 @@ import { supabase } from "../src/api/supabase";
 import { useNotificationStore } from "../src/store/useNotificationStore";
 import "../global.css";
 
-import { useColorScheme } from "nativewind";
+import { useThemeMode } from "../src/hooks/useThemeMode";
 import { useSettingsStore } from "../src/store/useSettingsStore";
+import { ThemeProvider, DarkTheme, DefaultTheme } from "@react-navigation/native";
 
 export default function RootLayout() {
-    // const router = useRouter(); satırını tamamen kaldırdık.
+    return (
+        <GestureHandlerRootView style={{ flex: 1 }}>
+            <SafeAreaProvider>
+                <RootLayoutContent />
+            </SafeAreaProvider>
+        </GestureHandlerRootView>
+    );
+}
+
+function RootLayoutContent() {
+    // 1. Global Hooks (Now safely inside SafeAreaProvider context)
     const addNotification = useNotificationStore(state => state.addNotification);
+    const { isDarkMode, setColorScheme } = useThemeMode();
+    const theme = useSettingsStore(state => state.theme);
+    
     useNetworkStatus();
 
-    // 1. NativeWind ve Zustand Bağlantısı
-    const { setColorScheme } = useColorScheme();
-    const theme = useSettingsStore(state => state.theme);
-
+    // 2. Theme Management
     useEffect(() => {
-        // Zustand'daki kaydedilmiş temayı NativeWind'e uygula
-        if (theme) {
-            setColorScheme(theme);
-        }
-    }, [theme, setColorScheme]);
+        setColorScheme(isDarkMode ? 'dark' : 'light');
+    }, [isDarkMode, setColorScheme]);
 
-    // 2. Bildirim Kurulumu
+    // 3. Notification Setup
     useEffect(() => {
         let isMounted = true;
 
@@ -47,18 +56,16 @@ export default function RootLayout() {
 
         const receivedSubscription = Notifications.addNotificationReceivedListener(notification => {
             addNotification({
-                id: notification.request.identifier,
                 title: notification.request.content.title || 'Yeni Bildirim',
-                body: notification.request.content.body || '',
-                time: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
+                message: notification.request.content.body || '',
                 type: (notification.request.content.data?.type as any) || 'info',
+                data: notification.request.content.data,
             });
         });
 
         const responseSubscription = Notifications.addNotificationResponseReceivedListener(response => {
             const data = response.notification.request.content.data;
             if (data?.url && typeof data.url === 'string') {
-                // Burada global router nesnesini kullanarak yönlendirme yapıyoruz
                 router.push(data.url as any);
             }
         });
@@ -71,8 +78,8 @@ export default function RootLayout() {
     }, []);
 
     return (
-        <GestureHandlerRootView style={{ flex: 1 }}>
-            <SafeAreaProvider>
+        <ThemeProvider value={isDarkMode ? DarkTheme : DefaultTheme}>
+            <View className={isDarkMode ? "dark flex-1 bg-slate-950" : "flex-1 bg-slate-50"}>
                 <Stack
                     screenOptions={{
                         headerShown: false,
@@ -84,8 +91,8 @@ export default function RootLayout() {
                     <Stack.Screen name="(tabs)" />
                     <Stack.Screen name="quiz/[id]" options={{ gestureEnabled: false }} />
                 </Stack>
-                <Toast />
-            </SafeAreaProvider>
-        </GestureHandlerRootView>
+            </View>
+            <Toast />
+        </ThemeProvider>
     );
 }

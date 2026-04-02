@@ -1,20 +1,25 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import { supabase } from './supabase';
 
-// Bildirimlerin nasıl davranacağını ayarla (Örn: Uygulama açıkken bildirim gelsin mi?)
 Notifications.setNotificationHandler({
     handleNotification: async () => ({
         shouldShowAlert: true,
         shouldPlaySound: true,
-        shouldSetBadge: true,
+        shouldSetBadge: true, // İkon üzerinde kırmızı sayı görünsün
         shouldShowBanner: true,
         shouldShowList: true,
     }),
 });
 
-// 1. Bildirim İzni Al ve Push Token Döndür
-export async function registerForPushNotificationsAsync() {
+// 1. Bildirim İzni Al ve Token'ı Supabase'e Kaydet
+let isRegistering = false;
+
+export const registerForPushNotificationsAsync = async (userId?: string) => {
+    if (isRegistering) return null;
+    isRegistering = true;
+
     let token;
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
@@ -25,83 +30,112 @@ export async function registerForPushNotificationsAsync() {
     }
 
     if (finalStatus !== 'granted') {
+        console.log('Bildirim izni verilmedi!');
         return null;
     }
 
-    // Expo projenizin 'extra.eas.projectId' değerini app.json'dan alması için
-    // Gerçek cihazlarda ve EAS Build kullanıldığında gereklidir.
-    try {
-        const tokenData = await Notifications.getExpoPushTokenAsync({
-            projectId: '7be1223e-64c8-472d-862d-0b7c7b808933', // Örnek Project ID
-        });
-        token = tokenData.data;
-    } catch (e) {
-        console.warn('Push token alınamadı:', e);
-    }
+    // Expo EAS Project ID'sini otomatik al (Mağazaya çıkarken zorunludur)
+    const projectId =
+        Constants?.expoConfig?.extra?.eas?.projectId ??
+        Constants?.easConfig?.projectId;
 
-    if (Platform.OS === 'android') {
-        await Notifications.setNotificationChannelAsync('default', {
-            name: 'default',
-            importance: Notifications.AndroidImportance.MAX,
-            vibrationPattern: [0, 250, 250, 250],
-            lightColor: '#FF231F7C',
-        });
+    try {
+        if (Platform.OS === 'android') {
+            await Notifications.setNotificationChannelAsync('default', {
+                name: 'default',
+                importance: Notifications.AndroidImportance.MAX,
+                vibrationPattern: [0, 250, 250, 250],
+                lightColor: '#FF231F7C',
+            });
+        }
+
+        if (!projectId) {
+            console.warn("DİKKAT: EAS Project ID bulunamadı. Bildirim token'ı alınamadı.");
+            console.warn("Lütfen app.json içinde 'extra.eas.projectId' alanını kontrol edin.");
+            return null;
+        }
+
+        const pushTokenData = await Notifications.getExpoPushTokenAsync({ projectId });
+        token = pushTokenData.data;
+
+        // Supabase'e kaydet (Kullanıcı giriş yapmışsa)
+        if (userId && token) {
+            await savePushToken(userId, token);
+        }
+
+    } catch (e: any) {
+        if (e?.message?.includes('EXPERIENCE_NOT_FOUND')) {
+            console.warn("\n🚨 DİKKAT: app.json içindeki EAS Project ID geçersiz veya hatalı.");
+            console.warn("   Bildirimleri uçtan uca test etmek veya gerçek cihaza kurmak için terminalde 'npx eas init' komutunu çalıştırarak yeni bir ID almalısınız.");
+            console.warn(`   Mevcut ID: ${projectId}\n`);
+        } else {
+            console.error("Token alınırken hata:", e);
+        }
+    } finally {
+        isRegistering = false;
     }
 
     return token;
 }
 
-// 2. Token'ı Supabase'e Kaydet
+/**
+ * Push token'ı Supabase'deki kullanıcı profiline kaydeder.
+ */
 export async function savePushToken(userId: string, token: string) {
-    try {
-        const { error } = await supabase
-            .from('profiles')
-            .update({ expo_push_token: token })
-            .eq('id', userId);
+    const { error } = await supabase
+        .from('profiles') // Supabase'deki kullanıcı tablonuzun adı
+        .update({ push_token: token }) // Supabase tablonuzdaki sütun adı
+        .eq('id', userId);
 
-        if (error) throw error;
-        console.log('✅ Push Token Supabase’e kaydedildi.');
-        return true;
-    } catch (error) {
-        console.error('❌ Push Token kaydedilirken hata:', error);
+    if (error) {
+        console.error('Push Token Supabase kayıt hatası:', error);
         return false;
     }
+    return true;
 }
 
-// 3. Anlık Bildirim Gönder (Local)
-export async function sendImmediateNotification(title: string, body: string, data?: any) {
+// 2. Anlık Bildirim Gönder (Örn: Sınav bitince tetiklemek için)
+export async function sendImmediateNotification(title: string, body: string, data = {}) {
     await Notifications.scheduleNotificationAsync({
-        content: {
-            title: title,
-            body: body,
-            data: data || {},
-            // Android için kanal belirlenmiş olmalı
-            ...(Platform.OS === 'android' ? { channelId: 'default' } : {}),
-        },
+        content: { title, body, data },
         trigger: null,
     });
 }
 
-// 4. Günlük Hatırlatıcı Programla
+// 3. Günlük Hatırlatıcı Planla
 export async function scheduleDailyReminder(hour: number, minute: number) {
-    // Önceki tüm bildirimleri temizle (hatırlatıcıyı güncellemek için)
-    await Notifications.cancelAllScheduledNotificationsAsync();
+    try {
+        // Önce eskileri temizle
+        await cancelAllReminders();
 
-    await Notifications.scheduleNotificationAsync({
-        content: {
-            title: "Sınav vaktin geldi! 🚗",
-            body: "Bugün hedeflerine ulaşmak için 10 soru çözmeye ne dersin?",
-            sound: true,
-            // Android için kanal belirlenmiş olmalı
-            ...(Platform.OS === 'android' ? { channelId: 'default' } : {}),
-        },
-        trigger: {
-            type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
-            hour: hour,
-            minute: minute,
-            repeats: true,
-            // Hata mesajına istinaden channelId buraya da eklenebilir veya sadece tip belirtilebilir
-            ...(Platform.OS === 'android' ? { channelId: 'default' } : {}),
-        } as any, // SDK tip tanımlarında bazı uyuşmazlıklar olabiliyor, any ile zorluyoruz
-    });
+        // İzin kontrolü
+        const { status } = await Notifications.getPermissionsAsync();
+        if (status !== 'granted') {
+            const { status: newStatus } = await Notifications.requestPermissionsAsync();
+            if (newStatus !== 'granted') return false;
+        }
+
+        await Notifications.scheduleNotificationAsync({
+            content: {
+                title: "Direksiyon başına! 🚗",
+                body: "Bugünkü ehliyet hazırlık testini hala çözmedin. Hadi 5 dakikanı ayır!",
+                data: { route: '/quiz/quick' }, // Tıklayınca hızlı antrenmana yönlendirecek veri
+                sound: true,
+            },
+            trigger: {
+                hour,
+                minute,
+                repeats: true,
+                type: 'calendar',
+            } as Notifications.NotificationTriggerInput,
+        });
+        return true;
+    } catch (e) {
+        console.error("Hatırlatıcı planlanırken hata:", e);
+        return false;
+    }
+}
+
+export async function cancelAllReminders() {
+    await Notifications.cancelAllScheduledNotificationsAsync();
 }

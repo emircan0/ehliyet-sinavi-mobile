@@ -90,7 +90,8 @@ export default function RegisterScreen() {
             } else {
                 if (data?.session) {
                     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                    router.replace('/(tabs)');
+                    // Ana dizine yönlendir (Onboarding kontrolü için)
+                    router.replace('/');
                 } else {
                     Alert.alert(
                         'Hesap Oluşturuldu!',
@@ -209,11 +210,21 @@ export default function RegisterScreen() {
                                     </View>
 
                                     {/* KVKK / TOS */}
-                                    <View className="mt-6 px-1">
+                                    <View className="mt-6 px-1 flex-row flex-wrap justify-center items-center">
                                         <Text className="text-[12px] text-white/40 text-center leading-5 uppercase tracking-tighter">
                                             Kayıt olarak{' '}
-                                            <Text className="text-white/80 font-bold">Kullanım Koşullarını</Text> ve{' '}
-                                            <Text className="text-white/80 font-bold">Gizlilik Politikasını</Text> kabul etmiş sayılırsınız.
+                                        </Text>
+                                        <TouchableOpacity onPress={() => router.push('/terms')}>
+                                            <Text className="text-[12px] text-white/80 font-bold leading-5 uppercase tracking-tighter underline">Kullanım Koşullarını</Text>
+                                        </TouchableOpacity>
+                                        <Text className="text-[12px] text-white/40 text-center leading-5 uppercase tracking-tighter">
+                                            {' '}ve{' '}
+                                        </Text>
+                                        <TouchableOpacity onPress={() => router.push('/privacy')}>
+                                            <Text className="text-[12px] text-white/80 font-bold leading-5 uppercase tracking-tighter underline">Gizlilik Politikasını</Text>
+                                        </TouchableOpacity>
+                                        <Text className="text-[12px] text-white/40 text-center leading-5 uppercase tracking-tighter">
+                                            {' '}kabul etmiş sayılırsınız.
                                         </Text>
                                     </View>
 

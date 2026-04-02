@@ -16,7 +16,13 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.ehliyet.ai.sinav",
-      "usesAppleSignIn": true
+      "usesAppleSignIn": true,
+      "buildNumber": "1",
+      "infoPlist": {
+        "CFBundleDisplayName": "Ehliyet Hocam",
+        "NSCameraUsageDescription": "Uygulama, profil fotoğrafınızı güncellemek için kameraya erişim gerektirir.",
+        "NSPhotoLibraryUsageDescription": "Uygulama, profil fotoğrafınızı seçmek için fotoğraf galerinize erişim gerektirir."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -32,6 +38,11 @@
     "plugins": [
       "expo-router",
       "expo-apple-authentication"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "7c48f854-bd8d-4a1b-b36b-6d1ddb46b4f4"
+      }
+    }
   }
 }

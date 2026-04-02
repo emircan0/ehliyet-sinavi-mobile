@@ -74,7 +74,7 @@ export default function StudyDetailScreen() {
     };
 
     return (
-        <ScreenLayout className="bg-white">
+        <ScreenLayout className="bg-base">
 
             <StatusBar barStyle="dark-content" />
 
@@ -108,9 +108,9 @@ export default function StudyDetailScreen() {
                                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                 setActiveTab(cat);
                             }}
-                            className={`px-6 py-2.5 rounded-2xl ${activeTab === cat ? 'bg-white shadow-xl' : 'bg-white/10 border border-white/5'}`}
+                            className={`px-6 py-2.5 rounded-2xl ${activeTab === cat ? 'bg-white dark:bg-slate-900 shadow-xl' : 'bg-white/10 border border-white/5'}`}
                         >
-                            <Text className={`font-black text-[11px] uppercase tracking-widest ${activeTab === cat ? 'text-slate-900' : 'text-white'}`}>
+                            <Text className={`font-black text-[11px] uppercase tracking-widest ${activeTab === cat ? 'text-slate-900 dark:text-slate-50' : 'text-white'}`}>
                                 {cat}
                             </Text>
                         </TouchableOpacity>
@@ -125,8 +125,8 @@ export default function StudyDetailScreen() {
                 contentContainerStyle={{ paddingBottom: 100 }}
             >
                 <View className="flex-row justify-between items-center mb-6">
-                    <Text className="text-slate-900 font-extrabold text-lg tracking-tight">Kütüphane</Text>
-                    <View className="bg-slate-50 px-3 py-1 rounded-lg">
+                    <Text className="text-slate-900 dark:text-slate-50 font-extrabold text-lg tracking-tight">Kütüphane</Text>
+                    <View className="bg-slate-50 dark:bg-slate-800 px-3 py-1 rounded-lg">
                         <Text className="text-slate-400 text-[10px] font-black uppercase">{filteredItems.length} İçerik</Text>
                     </View>
                 </View>
@@ -136,7 +136,7 @@ export default function StudyDetailScreen() {
                         <TouchableOpacity
                             key={item.id}
                             activeOpacity={0.8}
-                            className="bg-white p-5 rounded-[28px] border border-slate-100 shadow-sm shadow-slate-100 flex-row items-center"
+                            className="bg-white dark:bg-slate-900 p-5 rounded-[28px] border border-slate-100 dark:border-slate-800 shadow-sm shadow-slate-100 flex-row items-center"
                         >
                             <View className={`w-14 h-14 rounded-2xl items-center justify-center mr-4 shadow-sm`} style={{ backgroundColor: `${item.color}15` }}>
                                 {id === 'signs' && <TriangleAlert size={28} color={item.color} />}
@@ -144,8 +144,8 @@ export default function StudyDetailScreen() {
                                 {id === 'notes' && <BookOpen size={28} color={item.color} />}
                             </View>
                             <View className="flex-1 pr-6">
-                                <Text className="text-slate-900 font-black text-base mb-1" numberOfLines={1}>{item.title}</Text>
-                                <Text className="text-slate-500 text-xs leading-5" numberOfLines={2}>{item.desc}</Text>
+                                <Text className="text-slate-900 dark:text-slate-50 font-black text-base mb-1" numberOfLines={1}>{item.title}</Text>
+                                <Text className="text-slate-500 dark:text-slate-400 text-xs leading-5" numberOfLines={2}>{item.desc}</Text>
                             </View>
                             <ChevronRight size={18} color="#cbd5e1" />
                         </TouchableOpacity>

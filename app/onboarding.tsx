@@ -4,9 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Car, Bike, Truck, Calendar, Clock, Bell, ChevronRight, CheckCircle2 } from 'lucide-react-native';
-import { useColorScheme } from 'nativewind';
+import { useThemeMode } from '../src/hooks/useThemeMode';
 import { scheduleDailyReminder } from '../src/api/notifications';
-
 
 const { width } = Dimensions.get('window');
 
@@ -56,7 +55,7 @@ const ONBOARDING_STEPS = [
 
 export default function OnboardingScreen() {
     const router = useRouter();
-    const { colorScheme } = useColorScheme();
+    const { isDarkMode } = useThemeMode();
     const [currentStep, setCurrentStep] = useState(0);
     const [preferences, setPreferences] = useState<Record<string, string>>({});
 
@@ -119,16 +118,20 @@ export default function OnboardingScreen() {
                             <Pressable
                                 key={index}
                                 onPress={() => handleSelect(option.value)}
-                                className={`flex-row items-center p-5 rounded-2xl border-2 transition-colors ${isSelected ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900'
-                                    }`}
+                                className={`flex-row items-center p-5 rounded-[24px] border-2 transition-colors ${isSelected 
+                                    ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/10' 
+                                    : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900'
+                                }`}
                             >
                                 <View className={`p-3 rounded-xl mr-4 ${isSelected ? 'bg-blue-600' : 'bg-slate-100 dark:bg-slate-800'}`}>
-                                    <Icon size={24} color={isSelected ? 'white' : (colorScheme === 'dark' ? '#94a3b8' : '#64748b')} />
+                                    <Icon size={24} color={isSelected ? 'white' : (isDarkMode ? '#475569' : '#94a3b8')} />
                                 </View>
-                                <Text className={`flex-1 font-bold text-base ${isSelected ? 'text-blue-900 dark:text-blue-400' : 'text-slate-700 dark:text-slate-300'}`}>
-                                    {option.label}
-                                </Text>
-                                {isSelected && <CheckCircle2 size={24} color="#2563eb" />}
+                                <View className="flex-1">
+                                    <Text className={`font-black text-[16px] ${isSelected ? 'text-blue-900 dark:text-blue-400' : 'text-slate-700 dark:text-slate-300'}`}>
+                                        {option.label}
+                                    </Text>
+                                </View>
+                                {isSelected && <CheckCircle2 size={24} color={isDarkMode ? "#60a5fa" : "#2563eb"} />}
                             </Pressable>
                         );
                     })}
@@ -136,16 +139,19 @@ export default function OnboardingScreen() {
             </View>
 
             {/* İleri Butonu */}
-            <View className="p-6 pb-10 border-t border-slate-50 dark:border-slate-800 bg-white dark:bg-slate-950">
+            <View className="p-6 pb-12 border-t border-slate-50 dark:border-slate-900 bg-white dark:bg-slate-950">
                 <Pressable
                     disabled={!isOptionSelected}
                     onPress={handleNext}
-                    style={{ height: 64, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: isOptionSelected ? '#2563eb' : (colorScheme === 'dark' ? '#1e293b' : '#f1f5f9') }}
+                    className={`h-16 rounded-2xl flex-row items-center justify-center ${isOptionSelected 
+                        ? 'bg-blue-600 shadow-lg shadow-blue-600/30' 
+                        : 'bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800'
+                    }`}
                 >
-                    <Text className={`font-bold text-lg mr-2 ${isOptionSelected ? 'text-white' : 'text-slate-400'}`}>
+                    <Text className={`font-black text-lg mr-2 ${isOptionSelected ? 'text-white' : 'text-slate-400 dark:text-slate-600'}`}>
                         {currentStep === ONBOARDING_STEPS.length - 1 ? 'Programımı Oluştur' : 'Devam Et'}
                     </Text>
-                    <ChevronRight size={24} color={isOptionSelected ? 'white' : '#94a3b8'} />
+                    <ChevronRight size={22} color={isOptionSelected ? 'white' : (isDarkMode ? '#334155' : '#cbd5e1')} strokeWidth={3} />
                 </Pressable>
             </View>
         </SafeAreaView>

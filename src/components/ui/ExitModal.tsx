@@ -24,7 +24,7 @@ export const ExitModal = ({ visible, onCancel, onConfirm }: ExitModalProps) => {
             >
                 <TouchableOpacity
                     activeOpacity={1}
-                    className="bg-white w-full rounded-t-[32px] p-8 pb-10 shadow-2xl"
+                    className="bg-white dark:bg-slate-900 w-full rounded-t-[32px] p-8 pb-10 shadow-2xl"
                 >
                     {/* Handle Bar */}
                     <View className="self-center w-12 h-1.5 bg-slate-200 rounded-full mb-8" />
