@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Ehliyet Hocam – AI Destekli Eğitim",
+    "name": "Ehliyet Hocam",
     "slug": "ehliyet-hocam",
     "version": "1.2.0",
     "orientation": "portrait",
@@ -21,7 +21,8 @@
       "infoPlist": {
         "CFBundleDisplayName": "Ehliyet Hocam",
         "NSCameraUsageDescription": "Uygulama, profil fotoğrafınızı güncellemek için kameraya erişim gerektirir.",
-        "NSPhotoLibraryUsageDescription": "Uygulama, profil fotoğrafınızı seçmek için fotoğraf galerinize erişim gerektirir."
+        "NSPhotoLibraryUsageDescription": "Uygulama, profil fotoğrafınızı seçmek için fotoğraf galerinize erişim gerektirir.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -40,9 +41,11 @@
       "expo-apple-authentication"
     ],
     "extra": {
+      "router": {},
       "eas": {
-        "projectId": "7c48f854-bd8d-4a1b-b36b-6d1ddb46b4f4"
+        "projectId": "546ff7a6-3ab4-4d6f-9ae2-b75816db2856"
       }
-    }
+    },
+    "owner": "emircanmert"
   }
 }
