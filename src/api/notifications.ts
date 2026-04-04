@@ -84,7 +84,7 @@ export const registerForPushNotificationsAsync = async (userId?: string) => {
 export async function savePushToken(userId: string, token: string) {
     const { error } = await supabase
         .from('profiles') // Supabase'deki kullanıcı tablonuzun adı
-        .update({ push_token: token }) // Supabase tablonuzdaki sütun adı
+        .update({ expo_push_token: token }) // Supabase tablonuzdaki sütun adı
         .eq('id', userId);
 
     if (error) {

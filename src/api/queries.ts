@@ -53,7 +53,7 @@ export const fetchHomeDashboardData = async () => {
 // 🌟 YENİ GÜÇLÜ SORGULAR 🌟
 
 // 1. Kategoriden veya Genel Denemeden Soru Çekme
-export const fetchQuestionsByCategory = async (category: string) => {
+export const fetchQuestionsByCategory = async (category: string, userId?: string) => {
     try {
         if (category === 'general') {
             const { data, error } = await supabase.rpc('get_random_questions', { limit_count: 50 });
@@ -61,14 +61,34 @@ export const fetchQuestionsByCategory = async (category: string) => {
             return data || [];
         }
 
-        const { data, error } = await supabase
+        let query = supabase
             .from('questions')
             .select('*')
             .eq('category', category)
             .eq('is_active', true);
 
+        // Eğer kullanıcı ID'si varsa, daha önce çözülmüş soruları ele
+        if (userId) {
+            const { data: solvedData } = await supabase
+                .from('user_answers')
+                .select('question_id')
+                .eq('user_id', userId);
+
+            const solvedIds = solvedData?.map(s => s.question_id) || [];
+            
+            // Eğer çözülmüş soru varsa listeden çıkar
+            if (solvedIds.length > 0) {
+                // Postgrest URL limitlerine takılmamak için virgülle ayrılmış ID listesi
+                query = query.not('id', 'in', `(${solvedIds.join(',')})`);
+            }
+        }
+
+        const { data, error } = await query;
         if (error) throw error;
-        return data || [];
+
+        // Konu testleri için her seferinde farklı bir sırayla gelmesi daha iyi olur (karıştır)
+        const shuffled = (data || []).sort(() => 0.5 - Math.random());
+        return shuffled;
     } catch (error) {
         return handleApiError('fetchQuestionsByCategory', error, []);
     }
@@ -360,6 +380,7 @@ export const fetchQuestionsByExamId = async (examId: string) => {
 
 export const fetchSmartTestCounts = async (userId: string) => {
     try {
+        // Yanlış sayısı (user_answers tablosundan)
         const { count: wrongCount, error: err1 } = await supabase
             .from('user_answers')
             .select('*', { count: 'exact', head: true })
@@ -367,9 +388,10 @@ export const fetchSmartTestCounts = async (userId: string) => {
             .eq('is_correct', false);
         if (err1) throw err1;
 
+        // Favori sayısı (saved_questions tablosundan)
         const { count: favoriteCount, error: err2 } = await supabase
             .from('saved_questions')
-            .select('*', { count: 'exact', head: true })
+            .select('question_id', { count: 'exact', head: true })
             .eq('user_id', userId);
         if (err2) throw err2;
 
@@ -379,6 +401,54 @@ export const fetchSmartTestCounts = async (userId: string) => {
         };
     } catch (error) {
         return handleApiError('fetchSmartTestCounts', error, { wrongCount: 0, favoriteCount: 0 });
+    }
+};
+
+// Favori ekleme/çıkarma (Toggled Star)
+export const toggleFavorite = async (userId: string, questionId: string) => {
+    try {
+        // Önce favorilerde var mı bakıyoruz
+        const { data: existing, error: fetchError } = await supabase
+            .from('saved_questions')
+            .select('*')
+            .eq('user_id', userId)
+            .eq('question_id', questionId)
+            .single();
+
+        if (existing) {
+            // Varsa sil
+            const { error: deleteError } = await supabase
+                .from('saved_questions')
+                .delete()
+                .eq('user_id', userId)
+                .eq('question_id', questionId);
+            if (deleteError) throw deleteError;
+            return { action: 'removed', success: true };
+        } else {
+            // Yoksa ekle
+            const { error: insertError } = await supabase
+                .from('saved_questions')
+                .insert([{ user_id: userId, question_id: questionId }]);
+            if (insertError) throw insertError;
+            return { action: 'added', success: true };
+        }
+    } catch (error) {
+        return handleApiError('toggleFavorite', error, { action: 'error', success: false });
+    }
+};
+
+// Belirli soruların favori olup olmadığını hızlıca çekmek için (Quiz ekranı için)
+export const fetchFavoriteIds = async (userId: string) => {
+    try {
+        const { data, error } = await supabase
+            .from('saved_questions')
+            .select('question_id')
+            .eq('user_id', userId);
+        
+        if (error) throw error;
+        return data.map(f => f.question_id);
+    } catch (error) {
+        return handleApiError('fetchFavoriteIds', error, []);
     }
 };
 

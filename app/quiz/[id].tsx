@@ -4,12 +4,22 @@ import {
     Alert, StatusBar, Modal, TextInput, KeyboardAvoidingView, Platform
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { X, Flag, ChevronRight, CheckCircle2, Sparkles, Save } from 'lucide-react-native';
+import { X, Flag, ChevronRight, CheckCircle2, Sparkles, Save, Star } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
 import { supabase } from '../../src/api/supabase';
-import { fetchQuestionsByCategory, fetchQuickPracticeQuestions, saveQuizResults, reportQuestion, fetchQuestionsByExamId, fetchMistakeQuestions, fetchFavoriteQuestions } from '../../src/api/queries';
+import { 
+    fetchQuestionsByCategory, 
+    fetchQuickPracticeQuestions, 
+    saveQuizResults, 
+    reportQuestion, 
+    fetchQuestionsByExamId, 
+    fetchMistakeQuestions, 
+    fetchFavoriteQuestions,
+    toggleFavorite,
+    fetchFavoriteIds
+} from '../../src/api/queries';
 import { useQuizStore } from '../../src/store/useQuizStore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -30,6 +40,7 @@ export default function QuizScreen() {
 
     const [reportModalVisible, setReportModalVisible] = useState(false);
     const [reportReason, setReportReason] = useState('');
+    const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
 
     const isTopicQuiz = ['trafik', 'motor', 'ilkyardim', 'adap'].includes(id as string);
 
@@ -66,12 +77,18 @@ export default function QuizScreen() {
                 else if (isNumeric || isUUID) {
                     data = await fetchQuestionsByExamId(idString);
                 } else {
-                    data = await fetchQuestionsByCategory(idString);
+                    data = await fetchQuestionsByCategory(idString, user?.id);
                 }
 
                 if (data && data.length > 0) {
                     setQuestions(data);
                     
+                    // Favori durumlarını çek
+                    if (user) {
+                        const favs = await fetchFavoriteIds(user.id);
+                        setFavoriteIds(favs);
+                    }
+
                     // --- YARIDA KALAN SINAVI KONTROL ET ---
                     try {
                         const savedState = await AsyncStorage.getItem(`@quiz_state_${idString}`);
@@ -136,7 +153,13 @@ export default function QuizScreen() {
 
                 await saveQuizResults(user.id, id as string, score, correctCount, wrongCount, questions.length, validAnswers);
                 await AsyncStorage.removeItem(`@quiz_state_${id}`);
-                router.replace('/quiz/result');
+
+                // Favoriler veya Hatalarım bitince direkt Sınavlar sekmesine dön
+                if (id === 'favorites' || id === 'mistakes') {
+                    router.replace('/(tabs)/quizzes');
+                } else {
+                    router.replace('/quiz/result');
+                }
             }
         } catch (error) {
             Alert.alert('Hata', 'Sonuçlar kaydedilemedi.');
@@ -205,6 +228,36 @@ export default function QuizScreen() {
         }
     };
 
+    const handleToggleFavorite = async () => {
+        if (!currentQuestion) return;
+        
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        
+        const result = await toggleFavorite(user.id, currentQuestion.id);
+        if (result.success) {
+            if (result.action === 'added') {
+                setFavoriteIds(prev => [...prev, currentQuestion.id]);
+                Toast.show({
+                    type: 'success',
+                    text1: 'Favorilere Eklendi ⭐',
+                    text2: 'Bu soruyu istediğin zaman favorilerinden görebilirsin.',
+                });
+            } else {
+                setFavoriteIds(prev => prev.filter(fid => fid !== currentQuestion.id));
+                Toast.show({
+                    type: 'info',
+                    text1: 'Favorilerden Çıkarıldı',
+                    text2: 'Soru favori listenden kaldırıldı.',
+                });
+            }
+        }
+    };
+
+    const isFavorited = currentQuestion && favoriteIds.includes(currentQuestion.id);
+
     if (isLoading || isSubmitting) {
         return (
             <View className="flex-1 items-center justify-center bg-[#F2F2F7]">
@@ -218,11 +271,16 @@ export default function QuizScreen() {
 
     if (!currentQuestion) {
         return (
-            <View className="flex-1 items-center justify-center bg-[#F2F2F7] px-8">
-                <View className="w-24 h-24 bg-white dark:bg-slate-900 rounded-full items-center justify-center mb-6 shadow-sm border border-[#E5E5EA]">
+            <View className="flex-1 items-center justify-center bg-base px-8">
+                <View className="w-24 h-24 bg-white dark:bg-slate-900 rounded-full items-center justify-center mb-6 shadow-sm border border-slate-100 dark:border-slate-800">
                     <Sparkles size={40} color="#007AFF" />
                 </View>
-                <Text className="text-black text-[22px] font-bold text-center mb-3">Soru Bulunamadı</Text>
+                <Text className="text-black dark:text-white text-[22px] font-bold text-center mb-3">
+                    {isTopicQuiz ? 'Tebrikler! 🎉' : 'Soru Bulunamadı'}
+                </Text>
+                <Text className="text-slate-500 text-center mb-8">
+                    {isTopicQuiz ? 'Bu kategorideki tüm soruları başarıyla tamamladınız.' : 'Sınav verileri yüklenirken bir sorun oluştu veya soru kalmadı.'}
+                </Text>
                 <TouchableOpacity onPress={() => router.back()} className="bg-[#007AFF] px-8 py-4 rounded-2xl w-full items-center justify-center">
                     <Text className="text-white font-bold">Geri Dön</Text>
                 </TouchableOpacity>
@@ -246,16 +304,27 @@ export default function QuizScreen() {
 
                 <View className="items-center flex-1 px-4">
                     <Text className="text-[12px] font-black text-slate-400 mb-1">
-                        Soru {currentIndex + 1} / {questions.length}
+                        Soru {currentIndex + 1} {!isTopicQuiz ? `/ ${questions.length}` : ''}
                     </Text>
-                    <View className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                        <View className="h-full bg-blue-600" style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }} />
-                    </View>
+                    {!isTopicQuiz && (
+                        <View className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            <View className="h-full bg-blue-600" style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }} />
+                        </View>
+                    )}
                 </View>
 
-                <TouchableOpacity onPress={() => setReportModalVisible(true)} className="w-10 h-10 bg-red-50 rounded-full items-center justify-center">
-                    <Flag size={18} color="#ef4444" fill="#ef4444" />
-                </TouchableOpacity>
+                <View className="flex-row items-center gap-x-2">
+                    <TouchableOpacity 
+                        onPress={handleToggleFavorite} 
+                        className={`w-10 h-10 rounded-full items-center justify-center border ${isFavorited ? 'bg-yellow-50 border-yellow-200' : 'bg-slate-50 border-slate-100'}`}
+                    >
+                        <Star size={18} color={isFavorited ? "#EAB308" : "#94a3b8"} fill={isFavorited ? "#EAB308" : "transparent"} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity onPress={() => setReportModalVisible(true)} className="w-10 h-10 bg-rose-50 rounded-full items-center justify-center border border-rose-100">
+                        <Flag size={18} color="#ef4444" />
+                    </TouchableOpacity>
+                </View>
             </View>
 
             <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>

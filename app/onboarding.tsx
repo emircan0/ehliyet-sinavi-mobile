@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, Pressable, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { router } from 'expo-router'; 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Car, Bike, Truck, Calendar, Clock, Bell, ChevronRight, CheckCircle2 } from 'lucide-react-native';
 import { useThemeMode } from '../src/hooks/useThemeMode';
@@ -54,7 +54,6 @@ const ONBOARDING_STEPS = [
 ];
 
 export default function OnboardingScreen() {
-    const router = useRouter();
     const { isDarkMode } = useThemeMode();
     const [currentStep, setCurrentStep] = useState(0);
     const [preferences, setPreferences] = useState<Record<string, string>>({});
@@ -77,7 +76,7 @@ export default function OnboardingScreen() {
             await scheduleDailyReminder(parseInt(timeParts[0]), parseInt(timeParts[1]));
 
             // Ana sayfaya yönlendir
-            router.replace('/(tabs)/');
+            router.replace('/(tabs)/'); 
         }
     };
 
@@ -143,7 +142,7 @@ export default function OnboardingScreen() {
                 <Pressable
                     disabled={!isOptionSelected}
                     onPress={handleNext}
-                    className={`h-16 rounded-2xl flex-row items-center justify-center ${isOptionSelected 
+                    className={`h-16 rounded-2xl flex-row items-center justify-center ${isOptionSelected
                         ? 'bg-blue-600 shadow-lg shadow-blue-600/30' 
                         : 'bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800'
                     }`}

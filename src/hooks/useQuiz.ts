@@ -1,19 +1,19 @@
 import { useState, useCallback } from 'react';
 import { useQuizStore } from '../store/useQuizStore';
-import { fetchQuestions, saveQuizResult } from '../api/queries';
+import { fetchQuickPracticeQuestions, saveQuizResults } from '../api/queries';
 
 export function useQuiz() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const { setQuestions, resetQuiz, questions, userAnswers } = useQuizStore();
+    const { setQuestions, resetQuiz, questions, selectedAnswers } = useQuizStore();
 
-    const startNewQuiz = useCallback(async () => {
+    const startNewQuiz = useCallback(async (userId: string) => {
         try {
             setLoading(true);
             setError(null);
             resetQuiz();
 
-            const questionsData = await fetchQuestions(10); // Fetch 10 questions
+            const questionsData = await fetchQuickPracticeQuestions(userId);
             console.log('Fetched questions:', questionsData);
             setQuestions(questionsData);
         } catch (err) {
@@ -24,16 +24,16 @@ export function useQuiz() {
         }
     }, [resetQuiz, setQuestions]);
 
-    const submitQuiz = useCallback(async (userId: string) => {
+    const submitQuiz = useCallback(async (userId: string, category: string = 'general') => {
         // Calculate final stats
         let correct = 0;
         let wrong = 0;
 
         questions.forEach((q, index) => {
-            const userAnswer = userAnswers[index];
-            if (userAnswer === q.correct_option) {
+            const answer = selectedAnswers[index];
+            if (answer && answer.isCorrect) {
                 correct++;
-            } else if (userAnswer !== undefined && userAnswer !== null) {
+            } else if (answer && answer.selectedOption !== undefined) {
                 wrong++;
             }
         });
@@ -42,15 +42,23 @@ export function useQuiz() {
         const score = total > 0 ? (correct / total) * 100 : 0;
 
         try {
-            await saveQuizResult(userId, score, total, correct, wrong);
+            // Updated to match saveQuizResults signature in queries.ts
+            await saveQuizResults(
+                userId,
+                category,
+                score,
+                correct,
+                wrong,
+                total,
+                selectedAnswers
+            );
         } catch (err) {
             console.error("Error saving result", err);
-            // Even if saving fails, return the calculated score so the user sees it
         }
 
         return { score, correct, wrong };
 
-    }, [questions, userAnswers]);
+    }, [questions, selectedAnswers]);
 
     return {
         startNewQuiz,

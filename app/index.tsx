@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
-import { Redirect, useRouter } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../src/api/supabase';
 
@@ -15,7 +15,7 @@ export default function Index() {
             try {
                 // 1. Oturum kontrolü (En öncelikli)
                 const { data: { session } } = await supabase.auth.getSession();
-                
+
                 if (!session) {
                     // Oturum yoksa direkt login'e gönder
                     setInitialRoute('/auth/login');
@@ -35,12 +35,14 @@ export default function Index() {
                     return;
                 }
 
-                // 2. Onboarding kontrolü (Oturum varsa bakılır)
+                // 2. Onboarding kontrolü (GEÇİCİ OLARAK PASİF EDİLDİ)
+                /* 
                 const hasCompletedOnboarding = await AsyncStorage.getItem('has_completed_onboarding');
                 if (hasCompletedOnboarding !== 'true') {
                     setInitialRoute('/onboarding');
                     return;
                 }
+                */
 
                 // 3. Her şey tamamsa ana sayfaya
                 setInitialRoute('/(tabs)');

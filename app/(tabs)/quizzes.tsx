@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StatusBar, RefreshControl, Dimensions } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import {
     FileText, Star, AlertTriangle, ChevronRight,
     Trophy, Clock, Zap, Crown, CheckCircle2, Lock
@@ -47,9 +47,11 @@ export default function QuizzesScreen() {
         }
     };
 
-    useEffect(() => {
-        loadData();
-    }, []);
+    useFocusEffect(
+        useCallback(() => {
+            loadData();
+        }, [])
+    );
 
     const onRefresh = useCallback(() => {
         setRefreshing(true);
@@ -144,89 +146,101 @@ export default function QuizzesScreen() {
                         </View>
                     </View>
 
-                    {/* Featured Exam Section */}
+                    {/* Featured Exam Section (Hero Card Tasarımına Uyarlanmış) */}
                     {featuredExam && (
                         <View className="px-6 mb-8">
-                            <View className="flex-row justify-between items-end mb-5 px-1">
+                            <View className="flex-row justify-between items-end mb-4 px-1">
                                 <View>
-                                    <Text className="text-slate-400 dark:text-slate-500 text-[11px] font-bold uppercase tracking-[2px] mb-1">GÜNÜN SEÇİMİ</Text>
-                                    <Text className="text-slate-900 dark:text-slate-50 font-extrabold text-2xl tracking-tight">Öne Çıkan Deneme</Text>
+                                    <Text className="text-slate-400 dark:text-slate-500 text-[11px] font-bold uppercase tracking-[2px] mb-1">
+                                        SON ÇÖZÜLEN SINAV
+                                    </Text>
+                                    <Text className="text-slate-900 dark:text-slate-50 font-extrabold text-2xl tracking-tight">
+                                        Kaldığın Yerden Devam
+                                    </Text>
                                 </View>
                             </View>
 
                             <TouchableOpacity
-                                activeOpacity={0.95}
+                                activeOpacity={0.9}
                                 onPress={() => {
                                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                                     if (featuredExam?.id) {
                                         isPro ? router.push({ pathname: '/quiz/[id]', params: { id: featuredExam.id } }) : router.push('/premium');
                                     }
                                 }}
-                                className="relative overflow-hidden rounded-[32px] shadow-2xl shadow-indigo-100 dark:shadow-none"
+                                className={`bg-slate-900 rounded-[32px] p-6 relative overflow-hidden shadow-2xl shadow-slate-900/30 ${!isPro ? 'opacity-90' : ''}`}
                             >
-                                <LinearGradient
-                                    colors={['#1e1b4b', '#0f0c3a']}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 1 }}
-                                    className="px-7 py-8 border border-transparent dark:border-white/10"
-                                >
-                                    <View className="flex-row justify-between items-start mb-8">
-                                        <View className="flex-row items-center bg-white/20 px-3 py-1.5 rounded-full backdrop-blur-md">
-                                            <Zap size={14} color="#fbbf24" fill="#fbbf24" />
-                                            <Text className="text-white text-[10px] font-extrabold ml-1.5 uppercase tracking-wider">HAFTALIK ÖZEL</Text>
-                                        </View>
-
-                                        {!isPro ? (
-                                            <View className="bg-amber-400/20 p-2 rounded-xl border border-amber-400/30">
-                                                <Crown size={18} color="#fbbf24" fill="#fbbf24" />
-                                            </View>
-                                        ) : (
-                                            <View className="bg-emerald-400/20 p-2 rounded-xl border border-emerald-400/30">
-                                                <Text className="text-emerald-400 text-[10px] font-black uppercase tracking-tight">PRO</Text>
-                                            </View>
-                                        )}
+                                {/* Kilit İkonu (Pro Değilse) */}
+                                {!isPro && (
+                                    <View className="absolute top-5 right-5 z-20 bg-black/40 p-2.5 rounded-full border border-white/10 backdrop-blur-md">
+                                        <Lock size={16} color="#f59e0b" />
                                     </View>
+                                )}
 
-                                    <View className="mb-8">
-                                        <Text className="text-white text-2xl font-bold leading-tight tracking-tight">
-                                            {featuredExam?.title || "Özel Deneme"}
+                                {/* Arka Plan Efektleri (Blur) */}
+                                <View className="absolute -right-10 -top-10 w-40 h-40 bg-blue-500/20 blur-3xl rounded-full" />
+                                <View className="absolute right-12 -bottom-12 w-24 h-24 bg-indigo-500/20 blur-2xl rounded-full" />
+
+                                <View className="relative z-10">
+                                    {/* Üst Rozet */}
+                                    <View className="bg-white/10 self-start px-3 py-1.5 rounded-xl border border-white/10 mb-5 flex-row items-center">
+                                        <Zap size={12} color="#fbbf24" fill="#fbbf24" className="mr-1.5" />
+                                        <Text className="text-amber-300 text-[10px] font-black tracking-widest uppercase">
+                                            {featuredExam?.category || 'ÖZEL DENEME'}
                                         </Text>
-                                        <View className="flex-row items-center mt-3 opacity-80">
-                                            <Clock size={14} color="white" />
-                                            <Text className="text-white/90 text-xs font-medium ml-1.5 uppercase tracking-tight">
-                                                {featuredExam?.duration_minutes || 45} Dakika • 50 Soru
-                                            </Text>
-                                        </View>
                                     </View>
 
-                                    <View className="flex-row items-center justify-between">
-                                        <View className="flex-1 mr-6">
+                                    {/* Başlık ve Alt Bilgi */}
+                                    <Text className="text-white text-[28px] font-black tracking-tight mb-3 leading-8" numberOfLines={2}>
+                                        {featuredExam?.title || "Genel Tarama Testi"}
+                                    </Text>
+
+                                    <View className="flex-row items-center mb-8">
+                                        <Clock size={14} color="#94a3b8" />
+                                        <Text className="text-slate-400 text-[13px] font-medium ml-1.5 mr-4">
+                                            {featuredExam?.duration_minutes || 45} Dk
+                                        </Text>
+                                        <FileText size={14} color="#94a3b8" />
+                                        <Text className="text-slate-400 text-[13px] font-medium ml-1.5">
+                                            50 Soru
+                                        </Text>
+                                    </View>
+
+                                    {/* Alt Kısım: İlerleme ve Aksiyon Butonu */}
+                                    <View className="flex-row items-end justify-between mt-2">
+
+                                        {/* İlerleme Çubuğu */}
+                                        <View className="flex-1 mr-5 mb-1">
                                             {(Number(featuredExam?.progress_percentage) || 0) > 0 ? (
                                                 <View>
                                                     <View className="flex-row justify-between mb-2">
-                                                        <Text className="text-white/60 text-[10px] font-bold uppercase tracking-tight">İLERLEME</Text>
-                                                        <Text className="text-white text-[10px] font-black tracking-tight">%{(Number(featuredExam?.progress_percentage) || 0)}</Text>
+                                                        <Text className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">İlerleme</Text>
+                                                        <Text className="text-white text-[11px] font-black">%{(Number(featuredExam?.progress_percentage) || 0)}</Text>
                                                     </View>
-                                                    <View className="h-1.5 w-full bg-black/20 rounded-full overflow-hidden border border-white/10">
+                                                    <View className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
                                                         <View
-                                                            className="h-full bg-amber-400 rounded-full"
+                                                            className="h-full bg-blue-500 rounded-full"
                                                             style={{ width: `${Math.min(100, Math.max(0, Number(featuredExam?.progress_percentage) || 0))}%` }}
                                                         />
                                                     </View>
                                                 </View>
                                             ) : (
-                                                <Text className="text-white/50 text-[11px] font-medium italic">Henüz başlanmadı</Text>
+                                                <Text className="text-slate-400 text-[13px] font-medium italic">Henüz başlanmadı</Text>
                                             )}
                                         </View>
 
-                                        <View className="bg-white px-5 py-3 rounded-2xl flex-row items-center shadow-xl shadow-indigo-200 dark:shadow-none">
-                                            <Text className="text-indigo-900 font-bold text-xs uppercase tracking-tight mr-1">
-                                                {(Number(featuredExam?.progress_percentage) || 0) > 0 ? 'Devam Et' : 'Şimdi Çöz'}
+                                        {/* Aksiyon Butonu (Hero Stili) */}
+                                        <View className={`self-start p-1.5 pl-5 pr-1.5 rounded-full flex-row items-center shadow-lg ${!isPro ? 'bg-amber-600 shadow-amber-600/30' : 'bg-blue-600 shadow-blue-600/30'}`}>
+                                            <Text className="text-white font-bold text-sm mr-4">
+                                                {(Number(featuredExam?.progress_percentage) || 0) > 0 ? 'Devam Et' : (!isPro ? 'Premium Edin' : 'Başla')}
                                             </Text>
-                                            <ChevronRight size={16} color="#0f0c3a" strokeWidth={3} />
+                                            <View className="w-8 h-8 bg-white/20 rounded-full items-center justify-center">
+                                                <ChevronRight size={18} color="white" />
+                                            </View>
                                         </View>
+
                                     </View>
-                                </LinearGradient>
+                                </View>
                             </TouchableOpacity>
                         </View>
                     )}
