@@ -265,42 +265,14 @@ export default function Home() {
                 contentContainerStyle={{ paddingBottom: 120 }}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
             >
-                {/* --- PREMIUM PROMOSYON BANNER --- */}
+                {/* 
+                App Store başvurusu için promosyon bannerı kaldırıldı
                 {!isPro && timeLeft && (
                     <View className="px-6 mb-6">
-                        <TouchableOpacity
-                            activeOpacity={0.9}
-                            onPress={() => router.push('/premium')}
-                            className="bg-amber-50 rounded-[28px] border border-amber-200 p-5 overflow-hidden flex-row items-center"
-                        >
-                            <View className="flex-1 pr-4">
-                                <View className="flex-row items-center mb-1.5">
-                                    <View className="bg-amber-100 dark:bg-amber-900/40 px-2 py-1 rounded-lg mr-2">
-                                        <Text className="text-amber-700 dark:text-amber-400 text-[10px] font-black uppercase tracking-tighter">Sınırlı Süre</Text>
-                                    </View>
-                                    <Text className="text-amber-800 dark:text-amber-300 text-xs font-bold">%50'den fazla indirim!</Text>
-                                </View>
-                                <Text className="text-slate-900 dark:text-slate-100 text-lg font-black tracking-tight leading-6 mb-1">
-                                    Premium ₺200 yerine ₺99!
-                                </Text>
-                                <View className="flex-row items-center">
-                                    {/* 
-                                    Abonelik başvuru sürecinde gizlendi
-                                    <Timer size={14} color={isDarkMode ? "#fbbf24" : "#b45309"} className="mr-1.5" />
-                                    <Text className="text-amber-700 dark:text-amber-400 text-sm font-black tracking-widest uppercase">
-                                        {timeLeft.hours.toString().padStart(2, '0')}:
-                                        {timeLeft.minutes.toString().padStart(2, '0')}:
-                                        {timeLeft.seconds.toString().padStart(2, '0')}
-                                    </Text>
-                                    */}
-                                </View>
-                            </View>
-                            <View className="w-14 h-14 bg-amber-500 rounded-full items-center justify-center shadow-lg shadow-amber-500/40">
-                                <Zap size={28} color="white" fill="white" />
-                            </View>
-                        </TouchableOpacity>
+                        ...
                     </View>
-                )}
+                )} 
+                */}
 
                 {/* 1. HERO CARD: Genel Deneme */}
                 <View className="px-6 mb-5">
