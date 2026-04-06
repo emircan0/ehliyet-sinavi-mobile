@@ -162,31 +162,14 @@ export default function StatisticsScreen() {
                                 </View>
 
                                 {/* Kilit Katmanı */}
+                                {/* 
+                                App Store başvurusu için analiz kilidi kaldırıldı
                                 {!isPro && (
                                     <>
-                                        <BlurView intensity={20} tint={isDarkMode ? "dark" : "light"} className="absolute inset-0 z-10 rounded-3xl overflow-hidden" />
-                                        <View className="absolute inset-0 z-20 items-center justify-center p-4">
-                                            <View className="bg-white/90 dark:bg-slate-900/90 px-6 py-4 rounded-3xl items-center shadow-lg border border-slate-100 dark:border-slate-800 w-full">
-                                                <View className="bg-amber-100 dark:bg-amber-900/30 w-12 h-12 rounded-full items-center justify-center mb-2">
-                                                    <AlertCircle size={24} color="#d97706" />
-                                                </View>
-                                                <Text className="text-slate-900 dark:text-slate-50 font-bold text-base mb-1">Pro Analiz</Text>
-                                                <Text className="text-slate-500 text-xs text-center mb-4 leading-5">
-                                                    Hangi konularda eksiğin olduğunu görmek için premium paketine geç.
-                                                </Text>
-                                                <TouchableOpacity
-                                                    onPress={() => {
-                                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                                        router.push('/premium');
-                                                    }}
-                                                    className="bg-slate-900 px-6 py-2.5 rounded-full"
-                                                >
-                                                    <Text className="text-white text-xs font-bold">Kilidi Aç</Text>
-                                                </TouchableOpacity>
-                                            </View>
-                                        </View>
+                                        ...
                                     </>
                                 )}
+                                */}
                             </View>
                         </View>
 
@@ -220,27 +203,14 @@ export default function StatisticsScreen() {
                                 </View>
 
                                 {/* Kilit Katmanı */}
+                                {/* 
+                                App Store başvurusu için AI raporu kilidi kaldırıldı
                                 {!isPro && (
                                     <>
-                                        <BlurView intensity={20} tint={isDarkMode ? "dark" : "light"} className="absolute inset-0 z-10 rounded-3xl overflow-hidden" />
-                                        <View className="absolute inset-0 z-20 items-center justify-center p-2">
-                                            <View className="bg-white/90 dark:bg-slate-900/90 px-6 py-4 rounded-3xl items-center shadow-lg border border-slate-100 dark:border-slate-800 w-full flex-row">
-                                                <View className="bg-amber-100 dark:bg-amber-900/30 w-10 h-10 rounded-full items-center justify-center mr-3">
-                                                    <Zap size={20} color="#d97706" />
-                                                </View>
-                                                <View className="flex-1">
-                                                    <Text className="text-slate-900 dark:text-slate-50 font-bold text-[13px] mb-0.5">Yapay Zeka Raporu</Text>
-                                                    <TouchableOpacity onPress={() => {
-                                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                                        router.push('/premium');
-                                                    }}>
-                                                        <Text className="text-blue-600 dark:text-blue-400 font-bold text-xs">Premium Edin →</Text>
-                                                    </TouchableOpacity>
-                                                </View>
-                                            </View>
-                                        </View>
+                                        ...
                                     </>
                                 )}
+                                */}
                             </View>
                         </View>
                     </>

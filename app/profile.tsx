@@ -282,7 +282,7 @@ export default function ProfileScreen() {
                         <View className="items-end justify-center">
                             <View className="bg-emerald-50 dark:bg-emerald-900/20 px-3 py-1.5 rounded-full border border-emerald-100 dark:border-emerald-800 flex-row items-center">
                                 <ShieldCheck size={14} color="#059669" className="mr-1.5" />
-                                <Text className="text-emerald-700 dark:text-emerald-500 text-xs font-bold uppercase tracking-widest">Plan Aktif</Text>
+                                <Text className="text-emerald-700 dark:text-emerald-500 text-xs font-bold uppercase tracking-widest">Hesap Onaylı</Text>
                             </View>
                         </View>
                     </View>

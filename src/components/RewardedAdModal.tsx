@@ -14,6 +14,9 @@ interface RewardedAdModalProps {
 }
 
 export default function RewardedAdModal({ visible, onClose, type }: RewardedAdModalProps) {
+    // App Store başvurusu için reklamları devre dışı bırak
+    return null;
+
     const config = {
         short: { duration: 10, reward: 10, label: 'Kısa Reklam' },
         long: { duration: 20, reward: 20, label: 'Uzun Reklam' },

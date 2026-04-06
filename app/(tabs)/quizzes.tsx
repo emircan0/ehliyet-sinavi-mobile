@@ -165,17 +165,18 @@ export default function QuizzesScreen() {
                                 onPress={() => {
                                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                                     if (featuredExam?.id) {
-                                        isPro ? router.push({ pathname: '/quiz/[id]', params: { id: featuredExam.id } }) : router.push('/premium');
+                                        router.push({ pathname: '/quiz/[id]', params: { id: featuredExam.id } });
                                     }
                                 }}
                                 className={`bg-slate-900 rounded-[32px] p-6 relative overflow-hidden shadow-2xl shadow-slate-900/30 ${!isPro ? 'opacity-90' : ''}`}
                             >
-                                {/* Kilit İkonu (Pro Değilse) */}
+                                {/* Kilit İkonu (Pro Değilse) - App Store için gizlendi
                                 {!isPro && (
                                     <View className="absolute top-5 right-5 z-20 bg-black/40 p-2.5 rounded-full border border-white/10 backdrop-blur-md">
                                         <Lock size={16} color="#f59e0b" />
                                     </View>
                                 )}
+                                */}
 
                                 {/* Arka Plan Efektleri (Blur) */}
                                 <View className="absolute -right-10 -top-10 w-40 h-40 bg-blue-500/20 blur-3xl rounded-full" />
@@ -232,7 +233,7 @@ export default function QuizzesScreen() {
                                         {/* Aksiyon Butonu (Hero Stili) */}
                                         <View className={`self-start p-1.5 pl-5 pr-1.5 rounded-full flex-row items-center shadow-lg ${!isPro ? 'bg-amber-600 shadow-amber-600/30' : 'bg-blue-600 shadow-blue-600/30'}`}>
                                             <Text className="text-white font-bold text-sm mr-4">
-                                                {(Number(featuredExam?.progress_percentage) || 0) > 0 ? 'Devam Et' : (!isPro ? 'Premium Edin' : 'Başla')}
+                                                {(Number(featuredExam?.progress_percentage) || 0) > 0 ? 'Devam Et' : 'Başla'}
                                             </Text>
                                             <View className="w-8 h-8 bg-white/20 rounded-full items-center justify-center">
                                                 <ChevronRight size={18} color="white" />
@@ -258,7 +259,7 @@ export default function QuizzesScreen() {
                                         onPress={() => {
                                             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                             if (exam.id) {
-                                                isPro ? router.push(`/quiz/${exam.id}`) : router.push('/premium');
+                                                router.push(`/quiz/${exam.id}`);
                                             }
                                         }}
                                     />
@@ -336,11 +337,11 @@ const ExamListItem = ({ exam, isPro, onPress }: any) => {
                 <ChevronRight size={16} color={isDarkMode ? "#475569" : "#cbd5e1"} />
             </View>
 
-            {!isPro && (
+            {/* {!isPro && (
                 <View className="absolute top-4 right-4 bg-slate-900/5 dark:bg-white/5 p-1.5 rounded-full">
                     <Lock size={12} color="#f59e0b" />
                 </View>
-            )}
+            )} */}
         </TouchableOpacity>
     );
 };

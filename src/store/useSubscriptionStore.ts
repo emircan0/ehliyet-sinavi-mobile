@@ -16,7 +16,7 @@ interface SubscriptionState {
 export const useSubscriptionStore = create<SubscriptionState>()(
     persist(
         (set, get) => ({
-            isPro: false,
+            isPro: true, // Uygulama Store'a gönderilmeden önce tüm özellikler açık olsun
             credits: 0,
             proExpiryDate: null,
             setPro: (status, durationDays) => {
@@ -30,14 +30,19 @@ export const useSubscriptionStore = create<SubscriptionState>()(
             },
             addCredits: (amount) => set((state) => ({ credits: state.credits + amount })),
             spendCredits: (amount) => {
+                // Tüm özellikler açık olduğu için kredi harcamaya gerek yok
+                return true; 
+                /* Orijinal Mantık:
                 const currentCredits = get().credits;
                 if (currentCredits >= amount) {
                     set({ credits: currentCredits - amount });
                     return true;
                 }
                 return false;
+                */
             },
             checkSubscriptionStatus: () => {
+                /* Abonelik kontrolü geçici olarak devre dışı
                 const { isPro, proExpiryDate } = get();
                 if (isPro && proExpiryDate) {
                     const now = new Date();
@@ -47,6 +52,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
                         console.log("Subscription expired!");
                     }
                 }
+                */
             },
             restorePurchases: async () => {
                 // Mock restore logic - assuming Yearly for restore if not specified

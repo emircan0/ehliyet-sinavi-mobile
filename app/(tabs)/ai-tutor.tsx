@@ -250,36 +250,14 @@ export default function AITutorScreen() {
 
             </Animated.ScrollView>
 
+            {/* 
+            App Store başvurusu için premium kilidi kaldırıldı
             {!isPro && (
                 <View className="absolute inset-0 bg-slate-50/98 dark:bg-slate-950/98 z-50 items-center justify-center px-7">
-                    <View className="bg-white dark:bg-slate-900 p-10 rounded-[40px] items-center shadow-2xl shadow-slate-900/10 dark:shadow-none border border-slate-100 dark:border-slate-800 w-full mb-20 overflow-hidden">
-                        <View className="absolute -right-10 -top-10 w-40 h-40 bg-amber-400/10 rounded-full" />
-
-                        <View className="w-20 h-20 bg-amber-50 dark:bg-amber-900/20 rounded-3xl items-center justify-center mb-8 border border-amber-100 dark:border-amber-900/50">
-                            <Lock size={36} color="#d97706" />
-                        </View>
-
-                        <Text className="text-3xl font-black text-slate-900 dark:text-slate-50 mb-3 text-center tracking-tighter">Pro Üyelik</Text>
-                        <Text className="text-slate-500 dark:text-slate-400 text-center mb-10 leading-6 font-medium text-[15px] px-2 opacity-80">
-                            AI Hoca'nın derinlemesine analizlerini görmek ve sana özel çalışma programlarına ulaşmak için Premium'a geç.
-                        </Text>
-
-                        <TouchableOpacity
-                            onPress={() => router.push('/premium')}
-                            className="bg-slate-900 dark:bg-indigo-600 w-full py-4.5 rounded-[22px] items-center shadow-xl shadow-slate-900/20 dark:shadow-indigo-600/30 active:scale-[0.98] transition-all"
-                        >
-                            <Text className="text-white font-black text-lg">Hemen Yükselt</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            onPress={() => router.push('/')}
-                            className="mt-8 py-2 px-6 rounded-full active:bg-slate-50 dark:active:bg-slate-800"
-                        >
-                            <Text className="text-slate-400 dark:text-slate-500 font-extrabold text-sm tracking-tight uppercase">Ana Sayfaya Dön</Text>
-                        </TouchableOpacity>
-                    </View>
+                    ...
                 </View>
-            )}
+            )} 
+            */}
         </ScreenLayout>
     );
 }

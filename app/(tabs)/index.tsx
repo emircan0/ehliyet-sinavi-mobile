@@ -200,40 +200,16 @@ export default function Home() {
 
     const handlePremiumFeature = (route: string) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        // Doğrudan yönlendir - Premium kontrolü devre dışı
+        router.push(route as any);
+        /* 
+        Original logic commented out for App Store Submission
         if (isPro) {
             router.push(route as any);
         } else {
-            // Kredi Kontrolü
-            if (credits >= 50) {
-                Alert.alert(
-                    "Premium İçerik",
-                    "Bu sınavı çözmek için 50 kredi kullanmak ister misiniz?",
-                    [
-                        { text: "Vazgeç", style: "cancel" },
-                        { 
-                            text: "50 Kredi Harca", 
-                            onPress: () => {
-                                const success = spendCredits(50);
-                                if (success) {
-                                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                                    router.push(route as any);
-                                }
-                            }
-                        }
-                    ]
-                );
-            } else {
-                Alert.alert(
-                    "Kredi Yetersiz",
-                    "Bu sınavı çözmek için 50 krediniz olmalı. Reklam izleyerek kredi kazanmak ister misiniz?",
-                    [
-                        { text: "Vazgeç", style: "cancel" },
-                        { text: "Premium Al", onPress: () => router.push('/premium') },
-                        { text: "Reklam İzle", onPress: triggerRandomAd }
-                    ]
-                );
-            }
+           ...
         }
+        */
     };
 
     const { isDarkMode, colorScheme } = useThemeMode();
@@ -260,6 +236,7 @@ export default function Home() {
 
                 {/* BİLDİRİM ZİL BUTONU VE KREDİ SKORU */}
                 <View className="flex-row items-center gap-3">
+                    {/* Kredi göstergesi App Store için gizlendi
                     {!isPro && (
                         <TouchableOpacity
                             onPress={triggerRandomAd}
@@ -268,7 +245,8 @@ export default function Home() {
                             <Text className="text-amber-700 font-black text-xs mr-1.5">🪙 {credits}</Text>
                             <Zap size={12} color="#b45309" fill="#b45309" />
                         </TouchableOpacity>
-                    )}
+                    )} 
+                    */}
                     <TouchableOpacity
                         onPress={() => setShowNotifications(true)}
                         className="w-11 h-11 bg-white dark:bg-slate-900 rounded-full items-center justify-center border border-slate-100 dark:border-slate-800 shadow-sm shadow-slate-200 dark:shadow-none active:opacity-70"
@@ -306,12 +284,15 @@ export default function Home() {
                                     Premium ₺200 yerine ₺99!
                                 </Text>
                                 <View className="flex-row items-center">
+                                    {/* 
+                                    Abonelik başvuru sürecinde gizlendi
                                     <Timer size={14} color={isDarkMode ? "#fbbf24" : "#b45309"} className="mr-1.5" />
                                     <Text className="text-amber-700 dark:text-amber-400 text-sm font-black tracking-widest uppercase">
                                         {timeLeft.hours.toString().padStart(2, '0')}:
                                         {timeLeft.minutes.toString().padStart(2, '0')}:
                                         {timeLeft.seconds.toString().padStart(2, '0')}
                                     </Text>
+                                    */}
                                 </View>
                             </View>
                             <View className="w-14 h-14 bg-amber-500 rounded-full items-center justify-center shadow-lg shadow-amber-500/40">
@@ -350,7 +331,7 @@ export default function Home() {
                             </Text>
 
                             <View className={`self-start p-1.5 pl-5 pr-1.5 rounded-full flex-row items-center shadow-lg ${!isPro ? 'bg-amber-600 shadow-amber-600/30' : 'bg-blue-600 shadow-blue-600/30'}`}>
-                                <Text className="text-white font-bold text-sm mr-4">{!isPro ? 'Premium Edin' : 'Hemen Başla'}</Text>
+                                <Text className="text-white font-bold text-sm mr-4">Hemen Başla</Text>
                                 <View className="w-8 h-8 bg-white/20 rounded-full items-center justify-center">
                                     <ChevronRight size={18} color="white" />
                                 </View>

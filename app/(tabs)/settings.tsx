@@ -192,37 +192,20 @@ export default function SettingsScreen() {
                     <ChevronRight size={20} color={isDarkMode ? "#5c5c62" : "#c7c7cc"} />
                 </TouchableOpacity>
 
+                {/* 
+                App Store başvurusu için abonelik bannerı kaldırıldı
                 {!isPro && (
                     <View className="mx-5 mt-6">
-                        <TouchableOpacity
-                            activeOpacity={0.9}
-                            onPress={() => router.push('/premium')}
-                            className="bg-[#1e1b4b] dark:bg-[#1e1b4b] rounded-[20px] p-6 overflow-hidden relative"
-                        >
-                            <View className="absolute top-0 right-0 w-32 h-32 bg-amber-500/20 rounded-full blur-3xl -mr-10 -mt-10" />
-                            <View className="flex-row items-center mb-3">
-                                <View className="bg-amber-400 p-1.5 rounded-lg mr-2">
-                                    <Crown size={16} color="#78350f" fill="#78350f" />
-                                </View>
-                                <Text className="text-amber-400 font-bold text-xs tracking-widest uppercase">PRO ÜYELİK</Text>
-                            </View>
-                            <Text className="text-white text-[22px] font-bold leading-7 mb-2">Sınırsız Soru Çöz</Text>
-                            <Text className="text-indigo-200 text-[13px] font-medium max-w-[220px] leading-5 mb-4">
-                                Reklamsız deneyim ve detaylı analizlerle sınavı ilk seferde geç.
-                            </Text>
-                            <View className="flex-row items-center justify-between">
-                                <Text className="text-white font-bold text-xl">₺49.99<Text className="text-sm font-normal text-indigo-300">/ay</Text></Text>
-                                <View className="bg-white px-5 py-2.5 rounded-full">
-                                    <Text className="text-indigo-900 font-bold text-xs">Yükselt</Text>
-                                </View>
-                            </View>
-                        </TouchableOpacity>
+                        ...
                     </View>
-                )}
+                )} 
+                */}
 
                 <SectionHeader title="Hesap" />
                 <View className="mx-5 bg-white dark:bg-slate-900 rounded-[16px] overflow-hidden border border-slate-100 dark:border-slate-800 shadow-sm dark:shadow-none">
-                    <SettingItem icon={CreditCard} label="Aboneliklerim" isLast onPress={() => router.push('/subscriptions')} />
+                    {/* <SettingItem icon={CreditCard} label="Aboneliklerim" isLast onPress={() => router.push('/subscriptions')} /> */}
+                    {/* Abone olmayanlar için bu alanın boş görünmemesi adına 'Hesap Ayarları' ekleyebiliriz */}
+                    <SettingItem icon={User} label="Profil Detayları" isLast onPress={() => router.push('/profile')} />
                 </View>
 
                 <SectionHeader title="Tercihler" />
@@ -261,7 +244,7 @@ export default function SettingsScreen() {
                 {/* Removed Logout actions per user request */}
 
                 <View className="items-center mb-8">
-                    <Text className="text-slate-400 dark:text-[#EBEBF54D] text-[13px] font-medium">Ehliyet Hocam v1.0.2</Text>
+                    <Text className="text-slate-400 dark:text-[#EBEBF54D] text-[13px] font-medium">Ehliyet Hocam v1.2.0</Text>
                 </View>
             </ScrollView>
 
