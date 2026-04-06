@@ -4,12 +4,12 @@
     "slug": "ehliyet-hocam",
     "version": "1.2.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/images/logo.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "scheme": "ehliyet-sinavi",
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/images/logo.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -27,7 +27,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/images/logo.png",
         "backgroundColor": "#ffffff"
       },
       "package": "com.ehliyet.ai.sinav",
