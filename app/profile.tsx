@@ -177,7 +177,7 @@ export default function ProfileScreen() {
                         try {
                             setIsLoading(true);
                             const { data: { user } } = await supabase.auth.getUser();
-                            
+
                             if (user) {
                                 // 1. Veritabanında pasife al (Opsiyonel/Hata alsa da devam et)
                                 try {
@@ -195,13 +195,13 @@ export default function ProfileScreen() {
 
                                 // 2. Supabase Auth'dan çıkış yap
                                 await supabase.auth.signOut();
-                                
+
                                 // 3. Yerel verileri temizle
                                 await AsyncStorage.clear();
-                                
+
                                 // 4. Login ekranına yönlendir
                                 router.replace('/auth/login');
-                                
+
                                 Alert.alert("Başarılı", "Hesabınız başarıyla silindi ve oturumunuz kapatıldı.");
                             }
                         } catch (error) {
@@ -322,13 +322,13 @@ export default function ProfileScreen() {
                                     />
                                 </View>
                                 <View className="flex-row gap-3">
-                                    <TouchableOpacity 
+                                    <TouchableOpacity
                                         onPress={() => setIsEditingProfile(false)}
                                         className="flex-1 py-3.5 rounded-xl border border-slate-200 dark:border-slate-700 items-center justify-center"
                                     >
                                         <Text className="text-slate-600 dark:text-slate-400 font-bold text-[15px]">Vazgeç</Text>
                                     </TouchableOpacity>
-                                    <TouchableOpacity 
+                                    <TouchableOpacity
                                         onPress={handleUpdateProfile}
                                         disabled={isUpdatingInfo}
                                         className={`flex-1 py-3.5 rounded-xl items-center justify-center flex-row ${isUpdatingInfo ? 'bg-blue-100 dark:bg-blue-900/50' : 'bg-blue-500 dark:bg-blue-600'}`}
@@ -409,10 +409,12 @@ export default function ProfileScreen() {
                         onPress={() => {
                             Alert.alert("Çıkış Yap", "Oturumu kapatmak istediğinize emin misiniz?", [
                                 { text: "Vazgeç", style: "cancel" },
-                                { text: "Çıkış Yap", style: "destructive", onPress: () => {
-                                    supabase.auth.signOut();
-                                    router.replace('/auth/login');
-                                }}
+                                {
+                                    text: "Çıkış Yap", style: "destructive", onPress: () => {
+                                        supabase.auth.signOut();
+                                        router.replace('/auth/login');
+                                    }
+                                }
                             ]);
                         }}
                         className="bg-white dark:bg-slate-900 p-5 rounded-2xl flex-row items-center justify-between border border-slate-100 dark:border-slate-800 shadow-sm shadow-slate-200 dark:shadow-none"
@@ -438,7 +440,7 @@ export default function ProfileScreen() {
                     >
                         <Text className="text-slate-400 dark:text-slate-500 font-bold text-[13px] underline">Cihaz Verilerini Sıfırla</Text>
                     </TouchableOpacity>
-                    
+
                     <Text className="text-slate-400 text-center text-[11px] mt-2">Sürüm 1.0.0 • Ehliyet Hocam – AI Destekli Eğitim</Text>
                 </View>
             </ScrollView>

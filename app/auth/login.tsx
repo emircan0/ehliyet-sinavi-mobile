@@ -106,7 +106,7 @@ export default function LoginScreen() {
                     console.error('Supabase Apple Auth Error:', error.message);
                     throw error;
                 }
-                
+
                 await AsyncStorage.removeItem('is_guest');
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 router.replace('/');

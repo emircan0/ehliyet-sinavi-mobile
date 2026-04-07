@@ -30,7 +30,6 @@ export const registerForPushNotificationsAsync = async (userId?: string) => {
     }
 
     if (finalStatus !== 'granted') {
-        console.log('Bildirim izni verilmedi!');
         return null;
     }
 
@@ -50,8 +49,10 @@ export const registerForPushNotificationsAsync = async (userId?: string) => {
         }
 
         if (!projectId) {
-            console.warn("DİKKAT: EAS Project ID bulunamadı. Bildirim token'ı alınamadı.");
-            console.warn("Lütfen app.json içinde 'extra.eas.projectId' alanını kontrol edin.");
+            if (__DEV__) {
+                console.warn("DİKKAT: EAS Project ID bulunamadı. Bildirim token'ı alınamadı.");
+                console.warn("Lütfen app.json içinde 'extra.eas.projectId' alanını kontrol edin.");
+            }
             return null;
         }
 
@@ -71,6 +72,7 @@ export const registerForPushNotificationsAsync = async (userId?: string) => {
         } else {
             console.error("Token alınırken hata:", e);
         }
+        return null;
     } finally {
         isRegistering = false;
     }
@@ -83,8 +85,8 @@ export const registerForPushNotificationsAsync = async (userId?: string) => {
  */
 export async function savePushToken(userId: string, token: string) {
     const { error } = await supabase
-        .from('profiles') // Supabase'deki kullanıcı tablonuzun adı
-        .update({ expo_push_token: token }) // Supabase tablonuzdaki sütun adı
+        .from('profiles')
+        .update({ expo_push_token: token })
         .eq('id', userId);
 
     if (error) {

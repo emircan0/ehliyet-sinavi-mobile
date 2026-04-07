@@ -11,6 +11,8 @@ import "../global.css";
 import { useThemeMode } from "../src/hooks/useThemeMode";
 import { useSettingsStore } from "../src/store/useSettingsStore";
 
+import GlobalErrorBoundary from "../src/components/GlobalErrorBoundary";
+
 export default function RootLayout() {
     // 1. Global Hooks & Store Access
     const addNotification = useNotificationStore(state => state.addNotification);
@@ -57,8 +59,9 @@ export default function RootLayout() {
     }, []);
 
     return (
-        <GestureHandlerRootView style={{ flex: 1 }}>
-            <SafeAreaProvider>
+        <GlobalErrorBoundary>
+            <GestureHandlerRootView style={{ flex: 1 }}>
+                <SafeAreaProvider>
                 <Stack
                     screenOptions={{
                         headerShown: false,
@@ -74,7 +77,8 @@ export default function RootLayout() {
                     <Stack.Screen name="quiz/[id]" options={{ gestureEnabled: false }} />
                 </Stack>
                 <Toast />
-            </SafeAreaProvider>
-        </GestureHandlerRootView>
+                </SafeAreaProvider>
+            </GestureHandlerRootView>
+        </GlobalErrorBoundary>
     );
 }

@@ -19,7 +19,7 @@ export const ScreenLayout = ({
     backgroundColor = "bg-base",
 }: ScreenLayoutProps) => {
     const { isDarkMode, colorScheme } = useThemeMode();
-    
+
     // Determine status bar color from theme
     const statusBarBg = isDarkMode ? "#020617" : "#F8FAFC";
 
@@ -28,12 +28,12 @@ export const ScreenLayout = ({
             className={cn("flex-1", isDarkMode ? "bg-slate-950" : "bg-slate-50", className)}
             style={style}
         >
-            <StatusBar 
-                barStyle={isDarkMode ? "light-content" : "dark-content"} 
-                backgroundColor={statusBarBg} 
+            <StatusBar
+                barStyle={isDarkMode ? "light-content" : "dark-content"}
+                backgroundColor={statusBarBg}
                 translucent={Platform.OS === 'android'}
             />
-            <View className="flex-1 w-full max-w-md mx-auto">
+            <View className="flex-1 w-full">
                 {children}
             </View>
         </SafeAreaView>

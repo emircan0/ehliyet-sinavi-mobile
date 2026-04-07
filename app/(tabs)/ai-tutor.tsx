@@ -1,41 +1,38 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, Animated } from 'react-native';
-import { BrainCircuit, Sparkles, Target, BookOpen, ChevronRight, MessageSquare, Lightbulb, TrendingDown, Lock, Zap } from 'lucide-react-native';
+import { BrainCircuit, Sparkles, Target, BookOpen, ChevronRight, MessageSquare, Lightbulb, TrendingDown, Lock, Zap, Award, Activity, Calendar, Share2, Info } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ScreenLayout } from '../../src/components/ScreenLayout';
-import { fetchWeakTopics } from '../../src/api/queries';
+import { fetchAdvancedMasteryData } from '../../src/api/queries';
 import { supabase } from '../../src/api/supabase';
 import { useRouter } from 'expo-router';
 import { useSubscriptionStore } from '../../src/store/useSubscriptionStore';
 import { useThemeMode } from '../../src/hooks/useThemeMode';
+import { MasteryCard } from '../../src/components/quiz/MasteryCard';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 
 export default function AITutorScreen() {
     const router = useRouter();
-    const isPro = useSubscriptionStore(state => state.isPro);
     const [loading, setLoading] = useState(true);
-    const [weakTopics, setWeakTopics] = useState<{ name: string, count: number }[]>([]);
+    const [masteryData, setMasteryData] = useState<any[]>([]);
     const [preferences, setPreferences] = useState<Record<string, string>>({});
 
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
-    const categories = [
-        { id: 'trafik', name: 'Trafik ve Çevre' },
-        { id: 'ilkyardim', name: 'İlk Yardım' },
-        { id: 'motor', name: 'Araç Tekniği' },
-        { id: 'adap', name: 'Trafik Adabı' },
-    ];
-
-    const getCategoryName = (topicId: string) => {
-        const cat = categories.find(c => c.id === topicId.toLowerCase());
-        return cat ? cat.name : topicId.replace('-', ' ');
+    const categoriesMap: Record<string, string> = {
+        'trafik': 'Trafik ve Çevre',
+        'ilkyardim': 'İlk Yardım',
+        'motor': 'Araç Tekniği',
+        'adap': 'Trafik Adabı',
     };
 
     useEffect(() => {
         const getAnalysis = async () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
-                const topics = await fetchWeakTopics(user.id);
-                setWeakTopics(topics);
+                const data = await fetchAdvancedMasteryData(user.id);
+                setMasteryData(data);
 
                 Animated.timing(fadeAnim, {
                     toValue: 1,
@@ -44,7 +41,6 @@ export default function AITutorScreen() {
                 }).start();
             }
 
-            // Müşteri Tercihlerini Çek
             const prefsData = await AsyncStorage.getItem('user_preferences');
             if (prefsData) {
                 setPreferences(JSON.parse(prefsData));
@@ -55,64 +51,86 @@ export default function AITutorScreen() {
         getAnalysis();
     }, [fadeAnim]);
 
-    // GÖREV ALGORİTMASI
-    const getDynamicTask = () => {
-        // Öncelik 1: Sınava çok az kalmış (Urgent) - Pratik ve hız şart.
+    // --- PROFESYONEL GÖREV ALGORİTMASI ---
+    const getProfessionalTask = () => {
+        // En zayıf konu (En düşük mastery score)
+        const weakest = masteryData[0];
+        
+        // 1. ACİL DURUM (Sınav Yakın)
         if (preferences.exam_date === 'urgent') {
             return {
-                title: "Yoğun Antrenman: Gerçek Sınav Modu",
-                desc: "Sınavına çok az kaldı! Hızlanmak ve sınav stresini atmak için bir an önce 50 soruluk genel deneme çözmelisin.",
+                title: "Simülasyon Aktif: Sınav Provası",
+                desc: "Sınav vaktin geldi! AI Hoca şu an konu çalışmanı değil, gerçek süre baskısı altında 50 soruluk tam deneme çözmeni öneriyor.",
                 route: "/quiz/general",
-                btnText: "Denemelere Başla",
+                btnText: "Simülasyonu Başlat",
                 icon: Zap,
                 bgColor: "bg-orange-600",
                 textColor: "text-orange-600",
                 shadow: "shadow-orange-200"
             };
         }
-        
-        // Öncelik 2: Hata Sayısı Fazla (Eksikler var) - Önce hataları temizlemeli.
-        if (weakTopics.length > 0 && weakTopics[0].count >= 3) {
+
+        // 2. KRİTİK EKSİK (Düşük Başarı + Yeterli Soru)
+        if (weakest && weakest.masteryScore < 60 && weakest.totalAttempts >= 5) {
             return {
-                title: "Kritik Eksikleri Temizle",
-                desc: `Özellikle ${getCategoryName(weakTopics[0].name)} konusunda çok hatan var. Yeni konulara geçmeden zayıf noktalarını kapatalım.`,
+                title: `${categoriesMap[weakest.name] || weakest.name} Atölyesi`,
+                desc: `Bu konuda %${weakest.masteryScore} başarıyla kritik eşiktesin. Yapay zeka senin için bu konudaki hatalarından özel bir telafi testi hazırladı.`,
                 route: "/quiz/mistakes",
-                btnText: "Hataları Kapat",
+                btnText: "Eksikleri Kapat",
                 icon: TrendingDown,
-                bgColor: "bg-red-600",
-                textColor: "text-red-600",
-                shadow: "shadow-red-200"
+                bgColor: "bg-rose-600",
+                textColor: "text-rose-600",
+                shadow: "shadow-rose-200"
             };
         }
 
-        // Öncelik 3: Normal Zaman (Günde X dk) - İstikrar.
-        if (preferences.exam_date === 'normal') {
+        // 3. GÜVEN TESTİ (Yüksek Başarı ama Düşük Soru Sayısı)
+        const lowDataTopic = masteryData.find((m: any) => m.totalAttempts < 5);
+        if (lowDataTopic) {
             return {
-                title: `Günlük Hedef: ${preferences.daily_goal || '20'} Dakika`,
-                desc: "Sınava hazırlanmak için harika bir vakit. Hedefine sadık kalarak rastgele sorularla kendini zinde tut.",
-                route: "/quiz/quick",
-                btnText: "Günün Testini Çöz",
+                title: "Veri Doğrulama: Güven Testi",
+                desc: `${categoriesMap[lowDataTopic.name] || lowDataTopic.name} konusunda henüz verimiz az. AI Koç'un senin gerçek seviyeni belirlemesi için 10 soru daha çözmelisin.`,
+                route: `/quiz/${lowDataTopic.name}`,
+                btnText: "Seviyemi Kanıtla",
                 icon: Target,
-                bgColor: "bg-indigo-600",
-                textColor: "text-indigo-600",
-                shadow: "shadow-indigo-200"
+                bgColor: "bg-blue-600",
+                textColor: "text-blue-600",
+                shadow: "shadow-blue-200"
             };
         }
 
-        // Öncelik 4: Varsayılan (Rahat program veya onbarding bitirilmemişse) - Sıkılmaması için minimal efor.
+        // 4. PASLANMA KONTROLÜ (Uzun zamandır çözülmeyen konu)
+        const oldest = [...masteryData].sort((a,b) => new Date(a.lastSolved).getTime() - new Date(b.lastSolved).getTime())[0];
+        if (oldest) {
+            const daysSince = Math.floor((new Date().getTime() - new Date(oldest.lastSolved).getTime()) / (1000 * 60 * 60 * 24));
+            if (daysSince >= 3) {
+                return {
+                    title: "Hafıza Yenileme: Pas Silme",
+                    desc: `${categoriesMap[oldest.name] || oldest.name} konusunu en son ${daysSince} gün önce çözdün. UNUTMA EĞRİSİ başlamadan hızlı bir tekrar yapalım.`,
+                    route: `/quiz/${oldest.name}`,
+                    btnText: "Hemen Hatırla",
+                    icon: Activity,
+                    bgColor: "bg-amber-600",
+                    textColor: "text-amber-600",
+                    shadow: "shadow-amber-200"
+                };
+            }
+        }
+
+        // 5. VARSAYILAN (Hızlı Pratik)
         return {
-            title: "Temel Atma: Mini Tekrar",
-            desc: "Erkenden çalışman çok iyi. Sadece 1 adet mini test (10 soru) çözerek günü rahatça kapatabilirsin.",
+            title: "Nöral Kondisyon: Günlük Pratik",
+            desc: "Her şey kontrol altında! Zihnini zinde tutmak ve reflekslerini geliştirmek için karışık bir hızlı pratik testi çözelim.",
             route: "/quiz/quick",
-            btnText: "Mini Test Çöz",
-            icon: BookOpen,
-            bgColor: "bg-emerald-600",
-            textColor: "text-emerald-600",
-            shadow: "shadow-emerald-200"
+            btnText: "Antrenmana Başla",
+            icon: BrainCircuit,
+            bgColor: "bg-indigo-600",
+            textColor: "text-indigo-600",
+            shadow: "shadow-indigo-200"
         };
     };
 
-    const task = getDynamicTask();
+    const task = getProfessionalTask();
     const TaskIcon = task.icon;
 
     const { isDarkMode, colorScheme } = useThemeMode();
@@ -154,9 +172,13 @@ export default function AITutorScreen() {
                             <Text className="text-indigo-300 text-[10px] font-black ml-2 uppercase tracking-widest">Hoca'nın Değerlendirmesi</Text>
                         </View>
                         <Text className="text-slate-100 dark:text-slate-200 text-[15px] font-medium leading-6">
-                            {weakTopics.length > 0
-                                ? `Merhaba! Verilerini analiz ettim. Özellikle "${getCategoryName(weakTopics[0].name)}" konusunda yoğunlaşmamız gerekiyor. Bu alanı düzelttiğimizde başarı oranın %15 artabilir. 🚀`
-                                : "Harika gidiyorsun! Şu an için kritik bir zayıf noktanı tespit edemedim. MEB müfredatındaki başarını korumak için denemelere devam et!"}
+                            {masteryData.length > 0
+                                ? (masteryData[0].masteryScore < 60
+                                    ? `Merhaba! Verilerini analiz ettim. Özellikle "${categoriesMap[masteryData[0].name] || masteryData[0].name}" konusunda derinleşmemiz gerekiyor. Başarı oranını %85 üzerine taşımalıyız. 🚀`
+                                    : masteryData[0].trend === 'declining'
+                                        ? "Bugün biraz yorgun gibisin, son testlerinde hafif bir düşüş sezdim. Ama moral bozmak yok, toparlayacağız! 💪"
+                                        : "Mükemmel gidiyorsun! Uzmanlık seviyen genel ortalamanın üzerinde. Şimdi bu başarıyı korumaya odaklanalım! 🏆")
+                                : "Harika bir başlangıç için her şey hazır! Şu an verilerini topluyorum. Birkaç test çözdüğünde sana özel ilk analizini buraya bırakacağım."}
                         </Text>
                     </View>
                 </View>
@@ -165,39 +187,24 @@ export default function AITutorScreen() {
                 <View className="px-6 mb-8">
                     <View className="flex-row justify-between items-end mb-5 px-1">
                         <Text className="text-slate-900 dark:text-slate-50 font-black text-xl tracking-tight">Kritik Eksikler</Text>
-                        <Text className="text-slate-400 dark:text-slate-500 font-bold text-xs uppercase tracking-widest">Hata Analizi</Text>
+                        <Text className="text-slate-400 dark:text-slate-500 font-bold text-xs uppercase tracking-widest">Mastery Analizi</Text>
                     </View>
 
-                    {weakTopics.length > 0 ? (
-                        weakTopics.map((topic, index) => (
-                            <TouchableOpacity
-                                key={index}
-                                activeOpacity={0.8}
-                                className="bg-white dark:bg-slate-900 p-5 rounded-[28px] border border-slate-100 dark:border-slate-800 shadow-sm shadow-slate-200/40 dark:shadow-none mb-4 flex-row items-center"
-                            >
-                                <View className={`w-12 h-12 rounded-2xl items-center justify-center mr-4 ${index === 0 ? 'bg-red-50 dark:bg-red-900/20' : 'bg-orange-50 dark:bg-orange-900/20'}`}>
-                                    <TrendingDown size={24} color={index === 0 ? '#ef4444' : '#f97316'} />
-                                </View>
-
-                                <View className="flex-1">
-                                    <View className="flex-row justify-between items-center mb-2">
-                                        <Text className="text-slate-900 dark:text-slate-50 font-bold text-[15px] capitalize">{getCategoryName(topic.name)}</Text>
-                                        <Text className={`${index === 0 ? 'text-red-500' : 'text-orange-500'} font-black text-xs`}>{topic.count} Hata</Text>
-                                    </View>
-                                    <View className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                        <View
-                                            className={`h-full ${index === 0 ? 'bg-red-500' : 'bg-orange-400'}`}
-                                            style={{ width: `${Math.max(100 - (topic.count * 10), 20)}%` }}
-                                        />
-                                    </View>
-                                </View>
-                                <ChevronRight size={18} color="#94a3b8" className="ml-3" />
-                            </TouchableOpacity>
+                    {masteryData.length > 0 ? (
+                        masteryData.map((data, index) => (
+                            <MasteryCard 
+                                key={index} 
+                                data={data} 
+                                onPress={() => {
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                    router.push(`/quiz/${data.name}` as any);
+                                }} 
+                            />
                         ))
                     ) : (
                         <View className="bg-white dark:bg-slate-900 p-10 rounded-[32px] items-center border border-dashed border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none">
                             <Target size={48} color={isDarkMode ? "#1e293b" : "#e2e8f0"} />
-                            <Text className="text-slate-400 dark:text-slate-500 text-center font-bold mt-4 text-sm tracking-tight px-4 leading-5">Analiz edilecek veri birikiyor... Test çözmeye başla!</Text>
+                            <Text className="text-slate-400 dark:text-slate-500 text-center font-bold mt-4 text-sm tracking-tight px-4 leading-5">Akıllı analiz sistemi veri biriktiriyor... Test çözmeye başlayarak AI Hoca'yı eğitebilirsin!</Text>
                         </View>
                     )}
                 </View>

@@ -1,11 +1,11 @@
 import { supabase } from './supabase';
+import { globalHandleError } from '../utils/errorHandler';
 
 /**
  * Merkezi API Hata Yönetimi - Olası ağ koptu vb. durumlarda kullanılır
  */
 export const handleApiError = (context: string, error: any, fallbackValue: any) => {
-    console.error(`🔴 [API ERROR] ${context}:`, error?.message || error);
-    // TODO: İlerde burası Sentry, LogRocket veya Toast Messages entegrasyonu için harika bir merkezdir.
+    globalHandleError(context, error);
     return fallbackValue;
 };
 
@@ -342,8 +342,6 @@ export const fetchExamsWithProgress = async (userId: string) => {
 
 export const fetchQuestionsByExamId = async (examId: string) => {
     try {
-        console.log(`[DEBUG] ${examId} ID'li sınavın soruları aranıyor...`);
-
         const { data, error } = await supabase
             .from('exam_questions')
             .select(`
@@ -354,12 +352,10 @@ export const fetchQuestionsByExamId = async (examId: string) => {
             .order('order_number', { ascending: true });
 
         if (error) {
-            console.error('[DEBUG] Supabase Çekme Hatası:', error);
             throw error;
         }
 
         if (!data || data.length === 0) {
-            console.log('[DEBUG] Bu sınava ait exam_questions tablosunda hiçbir kayıt bulunamadı!');
             return [];
         }
 
@@ -370,7 +366,6 @@ export const fetchQuestionsByExamId = async (examId: string) => {
             return questionData;
         }).filter(q => q !== null && q !== undefined); // Eğer silinmiş bir soru varsa listeden çıkar
 
-        console.log(`[DEBUG] Başarıyla ${formattedData.length} adet soru formatlandı ve ekrana gönderiliyor.`);
         return formattedData;
 
     } catch (error) {
@@ -493,6 +488,73 @@ export const fetchWeakTopics = async (userId: string) => {
 
     } catch (error) {
         return handleApiError('fetchWeakTopics', error, []);
+    }
+};
+
+/**
+ * --- PROFESYONEL ANALİZ SORGUSU ---
+ * Kullanıcının konu bazlı uzmanlık verilerini, başarı oranlarını ve gelişim trendlerini döner.
+ */
+export const fetchAdvancedMasteryData = async (userId: string) => {
+    try {
+        const { data, error } = await supabase
+            .from('user_answers')
+            .select(`
+                is_correct,
+                solved_at,
+                questions!inner(category)
+            `)
+            .eq('user_id', userId)
+            .order('solved_at', { ascending: false });
+
+        if (error) throw error;
+        if (!data || data.length === 0) return [];
+
+        const masteryMap: Record<string, {
+            correct: number;
+            total: number;
+            lastSolved: string;
+            recentCorrect: number; // Son 5 sorudaki başarısı (trend analizi için)
+            recentTotal: number;
+        }> = {};
+
+        data.forEach((item: any) => {
+            const category = Array.isArray(item.questions) ? item.questions[0]?.category : item.questions?.category;
+            if (!category) return;
+
+            if (!masteryMap[category]) {
+                masteryMap[category] = { correct: 0, total: 0, lastSolved: item.solved_at, recentCorrect: 0, recentTotal: 0 };
+            }
+
+            if (item.is_correct) masteryMap[category].correct += 1;
+            masteryMap[category].total += 1;
+
+            // Trend analizi: Kategorideki son 5 soruyu incele
+            if (masteryMap[category].recentTotal < 5) {
+                if (item.is_correct) masteryMap[category].recentCorrect += 1;
+                masteryMap[category].recentTotal += 1;
+            }
+        });
+
+        // Veriyi AI Hoca'nın anlayacağı profesyonel formata çevir
+        return Object.keys(masteryMap).map(category => {
+            const stats = masteryMap[category];
+            const score = Math.round((stats.correct / stats.total) * 100);
+            const recentScore = Math.round((stats.recentCorrect / stats.recentTotal) * 100);
+
+            return {
+                name: category,
+                totalAttempts: stats.total,
+                masteryScore: score,
+                recentScore: recentScore,
+                lastSolved: stats.lastSolved,
+                trend: recentScore >= score ? 'improving' : 'declining',
+                status: score >= 85 && stats.total >= 10 ? 'expert' : (score >= 60 ? 'learning' : 'critical')
+            };
+        }).sort((a, b) => a.masteryScore - b.masteryScore); // En zayıf konular en üstte
+
+    } catch (error) {
+        return handleApiError('fetchAdvancedMasteryData', error, []);
     }
 };
 

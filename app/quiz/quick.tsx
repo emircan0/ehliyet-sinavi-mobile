@@ -6,6 +6,7 @@ import { ScreenLayout } from '../../src/components/ScreenLayout';
 import { fetchQuickPracticeQuestions } from '../../src/api/queries';
 import { supabase } from '../../src/api/supabase';
 import { useThemeMode } from '../../src/hooks/useThemeMode';
+import { QuestionImage } from '../../src/components/quiz/QuestionImage';
 
 export default function QuickPracticeScreen() {
     const router = useRouter();
@@ -174,6 +175,7 @@ export default function QuickPracticeScreen() {
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 24, paddingBottom: 100 }}>
 
                 <View className="mb-8">
+                    <QuestionImage imageUrl={currentQuestion?.image_url} />
                     <Text className="text-slate-900 dark:text-slate-50 text-xl font-bold leading-8">
                         {currentQuestion?.content}
                     </Text>

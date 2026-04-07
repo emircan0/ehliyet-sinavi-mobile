@@ -14,7 +14,6 @@ export function useQuiz() {
             resetQuiz();
 
             const questionsData = await fetchQuickPracticeQuestions(userId);
-            console.log('Fetched questions:', questionsData);
             setQuestions(questionsData);
         } catch (err) {
             console.error(err);
@@ -53,7 +52,10 @@ export function useQuiz() {
                 selectedAnswers
             );
         } catch (err) {
-            console.error("Error saving result", err);
+            console.error(err);
+            setError('Sorular yüklenirken bir hata oluştu.');
+        } finally {
+            return false;
         }
 
         return { score, correct, wrong };

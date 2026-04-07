@@ -42,17 +42,14 @@ export const useSubscriptionStore = create<SubscriptionState>()(
                 */
             },
             checkSubscriptionStatus: () => {
-                /* Abonelik kontrolü geçici olarak devre dışı
                 const { isPro, proExpiryDate } = get();
                 if (isPro && proExpiryDate) {
                     const now = new Date();
                     const expiry = new Date(proExpiryDate);
                     if (now > expiry) {
                         set({ isPro: false, proExpiryDate: null });
-                        console.log("Subscription expired!");
                     }
                 }
-                */
             },
             restorePurchases: async () => {
                 // Mock restore logic - assuming Yearly for restore if not specified

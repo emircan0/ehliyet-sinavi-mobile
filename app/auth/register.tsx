@@ -21,11 +21,11 @@ import * as Haptics from 'expo-haptics';
 import { BlurView } from 'expo-blur';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Animated, { 
-    useSharedValue, 
-    useAnimatedStyle, 
-    withSequence, 
-    withTiming, 
+import Animated, {
+    useSharedValue,
+    useAnimatedStyle,
+    withSequence,
+    withTiming,
     withRepeat,
     FadeInDown,
     FadeInUp
@@ -80,14 +80,14 @@ export default function RegisterScreen() {
         setIsLoading(true);
         try {
             const { data, error }: any = await supabase.auth.signUp({
-                    email: trimmedEmail,
-                    password: trimmedPassword,
-                    options: {
-                        data: {
-                            full_name: trimmedFullName,
-                        }
+                email: trimmedEmail,
+                password: trimmedPassword,
+                options: {
+                    data: {
+                        full_name: trimmedFullName,
                     }
-                });
+                }
+            });
 
             if (error) {
                 console.error('Kayıt Hatası:', error.message);
@@ -134,7 +134,7 @@ export default function RegisterScreen() {
                     console.error('Supabase Apple Auth Error:', error.message);
                     throw error;
                 }
-                
+
                 await AsyncStorage.removeItem('is_guest');
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 router.replace('/');
@@ -154,9 +154,9 @@ export default function RegisterScreen() {
     return (
         <View style={styles.container}>
             <StatusBar style="light" />
-            
-            <ImageBackground 
-                source={require('../../assets/images/driving-bg.png')} 
+
+            <ImageBackground
+                source={require('../../assets/images/driving-bg.png')}
                 style={styles.backgroundImage}
                 resizeMode="cover"
             >
@@ -171,7 +171,7 @@ export default function RegisterScreen() {
                         >
                             {/* --- Üst Kısım --- */}
                             <Animated.View entering={FadeInUp.delay(100)} className="mb-4">
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     onPress={() => router.back()}
                                     activeOpacity={0.7}
                                     className="w-10 h-10 rounded-full bg-white/10 items-center justify-center border border-white/20"
@@ -181,7 +181,7 @@ export default function RegisterScreen() {
                             </Animated.View>
 
                             {/* --- Kayıt Kartı --- */}
-                            <Animated.View 
+                            <Animated.View
                                 entering={FadeInDown.springify().damping(20).stiffness(90)}
                                 style={animatedStyle}
                                 className="w-full rounded-[32px] overflow-hidden border border-white/20 shadow-2xl shadow-black"

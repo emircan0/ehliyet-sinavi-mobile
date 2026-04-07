@@ -23,6 +23,7 @@ import {
 import { useQuizStore } from '../../src/store/useQuizStore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { QuestionImage } from '../../src/components/quiz/QuestionImage';
 
 export default function QuizScreen() {
     const { id } = useLocalSearchParams();
@@ -60,8 +61,6 @@ export default function QuizScreen() {
                 let data = [];
                 const idString = id as string;
 
-                console.log(`[DEBUG] Aranacak ID veya Kategori: ${idString}`);
-
                 const isNumeric = /^\d+$/.test(idString);
                 const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idString);
 
@@ -96,13 +95,13 @@ export default function QuizScreen() {
                             const parsed = JSON.parse(savedState);
                             restoreQuizState(parsed.answers || [], parsed.index || 0);
                         }
-                    } catch (e) {
-                        console.log("[DEBUG] Kayıtlı oturum okunamadı", e);
+                    } catch (error) {
+                        console.error("Kritik Hata Oluştu:", error);
+                        setIsLoading(false);
                     }
 
                 }
             } catch (error) {
-                console.error("[DEBUG] Kiritik Hata Oluştu:", error);
                 Alert.alert('Hata', 'Sorular yüklenirken bir sorun oluştu.');
             } finally {
                 setIsLoading(false);
@@ -329,11 +328,7 @@ export default function QuizScreen() {
 
             <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
                 <View className="px-6 py-8">
-                    {currentQuestion.image_url && (
-                        <View className="w-full h-48 bg-slate-50 dark:bg-slate-800 rounded-3xl mb-6 items-center justify-center border border-slate-100 dark:border-slate-800">
-                            <Sparkles size={32} color="#cbd5e1" />
-                        </View>
-                    )}
+                    <QuestionImage imageUrl={currentQuestion.image_url} />
                     <Text className="text-xl font-black text-slate-900 dark:text-slate-50 leading-8">
                         {currentQuestion.content}
                     </Text>
