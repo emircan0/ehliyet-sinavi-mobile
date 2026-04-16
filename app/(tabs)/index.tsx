@@ -2,7 +2,11 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StatusBar, RefreshControl, Modal, Alert } from 'react-native';
 import { useRouter, router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
+// import * as Notifications from 'expo-notifications'; // Expo Go'da çökmeyi önlemek için kaldırıldı
+
+const isExpoGo = Constants.appOwnership === 'expo';
+const Notifications = !isExpoGo ? require('expo-notifications') : null;
 import {
     Play, Car, Heart, ShieldAlert, GraduationCap,
     Bell, ChevronRight, Sparkles, Zap,
@@ -116,34 +120,40 @@ export default function Home() {
         }
 
         // 1. Uygulama Açıkken (Foreground) Bildirim Geldiğinde
-        notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
-            const title = notification.request.content.title || 'Yeni Bildirim';
-            const message = notification.request.content.body || '';
-            const data = notification.request.content.data;
+        if (!isExpoGo && Notifications) {
+            notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
+                const title = notification.request.content.title || 'Yeni Bildirim';
+                const message = notification.request.content.body || '';
+                const data = notification.request.content.data;
 
-            // Store'a ekle
-            addNotification({
-                title,
-                message,
-                type: (data?.type as NotificationType) || 'info',
-                data: data
+                // Store'a ekle
+                addNotification({
+                    title,
+                    message,
+                    type: (data?.type as NotificationType) || 'info',
+                    data: data
+                });
             });
-        });
 
-        // 2. Kullanıcı Bildirime Tıkladığında (Arka plan / Kapalıyken)
-        responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
-            const data = response.notification.request.content.data;
-            // Bildirime tıklanıp uygulamaya girildiyse, route bilgisi varsa oraya yönlendir
-            if (data?.route) {
-                router.push(data.route as any);
-            } else {
-                setShowNotifications(true);
-            }
-        });
+            // 2. Kullanıcı Bildirime Tıkladığında (Arka plan / Kapalıyken)
+            responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+                const data = response.notification.request.content.data;
+                // Bildirime tıklanıp uygulamaya girildiyse, route bilgisi varsa oraya yönlendir
+                if (data?.route) {
+                    router.push(data.route as any);
+                } else {
+                    setShowNotifications(true);
+                }
+            });
+        }
 
         return () => {
-            if (notificationListener.current) notificationListener.current.remove();
-            if (responseListener.current) responseListener.current.remove();
+            if (notificationListener.current) {
+                !isExpoGo && Notifications?.removeNotificationSubscription(notificationListener.current);
+            }
+            if (responseListener.current) {
+                !isExpoGo && Notifications?.removeNotificationSubscription(responseListener.current);
+            }
         };
     }, [user]);
 

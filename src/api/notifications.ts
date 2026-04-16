@@ -1,22 +1,36 @@
-import * as Notifications from 'expo-notifications';
+// import * as Notifications from 'expo-notifications'; // Expo Go'da çökmeyi önlemek için kaldırıldı
+import type { NotificationTriggerInput } from 'expo-notifications';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { supabase } from './supabase';
 
-Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldSetBadge: true, // İkon üzerinde kırmızı sayı görünsün
-        shouldShowBanner: true,
-        shouldShowList: true,
-    }),
-});
+const isExpoGo = Constants.appOwnership === 'expo';
+const Notifications: any = !isExpoGo ? require('expo-notifications') : null;
+
+if (Notifications) {
+    try {
+        Notifications.setNotificationHandler({
+            handleNotification: async () => ({
+                shouldShowAlert: true,
+                shouldPlaySound: true,
+                shouldSetBadge: true, // İkon üzerinde kırmızı sayı görünsün
+                shouldShowBanner: true,
+                shouldShowList: true,
+            }),
+        });
+    } catch (e) {
+        console.warn('Notification handler setup failed:', e);
+    }
+}
 
 // 1. Bildirim İzni Al ve Token'ı Supabase'e Kaydet
 let isRegistering = false;
 
 export const registerForPushNotificationsAsync = async (userId?: string) => {
+    if (isExpoGo || !Notifications) {
+        if (__DEV__) console.log("expo-notifications: Expo Go platformu üzerinden bildirim kaydı yapılamaz.");
+        return null;
+    }
     if (isRegistering) return null;
     isRegistering = true;
 
@@ -98,14 +112,20 @@ export async function savePushToken(userId: string, token: string) {
 
 // 2. Anlık Bildirim Gönder (Örn: Sınav bitince tetiklemek için)
 export async function sendImmediateNotification(title: string, body: string, data = {}) {
-    await Notifications.scheduleNotificationAsync({
-        content: { title, body, data },
-        trigger: null,
-    });
+    if (isExpoGo || !Notifications) return;
+    try {
+        await Notifications.scheduleNotificationAsync({
+            content: { title, body, data },
+            trigger: null,
+        });
+    } catch (e) {
+        console.error('Immediate notification failed:', e);
+    }
 }
 
 // 3. Günlük Hatırlatıcı Planla
 export async function scheduleDailyReminder(hour: number, minute: number) {
+    if (isExpoGo || !Notifications) return false;
     try {
         // Önce eskileri temizle
         await cancelAllReminders();
@@ -129,7 +149,7 @@ export async function scheduleDailyReminder(hour: number, minute: number) {
                 minute,
                 repeats: true,
                 type: 'calendar',
-            } as Notifications.NotificationTriggerInput,
+            } as NotificationTriggerInput,
         });
         return true;
     } catch (e) {
@@ -139,5 +159,6 @@ export async function scheduleDailyReminder(hour: number, minute: number) {
 }
 
 export async function cancelAllReminders() {
+    if (isExpoGo || !Notifications) return;
     await Notifications.cancelAllScheduledNotificationsAsync();
 }

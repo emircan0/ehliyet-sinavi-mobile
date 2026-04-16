@@ -3,7 +3,9 @@ import { Stack, router } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import Toast from 'react-native-toast-message';
-import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
+import type { Notification, NotificationResponse } from 'expo-notifications';
+// import * as Notifications from 'expo-notifications'; // Expo Go'da çökmeyi önlemek için kaldırıldı
 import { useNetworkStatus } from "../src/hooks/useNetworkStatus";
 import { useNotificationStore } from "../src/store/useNotificationStore";
 import "../global.css";
@@ -46,9 +48,13 @@ export default function RootLayout() {
 
     // 3. Notification Listeners 
     useEffect(() => {
-        let isMounted = true;
+        const isExpoGo = Constants.appOwnership === 'expo';
+        if (isExpoGo) return;
 
-        const receivedSubscription = Notifications.addNotificationReceivedListener(notification => {
+        let isMounted = true;
+        const Notifications = require('expo-notifications');
+
+        const receivedSubscription = Notifications.addNotificationReceivedListener((notification: Notification) => {
             if (isMounted) {
                 addNotification({
                     title: notification.request.content.title || 'Yeni Bildirim',
@@ -59,7 +65,7 @@ export default function RootLayout() {
             }
         });
 
-        const responseSubscription = Notifications.addNotificationResponseReceivedListener(response => {
+        const responseSubscription = Notifications.addNotificationResponseReceivedListener((response: NotificationResponse) => {
             const data = response.notification.request.content.data;
             if (data?.route && typeof data.route === 'string') {
                 router.push(data.route as any);
