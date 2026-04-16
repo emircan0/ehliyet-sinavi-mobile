@@ -7,14 +7,62 @@ import { useSubscriptionStore } from '../src/store/useSubscriptionStore';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
+import { purchaseService } from '../src/services/purchaseService';
+import { Alert, ActivityIndicator } from 'react-native';
+import Purchases from 'react-native-purchases';
 
 const { width } = Dimensions.get('window');
 
 export default function PremiumScreen() {
     const router = useRouter();
     const setPro = useSubscriptionStore(state => state.setPro);
-    const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('yearly');
+    const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'lifetime'>('lifetime');
     const [timeLeft, setTimeLeft] = useState<{ hours: number, minutes: number, seconds: number } | null>(null);
+    const [isPurchasing, setIsPurchasing] = useState(false);
+    const [plans, setPlans] = useState({
+        monthly: { price: "99", decimals: ",90", oldPrice: "₺149", text: "Aylık", identifier: "" },
+        lifetime: { price: "990", decimals: ",00", oldPrice: "₺2500", text: "Ömür Boyu Erişim (Sınırsız)", identifier: "" }
+    });
+
+    useEffect(() => {
+        const fetchPackages = async () => {
+            try {
+                const offerings = await Purchases.getOfferings();
+                if (offerings.current && offerings.current.availablePackages.length > 0) {
+                    const availablePackages = offerings.current.availablePackages;
+                    
+                    const newPlans = { ...plans };
+                    
+                    // Map Monthly
+                    const monthlyPkg = availablePackages.find(p => p.packageType === Purchases.PACKAGE_TYPE.MONTHLY);
+                    if (monthlyPkg) {
+                        const { priceString } = monthlyPkg.product;
+                        const parts = priceString.match(/(\d+)(,\d+)?/);
+                        if (parts) {
+                            newPlans.monthly.price = parts[1];
+                            newPlans.monthly.decimals = parts[2] || "";
+                        }
+                    }
+
+                    // Map Lifetime / Annual (User wants Lifetime)
+                    const lifetimePkg = availablePackages.find(p => p.packageType === Purchases.PACKAGE_TYPE.LIFETIME || p.packageType === Purchases.PACKAGE_TYPE.ANNUAL);
+                    if (lifetimePkg) {
+                        const { priceString } = lifetimePkg.product;
+                        const parts = priceString.match(/(\d+)(,\d+)?/);
+                        if (parts) {
+                            newPlans.lifetime.price = parts[1];
+                            newPlans.lifetime.decimals = parts[2] || "";
+                        }
+                    }
+                    
+                    setPlans(newPlans);
+                }
+            } catch (e) {
+                console.error("Error fetching offerings:", e);
+            }
+        };
+        fetchPackages();
+    }, []);
 
     const scaleAnim = new Animated.Value(1);
 
@@ -59,11 +107,23 @@ export default function PremiumScreen() {
         initTimer();
     }, []);
 
-    const handlePurchase = () => {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        const duration = selectedPlan === 'monthly' ? 30 : 365;
-        setPro(true, duration);
-        router.replace('/(tabs)');
+    const handlePurchase = async () => {
+        try {
+            setIsPurchasing(true);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            
+            // Present RevenueCat UI Paywall if entitlement is not active
+            const success = await purchaseService.presentPaywallIfNeeded();
+            
+            if (success) {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                router.replace('/(tabs)');
+            }
+        } catch (error) {
+            Alert.alert("Hata", "Satın alma işlemi sırasında bir hata oluştu.");
+        } finally {
+            setIsPurchasing(false);
+        }
     };
 
     const features = [
@@ -72,11 +132,6 @@ export default function PremiumScreen() {
         { title: "Çıkmış Sorular", desc: "MEB birebir arşivi.", icon: Crown, color: "#60a5fa" },
         { title: "Hata Telafisi", desc: "Eksiklerinizi kapatın.", icon: Star, color: "#a78bfa" },
     ];
-
-    const plans = {
-        monthly: { price: "99", decimals: ",90", oldPrice: "₺149", text: "Aylık" },
-        yearly: { price: "399", decimals: ",90", oldPrice: "₺1200", text: "Yıllık (Aylık ₺33'e gelir)" }
-    };
 
     return (
         <ScreenLayout className="bg-[#020617]">
@@ -123,36 +178,36 @@ export default function PremiumScreen() {
 
                     {/* Plan Seçimi */}
                     <View className="px-6 gap-y-4 mb-8">
-                        {/* Yıllık (EN ÇOK TERCİH EDİLEN) */}
+                        {/* Ömür Boyu (LIFETIME) */}
                         <TouchableOpacity
                             onPress={() => {
                                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                setSelectedPlan('yearly');
+                                setSelectedPlan('lifetime');
                             }}
                             activeOpacity={0.9}
-                            className={`relative rounded-[28px] p-5 pt-6 border-2 transition-all ${selectedPlan === 'yearly' ? 'bg-amber-400/10 border-amber-400' : 'bg-white/5 border-white/5'}`}
+                            className={`relative rounded-[28px] p-5 pt-6 border-2 transition-all ${selectedPlan === 'lifetime' ? 'bg-amber-400/10 border-amber-400' : 'bg-white/5 border-white/5'}`}
                         >
                             <View className="absolute -top-3 left-0 right-0 items-center z-10">
                                 <View className="bg-amber-400 px-3 py-1 rounded-full shadow-md shadow-amber-400/40">
-                                    <Text className="text-amber-950 text-[10px] font-black uppercase tracking-widest">En Popüler</Text>
+                                    <Text className="text-amber-950 text-[10px] font-black uppercase tracking-widest">En Mantıklı Seçenek</Text>
                                 </View>
                             </View>
 
                             <View className="flex-row justify-between items-center mb-1">
-                                <Text className={`font-black text-lg ${selectedPlan === 'yearly' ? 'text-amber-400' : 'text-white'}`}>Yıllık Erişim</Text>
-                                <View className={`w-5 h-5 rounded-full border-2 items-center justify-center ${selectedPlan === 'yearly' ? 'border-amber-400 bg-amber-400' : 'border-slate-600'}`}>
-                                    {selectedPlan === 'yearly' && <Check size={12} color="#78350f" strokeWidth={3} />}
+                                <Text className={`font-black text-lg ${selectedPlan === 'lifetime' ? 'text-amber-400' : 'text-white'}`}>Ömür Boyu</Text>
+                                <View className={`w-5 h-5 rounded-full border-2 items-center justify-center ${selectedPlan === 'lifetime' ? 'border-amber-400 bg-amber-400' : 'border-slate-600'}`}>
+                                    {selectedPlan === 'lifetime' && <Check size={12} color="#78350f" strokeWidth={3} />}
                                 </View>
                             </View>
 
-                            <Text className="text-emerald-400 text-[10px] font-bold uppercase tracking-wider mb-2">%70 TASARRUF EDİN</Text>
+                            <Text className="text-emerald-400 text-[10px] font-bold uppercase tracking-wider mb-2">BİR KERELİK ÖDEME</Text>
 
                             <View className="flex-row items-end flex-wrap">
-                                <Text className="text-slate-500 text-base font-bold line-through mr-2 mb-1">{plans.yearly.oldPrice}</Text>
-                                <Text className="text-white text-3xl font-black">₺{plans.yearly.price}</Text>
-                                <Text className="text-slate-400 text-lg font-bold mb-1">{plans.yearly.decimals}</Text>
+                                <Text className="text-slate-500 text-base font-bold line-through mr-2 mb-1">{plans.lifetime.oldPrice}</Text>
+                                <Text className="text-white text-3xl font-black">₺{plans.lifetime.price}</Text>
+                                <Text className="text-slate-400 text-lg font-bold mb-1">{plans.lifetime.decimals}</Text>
                             </View>
-                            <Text className="text-slate-400 text-[11px] font-medium mt-1">{plans.yearly.text}</Text>
+                            <Text className="text-slate-400 text-[11px] font-medium mt-1">{plans.lifetime.text}</Text>
                         </TouchableOpacity>
 
                         {/* Aylık Plan */}
@@ -209,7 +264,8 @@ export default function PremiumScreen() {
                         <TouchableOpacity
                             activeOpacity={0.9}
                             onPress={handlePurchase}
-                            className="w-full h-[60px] rounded-[20px] overflow-hidden shadow-2xl shadow-amber-400/20"
+                            disabled={isPurchasing}
+                            className={`w-full h-[60px] rounded-[20px] overflow-hidden shadow-2xl shadow-amber-400/20 ${isPurchasing ? 'opacity-70' : ''}`}
                         >
                             <LinearGradient
                                 colors={['#fbbf24', '#f59e0b']}
@@ -217,17 +273,31 @@ export default function PremiumScreen() {
                                 end={{ x: 1, y: 0 }}
                                 className="w-full h-full flex-row items-center justify-center relative"
                             >
-                                <View className="absolute left-6">
-                                    <Sparkles size={22} color="#78350f" fill="#78350f" />
-                                </View>
-
-                                <Text className="text-amber-950 font-black text-[17px] uppercase tracking-wider text-center">
-                                    {selectedPlan === 'yearly' ? "1 Yıllık Kilidi Aç" : "Hemen Başla"}
-                                </Text>
+                                {isPurchasing ? (
+                                    <ActivityIndicator color="#78350f" />
+                                ) : (
+                                    <>
+                                        <View className="absolute left-6">
+                                            <Sparkles size={22} color="#78350f" fill="#78350f" />
+                                        </View>
+        
+                                        <Text className="text-amber-950 font-black text-[17px] uppercase tracking-wider text-center">
+                                            {selectedPlan === 'lifetime' ? "Ömür Boyu Kilidi Aç" : "Hemen Başla"}
+                                        </Text>
+                                    </>
+                                )}
                             </LinearGradient>
                         </TouchableOpacity>
                     </Animated.View>
                 </View>
+                
+                {/* Developer / Testing: Official RC Paywall Link */}
+                <TouchableOpacity 
+                    onPress={() => router.push('/paywall')}
+                    className="mb-10 items-center"
+                >
+                    <Text className="text-slate-600 text-[10px] underline">Resmi Satın Alma Sayfasını Gör (Yedek)</Text>
+                </TouchableOpacity>
 
             </LinearGradient>
         </ScreenLayout>

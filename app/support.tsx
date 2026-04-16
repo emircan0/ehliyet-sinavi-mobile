@@ -1,10 +1,14 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
-import { Stack } from 'expo-router';
-import { ChevronDown, HelpCircle } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
+import { ChevronLeft, HelpCircle } from 'lucide-react-native';
 import { ScreenLayout } from '../src/components/ScreenLayout';
+import { useThemeMode } from '../src/hooks/useThemeMode';
 
 export default function SupportScreen() {
+    const router = useRouter();
+    const { isDarkMode } = useThemeMode();
+    
     const faqs = [
         { q: "Sınavda kaç soru çıkıyor?", a: "Sınavda toplam 50 soru sorulmaktadır." },
         { q: "Uygulama internetsiz çalışır mı?", a: "Soru veritabanını güncellemek için internet gerekir." },
@@ -12,7 +16,18 @@ export default function SupportScreen() {
     ];
 
     return (
-        <ScreenLayout className="bg-[#F8FAFC] dark:bg-slate-950">
+        <ScreenLayout className="bg-base">
+            {/* Header */}
+            <View className="flex-row items-center px-4 py-3 border-b border-slate-100 dark:border-slate-800">
+                <TouchableOpacity 
+                    onPress={() => router.back()}
+                    className="p-2 -ml-2"
+                >
+                    <ChevronLeft size={24} color={isDarkMode ? "#cbd5e1" : "#334155"} />
+                </TouchableOpacity>
+                <Text className="text-lg font-bold text-slate-900 dark:text-white ml-2">Yardım Merkezi</Text>
+            </View>
+
             <ScrollView className="p-6">
                 <View className="items-center mb-8">
                     <View className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full items-center justify-center mb-4">

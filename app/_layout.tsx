@@ -10,6 +10,9 @@ import "../global.css";
 
 import { useThemeMode } from "../src/hooks/useThemeMode";
 import { useSettingsStore } from "../src/store/useSettingsStore";
+import { useSubscriptionStore } from "../src/store/useSubscriptionStore";
+import { useAuth } from "../src/hooks/useAuth";
+import { registerForPushNotificationsAsync } from "../src/api/notifications";
 
 import GlobalErrorBoundary from "../src/components/GlobalErrorBoundary";
 
@@ -18,9 +21,23 @@ export default function RootLayout() {
     const addNotification = useNotificationStore(state => state.addNotification);
     const { isDarkMode, setColorScheme } = useThemeMode();
     const theme = useSettingsStore(state => state.theme);
+    const { user } = useAuth();
 
     // Network status listener
     useNetworkStatus();
+
+    // Purchase initialization
+    const initializePurchases = useSubscriptionStore(state => state.initializePurchases);
+    useEffect(() => {
+        initializePurchases();
+    }, []);
+
+    // 2. Push Notification Registration
+    useEffect(() => {
+        if (user?.id) {
+            registerForPushNotificationsAsync(user.id);
+        }
+    }, [user?.id]);
 
     // 2. Theme Management logic
     useEffect(() => {
@@ -75,6 +92,12 @@ export default function RootLayout() {
                     <Stack.Screen name="onboarding" />
                     <Stack.Screen name="(tabs)" />
                     <Stack.Screen name="quiz/[id]" options={{ gestureEnabled: false }} />
+                    <Stack.Screen name="terms" options={{ presentation: 'modal', title: 'Koşullar' }} />
+                    <Stack.Screen name="privacy" options={{ presentation: 'modal', title: 'Gizlilik' }} />
+                    <Stack.Screen name="support" options={{ presentation: 'modal', title: 'Yardım' }} />
+                    <Stack.Screen name="contact" options={{ presentation: 'modal', title: 'İletişim' }} />
+                    <Stack.Screen name="auth/login" />
+                    <Stack.Screen name="auth/register" />
                 </Stack>
                 <Toast />
                 </SafeAreaProvider>

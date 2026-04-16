@@ -13,7 +13,8 @@ import {
     User, Bell, Moon, ChevronRight, Crown,
     LogOut, HelpCircle, CreditCard, FileText, Mail, Trash2, Clock
 } from 'lucide-react-native';
-import { scheduleDailyReminder, cancelAllReminders } from '../../src/api/notifications';
+import { scheduleDailyReminder, cancelAllReminders, registerForPushNotificationsAsync } from '../../src/api/notifications';
+import { useAuth } from '../../src/hooks/useAuth';
 import { Modal } from 'react-native';
 
 const SectionHeader = ({ title }: { title: string }) => (
@@ -95,26 +96,48 @@ export default function SettingsScreen() {
     const [isDeleting, setIsDeleting] = useState(false);
     const [showTimePicker, setShowTimePicker] = useState(false);
     const [tempTime, setTempTime] = useState({ hour: 20, minute: 0 });
+    const [isGuest, setIsGuest] = useState(false);
+
+    const { user } = useAuth();
 
     useEffect(() => {
         const fetchUserData = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
+            const guestFlag = await AsyncStorage.getItem('is_guest');
+            if (guestFlag === 'true') {
+                setIsGuest(true);
+                setUserName('Misafir Kullanıcı');
+                setUserEmail('Kayıtlı hesap bulunmuyor.');
+                return;
+            }
+
             if (user) {
                 setUserEmail(user.email || '');
                 setUserName(user.user_metadata?.full_name || 'Kullanıcı');
             }
         };
         fetchUserData();
-    }, []);
+    }, [user]);
 
-    const handleNotificationChange = (newValue: boolean) => {
+    const handleNotificationChange = async (newValue: boolean) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         setNotificationsEnabled(newValue);
-        Toast.show({
-            type: 'success',
-            text1: 'Bildirim Tercihleri',
-            text2: newValue ? 'Bildirimler açıldı.' : 'Bildirimler kapatıldı.',
-        });
+        
+        if (newValue) {
+            // Push bildirimleri için kayıt ol
+            const token = await registerForPushNotificationsAsync(user?.id);
+            
+            Toast.show({
+                type: 'success',
+                text1: 'Bildirimler Aktif',
+                text2: token ? 'Duyuru ve hatırlatıcıları alabileceksiniz.' : 'Bildirimler açıldı.',
+            });
+        } else {
+            Toast.show({
+                type: 'info',
+                text1: 'Bildirimler Kapatıldı',
+                text2: 'Artık duyuru almayacaksınız.',
+            });
+        }
     };
 
     // KRİTİK DÜZELTME 3: Fonksiyon artık Switch'in gönderdiği boolean değeri alıyor
@@ -179,7 +202,7 @@ export default function SettingsScreen() {
 
                 <TouchableOpacity
                     activeOpacity={0.8}
-                    onPress={() => router.push('/profile')}
+                    onPress={() => isGuest ? router.push('/auth/register') : router.push('/profile')}
                     className="mx-5 mt-4 p-4 bg-white dark:bg-slate-900 rounded-[20px] flex-row items-center shadow-sm dark:shadow-none border border-slate-100 dark:border-slate-800"
                 >
                     <View className="w-16 h-16 rounded-full bg-slate-100 dark:bg-white/10 items-center justify-center mr-4">
@@ -187,25 +210,41 @@ export default function SettingsScreen() {
                     </View>
                     <View className="flex-1">
                         <Text className="text-[20px] font-semibold text-black dark:text-white tracking-tight">{userName}</Text>
-                        <Text className="text-slate-500 dark:text-[#EBEBF599] text-[14px] mt-0.5">{userEmail}</Text>
+                        <Text className={`text-[14px] mt-0.5 ${isGuest ? 'text-amber-500 font-bold' : 'text-slate-500 dark:text-[#EBEBF599]'}`}>{userEmail}</Text>
                     </View>
                     <ChevronRight size={20} color={isDarkMode ? "#5c5c62" : "#c7c7cc"} />
                 </TouchableOpacity>
 
-                {/* 
-                App Store başvurusu için abonelik bannerı kaldırıldı
+                {/* ABONELİK REKLAMI GİZLENDİ
                 {!isPro && (
                     <View className="mx-5 mt-6">
-                        ...
+                        <TouchableOpacity
+                            onPress={() => router.push('/premium')}
+                            activeOpacity={0.9}
+                            className="bg-amber-400 rounded-[20px] p-4 flex-row items-center relative overflow-hidden shadow-sm"
+                        >
+                            <View className="flex-1 pr-4 z-10">
+                                <Text className="text-amber-950 font-black text-[18px] tracking-tight">Pro'ya Geçin</Text>
+                                <Text className="text-amber-900/70 text-[12px] font-bold mt-0.5">Ömür boyu sınırsız erişim fırsatını kaçırmayın.</Text>
+                            </View>
+                            <View className="w-10 h-10 bg-white/30 rounded-full items-center justify-center z-10">
+                                <Crown size={20} color="#78350f" fill="#78350f" />
+                            </View>
+                            <View className="absolute -right-4 -bottom-4 w-20 h-20 bg-white/20 rounded-full" />
+                        </TouchableOpacity>
                     </View>
                 )} 
                 */}
+                
 
                 <SectionHeader title="Hesap" />
                 <View className="mx-5 bg-white dark:bg-slate-900 rounded-[16px] overflow-hidden border border-slate-100 dark:border-slate-800 shadow-sm dark:shadow-none">
                     {/* <SettingItem icon={CreditCard} label="Aboneliklerim" isLast onPress={() => router.push('/subscriptions')} /> */}
-                    {/* Abone olmayanlar için bu alanın boş görünmemesi adına 'Hesap Ayarları' ekleyebiliriz */}
-                    <SettingItem icon={User} label="Profil Detayları" isLast onPress={() => router.push('/profile')} />
+                    {isGuest ? (
+                         <SettingItem icon={User} label="Hesap Oluştur veya Giriş Yap" isLast onPress={() => router.push('/auth/register')} color="#0A84FF" />
+                    ) : (
+                         <SettingItem icon={User} label="Profil Detayları" isLast onPress={() => router.push('/profile')} />
+                    )}
                 </View>
 
                 <SectionHeader title="Tercihler" />

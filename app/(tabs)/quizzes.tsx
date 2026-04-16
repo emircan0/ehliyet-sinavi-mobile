@@ -9,6 +9,8 @@ import { ScreenLayout } from '../../src/components/ScreenLayout';
 import { fetchExamsWithProgress, fetchSmartTestCounts } from '../../src/api/queries';
 import { supabase } from '../../src/api/supabase';
 import { useSubscriptionStore } from '../../src/store/useSubscriptionStore';
+import { usePremiumAccess } from '../../src/hooks/usePremiumAccess';
+import RewardedAdModal from '../../src/components/RewardedAdModal';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useThemeMode } from '../../src/hooks/useThemeMode';
@@ -25,6 +27,30 @@ export default function QuizzesScreen() {
     const [hasError, setHasError] = useState(false);
     const [exams, setExams] = useState<any[]>([]);
     const [counts, setCounts] = useState({ wrongCount: 0, favoriteCount: 0 });
+
+    const [showAdModal, setShowAdModal] = useState(false);
+    const [adModalType, setAdModalType] = useState<'short' | 'long' | 'mega'>('short');
+
+    const { checkAccess } = usePremiumAccess();
+
+    const triggerRandomAd = () => {
+        const rand = Math.random();
+        let type: 'short' | 'long' | 'mega';
+        if (rand < 0.5) type = 'mega';
+        else if (rand < 0.8) type = 'long';
+        else type = 'short';
+
+        setAdModalType(type);
+        setShowAdModal(true);
+    };
+
+    const handlePremiumExam = (examId: string, title: string) => {
+        checkAccess({
+            onSuccess: () => router.push({ pathname: '/quiz/[id]', params: { id: examId } }),
+            featureName: title,
+            onAdRequired: triggerRandomAd
+        });
+    };
 
     const loadData = async () => {
         try {
@@ -163,21 +189,21 @@ export default function QuizzesScreen() {
                             <TouchableOpacity
                                 activeOpacity={0.9}
                                 onPress={() => {
-                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                                     if (featuredExam?.id) {
-                                        router.push({ pathname: '/quiz/[id]', params: { id: featuredExam.id } });
+                                        handlePremiumExam(featuredExam.id, featuredExam.title || "Özel Sınav");
                                     }
                                 }}
-                                className={`bg-slate-900 rounded-[32px] p-6 relative overflow-hidden shadow-2xl shadow-slate-900/30 ${!isPro ? 'opacity-90' : ''}`}
+                                /* className={`bg-slate-900 rounded-[32px] p-6 relative overflow-hidden shadow-2xl shadow-slate-900/30 ${!isPro ? 'opacity-90' : ''}`} */
+                                className="bg-slate-900 rounded-[32px] p-6 relative overflow-hidden shadow-2xl shadow-slate-900/30"
                             >
-                                {/* Kilit İkonu (Pro Değilse) - App Store için gizlendi
+                                {/* Kilit İkonu (Pro Değilse) GİZLENDİ
                                 {!isPro && (
                                     <View className="absolute top-5 right-5 z-20 bg-black/40 p-2.5 rounded-full border border-white/10 backdrop-blur-md">
                                         <Lock size={16} color="#f59e0b" />
                                     </View>
                                 )}
                                 */}
-
+                                
                                 {/* Arka Plan Efektleri (Blur) */}
                                 <View className="absolute -right-10 -top-10 w-40 h-40 bg-blue-500/20 blur-3xl rounded-full" />
                                 <View className="absolute right-12 -bottom-12 w-24 h-24 bg-indigo-500/20 blur-2xl rounded-full" />
@@ -231,7 +257,8 @@ export default function QuizzesScreen() {
                                         </View>
 
                                         {/* Aksiyon Butonu (Hero Stili) */}
-                                        <View className={`self-start p-1.5 pl-5 pr-1.5 rounded-full flex-row items-center shadow-lg ${!isPro ? 'bg-amber-600 shadow-amber-600/30' : 'bg-blue-600 shadow-blue-600/30'}`}>
+                                        {/* <View className={`self-start p-1.5 pl-5 pr-1.5 rounded-full flex-row items-center shadow-lg ${!isPro ? 'bg-amber-600 shadow-amber-600/30' : 'bg-blue-600 shadow-blue-600/30'}`}> */}
+                                        <View className="self-start p-1.5 pl-5 pr-1.5 rounded-full flex-row items-center shadow-lg bg-blue-600 shadow-blue-600/30">
                                             <Text className="text-white font-bold text-sm mr-4">
                                                 {(Number(featuredExam?.progress_percentage) || 0) > 0 ? 'Devam Et' : 'Başla'}
                                             </Text>
@@ -257,9 +284,8 @@ export default function QuizzesScreen() {
                                         exam={exam}
                                         isPro={isPro}
                                         onPress={() => {
-                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                             if (exam.id) {
-                                                router.push(`/quiz/${exam.id}`);
+                                                handlePremiumExam(exam.id, exam.title || "Sınav");
                                             }
                                         }}
                                     />
@@ -276,6 +302,14 @@ export default function QuizzesScreen() {
                     </View>
                 </ScrollView>
             )}
+
+            {/* REKLAM MODALI GİZLENDİ
+            <RewardedAdModal 
+                visible={showAdModal} 
+                type={adModalType}
+                onClose={() => setShowAdModal(false)} 
+            />
+            */}
         </ScreenLayout>
     );
 }
@@ -337,11 +371,14 @@ const ExamListItem = ({ exam, isPro, onPress }: any) => {
                 <ChevronRight size={16} color={isDarkMode ? "#475569" : "#cbd5e1"} />
             </View>
 
-            {/* {!isPro && (
+            {/* REKLAM MODALI GİZLENDİ
+            {!isPro && (
                 <View className="absolute top-4 right-4 bg-slate-900/5 dark:bg-white/5 p-1.5 rounded-full">
                     <Lock size={12} color="#f59e0b" />
                 </View>
-            )} */}
+            )} 
+            */}
+            
         </TouchableOpacity>
     );
 };

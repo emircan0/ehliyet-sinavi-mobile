@@ -10,9 +10,15 @@ export default function SubscriptionsScreen() {
     const router = useRouter();
 
     const handleRestore = async () => {
-        const success = await restorePurchases();
-        if (success) {
-            alert('Satın almalar başarıyla geri yüklendi.');
+        try {
+            const success = await restorePurchases();
+            if (success) {
+                alert('Satın almalar başarıyla geri yüklendi.');
+            } else {
+                alert('Geri yüklenecek aktif bir abonelik bulunamadı.');
+            }
+        } catch (error) {
+            alert('Geri yükleme işlemi sırasında bir hata oluştu.');
         }
     };
 
@@ -42,16 +48,12 @@ export default function SubscriptionsScreen() {
                 </View>
 
                 {isPro ? (
-                    <TouchableOpacity
-                        onPress={() => {
-                            setPro(false);
-                            alert('Abonelik mock test için iptal edildi.');
-                        }}
-                        className="bg-red-50 dark:bg-red-950/20 p-5 rounded-2xl border border-red-200 dark:border-red-900/30 items-center mb-4 flex-row justify-center"
+                    <View
+                        className="bg-emerald-50 dark:bg-emerald-950/20 p-5 rounded-2xl border border-emerald-200 dark:border-emerald-900/30 items-center mb-4 flex-row justify-center"
                     >
-                        <AlertTriangle size={18} color="#dc2626" className="mr-2" />
-                        <Text className="text-red-600 dark:text-red-400 font-bold">Aboneliği İptal Et (Mock Test)</Text>
-                    </TouchableOpacity>
+                        <CheckCircle2 size={18} color="#10b981" className="mr-2" />
+                        <Text className="text-emerald-600 dark:text-emerald-400 font-bold">Abonelik Aktif</Text>
+                    </View>
                 ) : (
                     <TouchableOpacity
                         onPress={() => router.push('/premium')}

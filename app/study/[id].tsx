@@ -8,6 +8,11 @@ import {
 import { ScreenLayout } from '../../src/components/ScreenLayout';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSubscriptionStore } from '../../src/store/useSubscriptionStore';
+import { usePremiumAccess } from '../../src/hooks/usePremiumAccess';
+import { useThemeMode } from '../../src/hooks/useThemeMode';
+import { BlurView } from 'expo-blur';
+import { Lock } from 'lucide-react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -57,6 +62,19 @@ export default function StudyDetailScreen() {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState('Hepsi');
     const [searchQuery, setSearchQuery] = useState('');
+    const [isUnlocked, setIsUnlocked] = useState(false);
+
+    const { isPro } = useSubscriptionStore();
+    const { checkAccess } = usePremiumAccess();
+    const { isDarkMode } = useThemeMode();
+
+    const handleUnlock = () => {
+        checkAccess({
+            onSuccess: () => setIsUnlocked(true),
+            featureName: "Konu Detayı",
+            creditCost: 1
+        });
+    };
 
     const content = STUDY_CONTENT[id as string] || STUDY_CONTENT.signs;
 
@@ -158,6 +176,38 @@ export default function StudyDetailScreen() {
                     </View>
                 )}
             </ScrollView>
+
+            {/* Kilit Katmanı */}
+            {!isPro && !isUnlocked && (
+                <View className="absolute inset-0 z-50 overflow-hidden">
+                    <BlurView intensity={30} tint={isDarkMode ? "dark" : "light"} className="flex-1 items-center justify-center px-8">
+                        <View className="bg-white/90 dark:bg-slate-900/90 p-8 rounded-[40px] items-center border border-white/20 shadow-2xl w-full">
+                            <View className="bg-amber-100 dark:bg-amber-900/30 p-5 rounded-[24px] mb-6">
+                                <Lock size={32} color="#d97706" />
+                            </View>
+                            <Text className="text-slate-900 dark:text-white font-black text-2xl text-center mb-2 tracking-tight">İçerik Kilitli</Text>
+                            <Text className="text-slate-500 dark:text-slate-400 text-sm text-center mb-8 px-4 leading-5">
+                                Bu konudaki tüm ders notlarını ve görselleri görmek için 1 kredi harcamalısın.
+                            </Text>
+                            
+                            <TouchableOpacity 
+                                onPress={handleUnlock}
+                                activeOpacity={0.8}
+                                className="bg-amber-500 w-full py-4 rounded-2xl items-center shadow-lg shadow-amber-500/20 active:scale-95 mb-4"
+                            >
+                                <Text className="text-amber-950 font-black text-base">1 Kredi ile Aç</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity 
+                                onPress={() => router.push('/premium')}
+                                className="py-2"
+                            >
+                                <Text className="text-blue-600 dark:text-blue-400 font-bold text-sm">Veya Pro'ya Geç</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </BlurView>
+                </View>
+            )}
         </ScreenLayout>
     );
 }

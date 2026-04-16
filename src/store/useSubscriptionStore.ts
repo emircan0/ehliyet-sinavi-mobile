@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { purchaseService } from '../services/purchaseService';
 
 interface SubscriptionState {
     isPro: boolean;
@@ -9,16 +10,26 @@ interface SubscriptionState {
     setPro: (status: boolean, durationDays?: number) => void;
     addCredits: (amount: number) => void;
     spendCredits: (amount: number) => boolean;
-    checkSubscriptionStatus: () => void;
+    checkSubscriptionStatus: () => Promise<void>;
     restorePurchases: () => Promise<boolean>;
+    initializePurchases: () => Promise<void>;
 }
 
 export const useSubscriptionStore = create<SubscriptionState>()(
     persist(
         (set, get) => ({
-            isPro: true, // Uygulama Store'a gönderilmeden önce tüm özellikler açık olsun
-            credits: 0,
+            isPro: true, // TEKRAR GİZLİYE ALDIK: Herkes Pro olsun
+            credits: 5,   // Yeni kullanıcılara başlangıç kredisi verelim
             proExpiryDate: null,
+
+            initializePurchases: async () => {
+                /* 
+                await purchaseService.initialize();
+                const status = await purchaseService.checkSubscriptionStatus();
+                set({ isPro: status });
+                */
+            },
+
             setPro: (status, durationDays) => {
                 let expiryDate: string | null = null;
                 if (status && durationDays) {
@@ -28,39 +39,37 @@ export const useSubscriptionStore = create<SubscriptionState>()(
                 }
                 set({ isPro: status, proExpiryDate: expiryDate });
             },
+
             addCredits: (amount) => set((state) => ({ credits: state.credits + amount })),
+            
             spendCredits: (amount) => {
-                // Tüm özellikler açık olduğu için kredi harcamaya gerek yok
-                return true; 
-                /* Orijinal Mantık:
-                const currentCredits = get().credits;
-                if (currentCredits >= amount) {
-                    set({ credits: currentCredits - amount });
+                const { isPro, credits } = get();
+                
+                // Pro kullanıcılar kredi harcamaz, her zaman başarılı
+                if (isPro) return true;
+
+                // Standart kullanıcılar kredi harcar
+                if (credits >= amount) {
+                    set({ credits: credits - amount });
                     return true;
                 }
                 return false;
+            },
+
+            checkSubscriptionStatus: async () => {
+                /*
+                const status = await purchaseService.checkSubscriptionStatus();
+                set({ isPro: status });
                 */
             },
-            checkSubscriptionStatus: () => {
-                const { isPro, proExpiryDate } = get();
-                if (isPro && proExpiryDate) {
-                    const now = new Date();
-                    const expiry = new Date(proExpiryDate);
-                    if (now > expiry) {
-                        set({ isPro: false, proExpiryDate: null });
-                    }
-                }
-            },
+
             restorePurchases: async () => {
-                // Mock restore logic - assuming Yearly for restore if not specified
-                return new Promise((resolve) => {
-                    setTimeout(() => {
-                        const date = new Date();
-                        date.setFullYear(date.getFullYear() + 1);
-                        set({ isPro: true, proExpiryDate: date.toISOString() });
-                        resolve(true);
-                    }, 1000);
-                });
+                /*
+                const status = await purchaseService.restorePurchases();
+                set({ isPro: status });
+                return status;
+                */
+                return true;
             },
         }),
         {

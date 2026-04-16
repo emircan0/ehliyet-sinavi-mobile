@@ -10,13 +10,16 @@ import { useSubscriptionStore } from '../../src/store/useSubscriptionStore';
 import { useThemeMode } from '../../src/hooks/useThemeMode';
 import { MasteryCard } from '../../src/components/quiz/MasteryCard';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 
 export default function AITutorScreen() {
     const router = useRouter();
+    const { isPro } = useSubscriptionStore();
     const [loading, setLoading] = useState(true);
     const [masteryData, setMasteryData] = useState<any[]>([]);
     const [preferences, setPreferences] = useState<Record<string, string>>({});
+    const [isGuest, setIsGuest] = useState(false);
 
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -29,6 +32,13 @@ export default function AITutorScreen() {
 
     useEffect(() => {
         const getAnalysis = async () => {
+            const guestFlag = await AsyncStorage.getItem('is_guest');
+            if (guestFlag === 'true') {
+                setIsGuest(true);
+                setLoading(false);
+                return;
+            }
+
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
                 const data = await fetchAdvancedMasteryData(user.id);
@@ -39,6 +49,8 @@ export default function AITutorScreen() {
                     duration: 600,
                     useNativeDriver: true,
                 }).start();
+            } else {
+                setIsGuest(true);
             }
 
             const prefsData = await AsyncStorage.getItem('user_preferences');
@@ -139,6 +151,37 @@ export default function AITutorScreen() {
         <ScreenLayout className="bg-base justify-center items-center">
             <ActivityIndicator size="large" color="#6366f1" />
             <Text className="mt-4 text-slate-400 dark:text-slate-500 font-medium tracking-tight">AI Verileri Analiz Ediyor...</Text>
+        </ScreenLayout>
+    );
+
+    // --- DURUM GUEST: MİSAFİR UPSALE EKRANI ---
+    if (isGuest) return (
+        <ScreenLayout className="bg-base">
+            <View className="px-6 pt-4 pb-4 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
+                <Text className="text-2xl font-bold text-slate-900 dark:text-slate-50 tracking-tight">AI Koç</Text>
+                <Text className="text-slate-500 dark:text-slate-400 text-sm font-medium">Sana özel AI analizi için hesap oluştur.</Text>
+            </View>
+            <View className="flex-1 items-center justify-center px-6 mt-[-40px]">
+                <View className="w-24 h-24 bg-indigo-100/50 dark:bg-indigo-900/30 rounded-[32px] items-center justify-center mb-6 border border-indigo-200 dark:border-indigo-800 shadow-xl shadow-indigo-500/20">
+                    <BrainCircuit size={40} color="#6366f1" />
+                </View>
+                <Text className="text-2xl font-black text-slate-900 dark:text-white mb-3 text-center tracking-tight">Kişisel AI Hoca</Text>
+                <Text className="text-slate-500 dark:text-slate-400 text-center mb-10 leading-6 px-4">
+                    Misafir olduğun için hata analizini yapamıyoruz. Hangi konularda eksiğin olduğunu bulmamız ve sana özel program çizmemiz için ücretsiz kayıt ol!
+                </Text>
+                <TouchableOpacity
+                    onPress={() => router.push('/auth/register')}
+                    className="bg-[#6366f1] w-full py-4 rounded-2xl items-center shadow-lg shadow-indigo-600/30 active:scale-95 transition-transform mb-3"
+                >
+                    <Text className="text-white font-black text-[16px]">Ücretsiz Kullanmaya Başla</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    onPress={() => router.push('/auth/login')}
+                    className="w-full py-4 rounded-2xl items-center border border-slate-200 dark:border-slate-800 active:bg-slate-50 dark:active:bg-slate-800/50"
+                >
+                    <Text className="text-slate-700 dark:text-slate-300 font-bold text-[15px]">Zaten Hesabım Var</Text>
+                </TouchableOpacity>
+            </View>
         </ScreenLayout>
     );
 
@@ -257,14 +300,30 @@ export default function AITutorScreen() {
 
             </Animated.ScrollView>
 
-            {/* 
-            App Store başvurusu için premium kilidi kaldırıldı
+            {/* AI KOÇ KİLİT EKRANI GİZLENDİ
             {!isPro && (
-                <View className="absolute inset-0 bg-slate-50/98 dark:bg-slate-950/98 z-50 items-center justify-center px-7">
-                    ...
+                <View className="absolute inset-0 z-50 overflow-hidden">
+                    <BlurView intensity={30} tint={isDarkMode ? "dark" : "light"} className="flex-1 items-center justify-center px-7">
+                        <View className="items-center max-w-xs bg-white/90 dark:bg-slate-900/90 p-8 rounded-[40px] border border-white/20 shadow-2xl">
+                            <View className="w-20 h-20 bg-amber-100 dark:bg-amber-900/30 rounded-[32px] items-center justify-center mb-6">
+                                <Lock size={40} color="#d97706" />
+                            </View>
+                            <Text className="text-2xl font-black text-slate-900 dark:text-white text-center mb-3 tracking-tight">AI Koç Kilitli</Text>
+                            <Text className="text-slate-500 dark:text-slate-400 text-center mb-8 leading-5 font-medium">
+                                Kişiselleştirilmiş hata analizi ve gelişim araçları için Pro üyeliğe geçmelisiniz.
+                            </Text>
+                            <TouchableOpacity
+                                onPress={() => router.push('/premium')}
+                                className="bg-amber-500 w-full py-4 rounded-2xl items-center shadow-lg shadow-amber-500/20 active:scale-95"
+                            >
+                                <Text className="text-amber-950 font-black text-base">Üyeliği Başlat</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </BlurView>
                 </View>
             )} 
             */}
+            
         </ScreenLayout>
     );
 }

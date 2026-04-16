@@ -6,13 +6,14 @@ import * as Notifications from 'expo-notifications';
 import {
     Play, Car, Heart, ShieldAlert, GraduationCap,
     Bell, ChevronRight, Sparkles, Zap,
-    X, CheckCircle2, Award, Clock, Info, Lock, Timer
+    X, CheckCircle2, Award, Clock, Info, Lock, Timer, Crown
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { ScreenLayout } from '../../src/components/ScreenLayout';
 import { fetchHomeDashboardData } from '../../src/api/queries';
 import { useSubscriptionStore } from '../../src/store/useSubscriptionStore';
 import { useAuth } from '../../src/hooks/useAuth';
+import { usePremiumAccess } from '../../src/hooks/usePremiumAccess';
 import { useNotificationStore, NotificationType } from '../../src/store/useNotificationStore';
 import { registerForPushNotificationsAsync } from '../../src/api/notifications';
 import RewardedAdModal from '../../src/components/RewardedAdModal';
@@ -198,18 +199,14 @@ export default function Home() {
         setShowAdModal(true);
     };
 
-    const handlePremiumFeature = (route: string) => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        // Doğrudan yönlendir - Premium kontrolü devre dışı
-        router.push(route as any);
-        /* 
-        Original logic commented out for App Store Submission
-        if (isPro) {
-            router.push(route as any);
-        } else {
-           ...
-        }
-        */
+    const { checkAccess } = usePremiumAccess();
+
+    const handlePremiumFeature = (route: string, name: string = "Premium Özellik") => {
+        checkAccess({
+            onSuccess: () => router.push(route as any),
+            featureName: name,
+            onAdRequired: triggerRandomAd
+        });
     };
 
     const { isDarkMode, colorScheme } = useThemeMode();
@@ -236,7 +233,7 @@ export default function Home() {
 
                 {/* BİLDİRİM ZİL BUTONU VE KREDİ SKORU */}
                 <View className="flex-row items-center gap-3">
-                    {/* Kredi göstergesi App Store için gizlendi
+                    {/* ABONELİK KONTROLÜ İÇİN GİZLENDİ
                     {!isPro && (
                         <TouchableOpacity
                             onPress={triggerRandomAd}
@@ -247,6 +244,7 @@ export default function Home() {
                         </TouchableOpacity>
                     )} 
                     */}
+                    
                     <TouchableOpacity
                         onPress={() => setShowNotifications(true)}
                         className="w-11 h-11 bg-white dark:bg-slate-900 rounded-full items-center justify-center border border-slate-100 dark:border-slate-800 shadow-sm shadow-slate-200 dark:shadow-none active:opacity-70"
@@ -265,27 +263,53 @@ export default function Home() {
                 contentContainerStyle={{ paddingBottom: 120 }}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
             >
-                {/* 
-                App Store başvurusu için promosyon bannerı kaldırıldı
+                {/* PROMOSYON ZAMANLAYICISI GİZLENDİ
                 {!isPro && timeLeft && (
                     <View className="px-6 mb-6">
-                        ...
+                        <TouchableOpacity
+                            onPress={() => router.push('/premium')}
+                            activeOpacity={0.9}
+                            className="bg-amber-400 rounded-[28px] p-5 flex-row items-center relative overflow-hidden shadow-xl shadow-amber-400/20"
+                        >
+                            <View className="flex-1 pr-6 z-10">
+                                <View className="flex-row items-center bg-white/20 self-start px-2 py-1 rounded-lg mb-2 border border-white/20">
+                                    <Timer size={12} color="#78350f" className="mr-1.5" />
+                                    <Text className="text-amber-950 text-[10px] font-black uppercase tracking-widest">
+                                        FIRSAT: {timeLeft.hours.toString().padStart(2, '0')}:{timeLeft.minutes.toString().padStart(2, '0')}:{timeLeft.seconds.toString().padStart(2, '0')}
+                                    </Text>
+                                </View>
+                                <Text className="text-amber-950 font-black text-[22px] tracking-tight leading-7">
+                                    Sınavı Geçme <Text className="text-white">Garantisi</Text>
+                                </Text>
+                                <Text className="text-amber-900/70 text-xs font-bold mt-1">Hemen Pro'ya geç, farkı hisset.</Text>
+                            </View>
+                            <View className="w-14 h-14 bg-white/30 rounded-full items-center justify-center z-10 backdrop-blur-md">
+                                <Crown size={28} color="#78350f" fill="#78350f" />
+                            </View>
+
+                            <View className="absolute -right-6 -bottom-6 w-32 h-32 bg-white/20 rounded-full" />
+                            <View className="absolute right-12 -top-12 w-24 h-24 bg-white/10 rounded-full" />
+                        </TouchableOpacity>
                     </View>
                 )} 
                 */}
+                
 
                 {/* 1. HERO CARD: Genel Deneme */}
                 <View className="px-6 mb-5">
                     <TouchableOpacity
                         activeOpacity={0.9}
                         onPress={() => handlePremiumFeature('/quiz/general')}
-                        className={`bg-slate-900 rounded-[32px] p-6 relative overflow-hidden shadow-2xl shadow-slate-900/30 ${!isPro ? 'opacity-90' : ''}`}
+                        /* className={`bg-slate-900 rounded-[32px] p-6 relative overflow-hidden shadow-2xl shadow-slate-900/30 ${!isPro ? 'opacity-90' : ''}`} */
+                        className="bg-slate-900 rounded-[32px] p-6 relative overflow-hidden shadow-2xl shadow-slate-900/30"
                     >
+                        {/* 
                         {!isPro && (
                             <View className="absolute top-5 right-5 z-20 bg-black/40 p-2.5 rounded-full border border-white/10 backdrop-blur-md">
                                 <Lock size={16} color="#f59e0b" />
                             </View>
                         )}
+                        */}
                         <View className="absolute -right-10 -top-10 w-40 h-40 bg-blue-500/20 blur-3xl rounded-full" />
                         <View className="absolute right-12 -bottom-12 w-24 h-24 bg-indigo-500/20 blur-2xl rounded-full" />
 
@@ -302,7 +326,8 @@ export default function Home() {
                                 MEB müfredatına birebir uygun, 50 soruluk tam kapsamlı deneme sınavı.
                             </Text>
 
-                            <View className={`self-start p-1.5 pl-5 pr-1.5 rounded-full flex-row items-center shadow-lg ${!isPro ? 'bg-amber-600 shadow-amber-600/30' : 'bg-blue-600 shadow-blue-600/30'}`}>
+                            {/* <View className={`self-start p-1.5 pl-5 pr-1.5 rounded-full flex-row items-center shadow-lg ${!isPro ? 'bg-amber-600 shadow-amber-600/30' : 'bg-blue-600 shadow-blue-600/30'}`}> */}
+                            <View className="self-start p-1.5 pl-5 pr-1.5 rounded-full flex-row items-center shadow-lg bg-blue-600 shadow-blue-600/30">
                                 <Text className="text-white font-bold text-sm mr-4">Hemen Başla</Text>
                                 <View className="w-8 h-8 bg-white/20 rounded-full items-center justify-center">
                                     <ChevronRight size={18} color="white" />
@@ -316,12 +341,17 @@ export default function Home() {
                 <View className="px-6 mb-8">
                     <TouchableOpacity
                         activeOpacity={0.9}
-                        onPress={() => {
-                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                            router.push('/quiz/quick');
-                        }}
+                        onPress={() => handlePremiumFeature('/quiz/quick', 'Hızlı Antrenman')}
+                        /* className={`bg-emerald-500 rounded-[24px] p-5 flex-row items-center justify-between shadow-lg shadow-emerald-500/20 overflow-hidden relative ${!isPro ? 'opacity-90' : ''}`} */
                         className="bg-emerald-500 rounded-[24px] p-5 flex-row items-center justify-between shadow-lg shadow-emerald-500/20 overflow-hidden relative"
                     >
+                        {/* 
+                        {!isPro && (
+                            <View className="absolute top-4 right-4 z-20 bg-black/20 p-1.5 rounded-full border border-white/10 backdrop-blur-md">
+                                <Lock size={12} color="white" />
+                            </View>
+                        )}
+                        */}
                         <View className="absolute -right-4 -top-8 opacity-10 rotate-12">
                             <Zap size={100} color="white" fill="white" />
                         </View>
@@ -343,12 +373,17 @@ export default function Home() {
                             <TouchableOpacity
                                 key={cat.id}
                                 activeOpacity={0.7}
-                                className="w-[48%] bg-white dark:bg-slate-900 p-5 rounded-[28px] border border-slate-100 dark:border-slate-800 shadow-sm shadow-slate-200/50 dark:shadow-none flex-col h-[150px]"
-                                onPress={() => {
-                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                    router.push({ pathname: '/quiz/[id]', params: { id: cat.id } });
-                                }}
+                                /* className={`w-[48%] bg-white dark:bg-slate-900 p-5 rounded-[28px] border border-slate-100 dark:border-slate-800 shadow-sm shadow-slate-200/50 dark:shadow-none flex-col h-[150px] relative ${!isPro ? 'opacity-95' : ''}`} */
+                                className="w-[48%] bg-white dark:bg-slate-900 p-5 rounded-[28px] border border-slate-100 dark:border-slate-800 shadow-sm shadow-slate-200/50 dark:shadow-none flex-col h-[150px] relative"
+                                onPress={() => handlePremiumFeature(`/quiz/${cat.id}`, cat.name)}
                             >
+                                {/* 
+                                {!isPro && (
+                                    <View className="absolute top-4 right-4 z-20 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-full border border-slate-200 dark:border-slate-700">
+                                        <Lock size={12} color="#f59e0b" />
+                                    </View>
+                                )}
+                                */}
                                 <View className={`w-12 h-12 rounded-2xl ${cat.bg} dark:bg-opacity-10 items-center justify-center mb-3`}>
                                     <cat.icon size={24} color={cat.color} />
                                 </View>
@@ -447,11 +482,13 @@ export default function Home() {
                 </View>
             </Modal>
 
+            {/* REKLAM MODALI GEÇİCİ OLARAK DEVRE DIŞI
             <RewardedAdModal 
                 visible={showAdModal} 
                 type={adModalType}
                 onClose={() => setShowAdModal(false)} 
             />
+            */}
         </ScreenLayout>
     );
 }

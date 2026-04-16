@@ -16,23 +16,29 @@ export default function Index() {
                 // 1. Oturum kontrolü (En öncelikli)
                 const { data: { session } } = await supabase.auth.getSession();
 
-                if (!session) {
-                    // Oturum yoksa direkt login'e gönder
+                // Misafir modunu kontrol edelim
+                const isGuestStr = await AsyncStorage.getItem('is_guest');
+                const isGuest = isGuestStr === 'true';
+
+                if (!session && !isGuest) {
+                    // Oturum ve misafir yoksa direkt login'e gönder
                     setInitialRoute('/auth/login');
                     return;
                 }
 
                 // 1.5 Hesap pasif mi kontrol et (Hesabımı Sil diyenler için)
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('is_active')
-                    .eq('id', session.user.id)
-                    .single();
+                if (session) {
+                    const { data: profile } = await supabase
+                        .from('profiles')
+                        .select('is_active')
+                        .eq('id', session.user.id)
+                        .single();
 
-                if (profile && profile.is_active === false) {
-                    await supabase.auth.signOut();
-                    setInitialRoute('/auth/login');
-                    return;
+                    if (profile && profile.is_active === false) {
+                        await supabase.auth.signOut();
+                        setInitialRoute('/auth/login');
+                        return;
+                    }
                 }
 
                 // 2. Onboarding kontrolü (GEÇİCİ OLARAK PASİF EDİLDİ)

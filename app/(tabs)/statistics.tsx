@@ -3,7 +3,7 @@ import { View, Text, ScrollView, ActivityIndicator, RefreshControl, TouchableOpa
 import { Stack, useRouter } from 'expo-router';
 import {
     TrendingUp, Clock, Target,
-    Zap, AlertCircle, CheckCircle2, Info, AlertTriangle
+    Zap, AlertCircle, CheckCircle2, Info, AlertTriangle, Lock
 } from 'lucide-react-native';
 import { ScreenLayout } from '../../src/components/ScreenLayout';
 import { supabase } from '../../src/api/supabase';
@@ -12,6 +12,7 @@ import { useSubscriptionStore } from '../../src/store/useSubscriptionStore';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { useThemeMode } from '../../src/hooks/useThemeMode';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const CATEGORY_NAMES: Record<string, string> = {
     trafik: 'TRAFİK VE ÇEVRE',
@@ -29,18 +30,26 @@ export default function StatisticsScreen() {
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [stats, setStats] = useState<any>(null);
+    const [isGuest, setIsGuest] = useState(false);
 
     const loadStats = async () => {
         setIsLoading(true);
         setError(null);
 
         try {
-            // Kullanıcı kontrolü (_layout.tsx sayesinde kullanıcının burada olduğundan eminiz,
-            // ama yine de id'sini almak için Supabase'e soruyoruz)
+            const guestFlag = await AsyncStorage.getItem('is_guest');
+            if (guestFlag === 'true') {
+                setIsGuest(true);
+                setIsLoading(false);
+                return;
+            }
+
             const { data: { user }, error: userError } = await supabase.auth.getUser();
 
             if (userError || !user) {
-                throw new Error("Kullanıcı oturumu doğrulanamadı.");
+                setIsGuest(true);
+                setIsLoading(false);
+                return;
             }
 
             const data = await fetchUserStats(user.id);
@@ -79,6 +88,37 @@ export default function StatisticsScreen() {
 
     // --- DURUM 1: YÜKLENİYOR EKRANI ---
     if (isLoading) return <StatisticsSkeleton />;
+
+    // --- DURUM GUEST: MİSAFİR UPSALE EKRANI ---
+    if (isGuest) return (
+        <ScreenLayout className="bg-base">
+            <View className="px-6 pt-4 pb-4 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
+                <Text className="text-2xl font-bold text-slate-900 dark:text-slate-50 tracking-tight">İstatistikler</Text>
+                <Text className="text-slate-500 dark:text-slate-400 text-sm font-medium">Gelişimini takip etmek için üye ol.</Text>
+            </View>
+            <View className="flex-1 items-center justify-center px-6 mt-[-40px]">
+                <View className="w-24 h-24 bg-blue-100/50 dark:bg-blue-900/30 rounded-full items-center justify-center mb-6 border border-blue-200 dark:border-blue-800">
+                    <TrendingUp size={40} color="#3b82f6" />
+                </View>
+                <Text className="text-2xl font-black text-slate-900 dark:text-white mb-3 text-center tracking-tight">Gelişimini Takip Et</Text>
+                <Text className="text-slate-500 dark:text-slate-400 text-center mb-10 leading-6 px-4">
+                    Misafir olarak ilerlemen kaydedilmiyor. Başarı oranını, çözdüğün testleri ve AI analizlerini görmek için ücretsiz hesap oluştur.
+                </Text>
+                <TouchableOpacity
+                    onPress={() => router.push('/auth/register')}
+                    className="bg-[#0A84FF] w-full py-4 rounded-2xl items-center shadow-lg shadow-blue-600/30 active:scale-95 transition-transform mb-3"
+                >
+                    <Text className="text-white font-black text-[16px]">Ücretsiz Kullanmaya Başla</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    onPress={() => router.push('/auth/login')}
+                    className="w-full py-4 rounded-2xl items-center border border-slate-200 dark:border-slate-800 active:bg-slate-50 dark:active:bg-slate-800/50"
+                >
+                    <Text className="text-slate-700 dark:text-slate-300 font-bold text-[15px]">Zaten Hesabım Var</Text>
+                </TouchableOpacity>
+            </View>
+        </ScreenLayout>
+    );
 
     // --- DURUM 2: HATA EKRANI (İnternet/Supabase hatası) ---
     if (error) return (
@@ -162,12 +202,25 @@ export default function StatisticsScreen() {
                                 </View>
 
                                 {/* Kilit Katmanı */}
-                                {/* 
-                                App Store başvurusu için analiz kilidi kaldırıldı
+                                {/* Kilit Katmanı GİZLENDİ
                                 {!isPro && (
-                                    <>
-                                        ...
-                                    </>
+                                    <View className="absolute inset-0 z-10 rounded-3xl overflow-hidden shadow-2xl">
+                                        <BlurView intensity={20} tint={isDarkMode ? "dark" : "light"} className="flex-1 items-center justify-center p-6">
+                                            <View className="bg-white/80 dark:bg-slate-900/80 p-6 rounded-[32px] items-center border border-white/20 shadow-xl">
+                                                <View className="bg-amber-100 dark:bg-amber-900/30 p-3 rounded-2xl mb-4">
+                                                    <Lock size={20} color="#d97706" />
+                                                </View>
+                                                <Text className="text-slate-900 dark:text-white font-black text-center mb-1">Konu Analizi Kilitli</Text>
+                                                <Text className="text-slate-500 dark:text-slate-400 text-[10px] font-bold text-center mb-4 uppercase tracking-widest">Detaylı Performans Raporu</Text>
+                                                <TouchableOpacity 
+                                                    onPress={() => router.push('/premium')}
+                                                    className="bg-amber-500 px-6 py-2.5 rounded-xl shadow-lg shadow-amber-500/20 active:scale-95"
+                                                >
+                                                    <Text className="text-amber-950 font-black text-xs">Kilidi Kaldır</Text>
+                                                </TouchableOpacity>
+                                            </View>
+                                        </BlurView>
+                                    </View>
                                 )}
                                 */}
                             </View>
@@ -203,12 +256,19 @@ export default function StatisticsScreen() {
                                 </View>
 
                                 {/* Kilit Katmanı */}
-                                {/* 
-                                App Store başvurusu için AI raporu kilidi kaldırıldı
+                                {/* Kilit Katmanı GİZLENDİ
                                 {!isPro && (
-                                    <>
-                                        ...
-                                    </>
+                                    <View className="absolute inset-0 z-10 rounded-2xl overflow-hidden">
+                                        <BlurView intensity={25} tint={isDarkMode ? "dark" : "light"} className="flex-1 items-center justify-center p-4">
+                                            <View className="flex-row items-center bg-white/90 dark:bg-slate-900/90 py-3 px-5 rounded-2xl border border-white/20 shadow-lg">
+                                                <Lock size={16} color="#d97706" className="mr-3" />
+                                                <Text className="text-slate-900 dark:text-white font-bold text-xs mr-4">AI Gelişim Raporu Kilitli</Text>
+                                                <TouchableOpacity onPress={() => router.push('/premium')}>
+                                                    <Text className="text-amber-600 dark:text-amber-400 font-black text-xs uppercase">Yükselt</Text>
+                                                </TouchableOpacity>
+                                            </View>
+                                        </BlurView>
+                                    </View>
                                 )}
                                 */}
                             </View>

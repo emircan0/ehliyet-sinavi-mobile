@@ -146,9 +146,18 @@ export default function LoginScreen() {
                         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                         className="flex-1 px-6 justify-center"
                     >
-                        {/* Atla butonu kaldırıldı */}
-
-
+                        {/* Atla Butonu (Guest) */}
+                        <TouchableOpacity
+                            onPress={async () => {
+                                await AsyncStorage.setItem('is_guest', 'true');
+                                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                                router.replace('/');
+                            }}
+                            className="absolute top-12 right-6 z-50 bg-white/10 px-4 py-2 rounded-full border border-white/20"
+                        >
+                            <Text className="text-white text-xs font-bold">Misafir Girişi</Text>
+                        </TouchableOpacity>
+                        
                         {/* --- Ana Giriş Kartı --- */}
                         <Animated.View
                             entering={FadeInDown.springify().damping(20).stiffness(90)}

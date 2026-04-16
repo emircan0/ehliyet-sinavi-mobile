@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
-import { Stack } from 'expo-router';
-import { Mail, Send } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
+import { Mail, Send, ChevronLeft } from 'lucide-react-native';
 import { ScreenLayout } from '../src/components/ScreenLayout';
+import { useThemeMode } from '../src/hooks/useThemeMode';
 
 export default function ContactScreen() {
+    const router = useRouter();
+    const { isDarkMode } = useThemeMode();
     const [message, setMessage] = useState('');
 
     const handleSend = () => {
@@ -13,8 +16,17 @@ export default function ContactScreen() {
     };
 
     return (
-        <ScreenLayout className="bg-white dark:bg-slate-950">
-            <Stack.Screen options={{ title: 'Bize Ulaşın' }} />
+        <ScreenLayout className="bg-base">
+            {/* Header */}
+            <View className="flex-row items-center px-4 py-3 border-b border-slate-100 dark:border-slate-800">
+                <TouchableOpacity
+                    onPress={() => router.back()}
+                    className="p-2 -ml-2"
+                >
+                    <ChevronLeft size={24} color={isDarkMode ? "#cbd5e1" : "#334155"} />
+                </TouchableOpacity>
+                <Text className="text-lg font-bold text-slate-900 dark:text-white ml-2">Bize Ulaşın</Text>
+            </View>
 
             <ScrollView className="p-6">
                 <Text className="text-slate-500 dark:text-slate-400 mb-6 leading-6">
@@ -26,7 +38,7 @@ export default function ContactScreen() {
                     <TextInput
                         placeholder="Örn: Hata Bildirimi"
                         placeholderTextColor="#94a3b8"
-                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 text-slate-900 dark:text-white"
+                        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 text-slate-900 dark:text-white"
                     />
                 </View>
 
@@ -39,7 +51,7 @@ export default function ContactScreen() {
                         numberOfLines={6}
                         value={message}
                         onChangeText={setMessage}
-                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 h-32 text-slate-900 dark:text-white"
+                        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 h-32 text-slate-900 dark:text-white"
                         style={{ textAlignVertical: 'top' }}
                     />
                 </View>
@@ -55,7 +67,7 @@ export default function ContactScreen() {
                 <View className="mt-8 items-center">
                     <View className="flex-row items-center">
                         <Mail size={16} color="#94a3b8" className="mr-2" />
-                        <Text className="text-slate-500 dark:text-slate-400">destek@ehliyethocam.com</Text>
+                        <Text className="text-slate-500 dark:text-slate-400">support@ehliyethocam.com</Text>
                     </View>
                 </View>
             </ScrollView>

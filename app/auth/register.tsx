@@ -14,7 +14,7 @@ import {
     StyleSheet
 } from 'react-native';
 import { useRouter, Link } from 'expo-router';
-import { Mail, Lock, User, ArrowLeft, Car } from 'lucide-react-native';
+import { Mail, Lock, User, ArrowLeft, Car, Check } from 'lucide-react-native';
 import { StatusBar } from 'expo-status-bar';
 import { supabase } from '../../src/api/supabase';
 import * as Haptics from 'expo-haptics';
@@ -40,6 +40,7 @@ export default function RegisterScreen() {
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [isFocused, setIsFocused] = useState<string | null>(null);
+    const [hasAgreed, setHasAgreed] = useState(false);
 
     const primaryBlue = '#0A84FF';
     const placeholderColor = '#EBEBF599';
@@ -68,6 +69,12 @@ export default function RegisterScreen() {
         if (!trimmedEmail || !trimmedPassword || !trimmedFullName) {
             triggerShake();
             Alert.alert('Eksik Bilgi', 'Lütfen tüm alanları doldurun.');
+            return;
+        }
+
+        if (!hasAgreed) {
+            triggerShake();
+            Alert.alert('Kullanım Koşulları', 'Lütfen Gizlilik Politikası ve Kullanım Koşulları sözleşmelerini kabul ediniz.');
             return;
         }
 
@@ -170,13 +177,25 @@ export default function RegisterScreen() {
                             contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 40 }}
                         >
                             {/* --- Üst Kısım --- */}
-                            <Animated.View entering={FadeInUp.delay(100)} className="mb-4">
+                            <Animated.View entering={FadeInUp.delay(100)} className="mb-4 flex-row justify-between items-center">
                                 <TouchableOpacity
                                     onPress={() => router.back()}
                                     activeOpacity={0.7}
                                     className="w-10 h-10 rounded-full bg-white/10 items-center justify-center border border-white/20"
                                 >
                                     <ArrowLeft size={20} color="#FFFFFF" />
+                                </TouchableOpacity>
+
+                                {/* Atla Butonu (Guest) */}
+                                <TouchableOpacity
+                                    onPress={async () => {
+                                        await AsyncStorage.setItem('is_guest', 'true');
+                                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                                        router.replace('/');
+                                    }}
+                                    className="bg-white/10 px-4 py-2 rounded-full border border-white/20"
+                                >
+                                    <Text className="text-white text-xs font-bold">Misafir Girişi</Text>
                                 </TouchableOpacity>
                             </Animated.View>
 
@@ -295,15 +314,29 @@ export default function RegisterScreen() {
                                         </View>
                                     </View>
 
-                                    {/* Legal Links */}
-                                    <View className="mt-6 flex-row flex-wrap justify-center items-center opacity-40">
-                                        <Text className="text-[10px] text-white text-center uppercase tracking-widest">
-                                            Devam ederek{' '}
-                                        </Text>
-                                        <TouchableOpacity onPress={() => router.push('/terms')}>
-                                            <Text className="text-[10px] text-white font-bold uppercase tracking-widest underline">Koşullarımızı</Text>
+                                    {/* Legal Checkbox */}
+                                    <View className="mt-6">
+                                        <TouchableOpacity 
+                                            activeOpacity={0.7} 
+                                            onPress={() => {
+                                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                                setHasAgreed(!hasAgreed);
+                                            }}
+                                            className="flex-row items-start px-2"
+                                        >
+                                            <View className={`w-5 h-5 rounded-[4px] border items-center justify-center mr-3 mt-0.5 ${hasAgreed ? 'bg-[#0A84FF] border-[#0A84FF]' : 'border-white/40 bg-white/5'}`}>
+                                                {hasAgreed && <Check size={14} color="white" strokeWidth={3} />}
+                                            </View>
+                                            <View className="flex-1">
+                                                <Text className="text-[12px] text-white/80 leading-5">
+                                                    Hesap oluşturarak{' '}
+                                                    <Text onPress={() => router.push('/privacy')} className="text-white font-bold underline">Gizlilik Politikası</Text>
+                                                    {' '}ve{' '}
+                                                    <Text onPress={() => router.push('/terms')} className="text-white font-bold underline">Kullanım Koşulları</Text>
+                                                    'nı okuduğumu ve kabul ettiğimi onaylıyorum.
+                                                </Text>
+                                            </View>
                                         </TouchableOpacity>
-                                        <Text className="text-[10px] text-white uppercase tracking-widest"> kabul edersiniz.</Text>
                                     </View>
                                 </BlurView>
                             </Animated.View>

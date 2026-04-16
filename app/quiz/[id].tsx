@@ -152,16 +152,16 @@ export default function QuizScreen() {
 
                 await saveQuizResults(user.id, id as string, score, correctCount, wrongCount, questions.length, validAnswers);
                 await AsyncStorage.removeItem(`@quiz_state_${id}`);
+            }
 
-                // Favoriler veya Hatalarım bitince direkt Sınavlar sekmesine dön
-                if (id === 'favorites' || id === 'mistakes') {
-                    router.replace('/(tabs)/quizzes');
-                } else {
-                    router.replace('/quiz/result');
-                }
+            // Misafir & Kullanıcı navigasyonu her zaman çalışmalı
+            if (id === 'favorites' || id === 'mistakes') {
+                router.replace('/(tabs)/quizzes');
+            } else {
+                router.replace('/quiz/result');
             }
         } catch (error) {
-            Alert.alert('Hata', 'Sonuçlar kaydedilemedi.');
+            Alert.alert('Hata', 'Sonuçlar kaydedilemedi/işlenemedi.');
         } finally {
             setIsSubmitting(false);
         }
@@ -183,13 +183,13 @@ export default function QuizScreen() {
                     answers: selectedAnswers,
                     index: currentIndex
                 }));
-
-                Toast.show({
-                    type: 'success',
-                    text1: 'İlerleme Kaydedildi',
-                    text2: 'Kaldığın yerden devam edebilirsin.',
-                });
             }
+
+            Toast.show({
+                type: user ? 'success' : 'info',
+                text1: user ? 'İlerleme Kaydedildi' : 'Sınav Duraklatıldı',
+                text2: user ? 'Kaldığın yerden devam edebilirsin.' : 'Misafir kayıtlarında ilerleme kaydedilemez.',
+            });
         } finally {
             setIsSubmitting(false);
             router.back();
