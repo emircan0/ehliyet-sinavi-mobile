@@ -4,6 +4,7 @@ import { useRouter, router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 // import * as Notifications from 'expo-notifications'; // Expo Go'da çökmeyi önlemek için kaldırıldı
+import type { EventSubscription, Notification, NotificationResponse } from 'expo-notifications';
 
 const isExpoGo = Constants.appOwnership === 'expo';
 const Notifications = !isExpoGo ? require('expo-notifications') : null;
@@ -61,8 +62,8 @@ export default function Home() {
     const [userName, setUserName] = useState('Yükleniyor...');
     const [questionCounts, setQuestionCounts] = useState({ trafik: 0, ilkyardim: 0, motor: 0, adap: 0 });
 
-    const notificationListener = useRef<Notifications.EventSubscription | null>(null);
-    const responseListener = useRef<Notifications.EventSubscription | null>(null);
+    const notificationListener = useRef<EventSubscription | null>(null);
+    const responseListener = useRef<EventSubscription | null>(null);
 
     // PREMIUM PROMOSYON ZAMANLAYICISI
     useEffect(() => {
@@ -81,7 +82,7 @@ export default function Home() {
                 }
 
                 const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
-                
+
                 const updateTimer = () => {
                     const now = Date.now();
                     const diff = startTime + SIX_HOURS_MS - now;
@@ -121,7 +122,7 @@ export default function Home() {
 
         // 1. Uygulama Açıkken (Foreground) Bildirim Geldiğinde
         if (!isExpoGo && Notifications) {
-            notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
+            notificationListener.current = Notifications.addNotificationReceivedListener((notification: Notification) => {
                 const title = notification.request.content.title || 'Yeni Bildirim';
                 const message = notification.request.content.body || '';
                 const data = notification.request.content.data;
@@ -136,7 +137,7 @@ export default function Home() {
             });
 
             // 2. Kullanıcı Bildirime Tıkladığında (Arka plan / Kapalıyken)
-            responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+            responseListener.current = Notifications.addNotificationResponseReceivedListener((response: NotificationResponse) => {
                 const data = response.notification.request.content.data;
                 // Bildirime tıklanıp uygulamaya girildiyse, route bilgisi varsa oraya yönlendir
                 if (data?.route) {
@@ -199,7 +200,7 @@ export default function Home() {
     const triggerRandomAd = () => {
         const rand = Math.random();
         let type: 'short' | 'long' | 'mega';
-        
+
         // Weighting: 50% Mega (40s), 30% Long (20s), 20% Short (10s)
         if (rand < 0.5) type = 'mega';
         else if (rand < 0.8) type = 'long';
@@ -230,12 +231,7 @@ export default function Home() {
             {/* --- HEADER --- */}
             <View className="px-6 py-2 flex-row justify-between items-center z-10 mt-2">
                 <View className="flex-1 pr-4">
-                    <View className="flex-row items-center mb-1">
-                        <Sparkles size={14} color="#3b82f6" />
-                        <Text className="text-blue-600 dark:text-blue-400 text-[10px] font-black tracking-widest uppercase ml-1">
-                            Ehliyet Cepte
-                        </Text>
-                    </View>
+
                     <Text className="text-[28px] font-black text-slate-900 dark:text-slate-50 tracking-tight" numberOfLines={1}>
                         Merhaba, {userName.split(' ')[0]} 👋
                     </Text>
@@ -243,7 +239,6 @@ export default function Home() {
 
                 {/* BİLDİRİM ZİL BUTONU VE KREDİ SKORU */}
                 <View className="flex-row items-center gap-3">
-                    {/* ABONELİK KONTROLÜ İÇİN GİZLENDİ
                     {!isPro && (
                         <TouchableOpacity
                             onPress={triggerRandomAd}
@@ -252,9 +247,8 @@ export default function Home() {
                             <Text className="text-amber-700 font-black text-xs mr-1.5">🪙 {credits}</Text>
                             <Zap size={12} color="#b45309" fill="#b45309" />
                         </TouchableOpacity>
-                    )} 
-                    */}
-                    
+                    )}
+
                     <TouchableOpacity
                         onPress={() => setShowNotifications(true)}
                         className="w-11 h-11 bg-white dark:bg-slate-900 rounded-full items-center justify-center border border-slate-100 dark:border-slate-800 shadow-sm shadow-slate-200 dark:shadow-none active:opacity-70"
@@ -273,7 +267,6 @@ export default function Home() {
                 contentContainerStyle={{ paddingBottom: 120 }}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
             >
-                {/* PROMOSYON ZAMANLAYICISI GİZLENDİ
                 {!isPro && timeLeft && (
                     <View className="px-6 mb-6">
                         <TouchableOpacity
@@ -301,25 +294,21 @@ export default function Home() {
                             <View className="absolute right-12 -top-12 w-24 h-24 bg-white/10 rounded-full" />
                         </TouchableOpacity>
                     </View>
-                )} 
-                */}
-                
+                )}
+
 
                 {/* 1. HERO CARD: Genel Deneme */}
                 <View className="px-6 mb-5">
                     <TouchableOpacity
                         activeOpacity={0.9}
                         onPress={() => handlePremiumFeature('/quiz/general')}
-                        /* className={`bg-slate-900 rounded-[32px] p-6 relative overflow-hidden shadow-2xl shadow-slate-900/30 ${!isPro ? 'opacity-90' : ''}`} */
-                        className="bg-slate-900 rounded-[32px] p-6 relative overflow-hidden shadow-2xl shadow-slate-900/30"
+                        className={`bg-slate-900 rounded-[32px] p-6 relative overflow-hidden shadow-2xl shadow-slate-900/30 ${!isPro ? 'opacity-90' : ''}`}
                     >
-                        {/* 
                         {!isPro && (
                             <View className="absolute top-5 right-5 z-20 bg-black/40 p-2.5 rounded-full border border-white/10 backdrop-blur-md">
                                 <Lock size={16} color="#f59e0b" />
                             </View>
                         )}
-                        */}
                         <View className="absolute -right-10 -top-10 w-40 h-40 bg-blue-500/20 blur-3xl rounded-full" />
                         <View className="absolute right-12 -bottom-12 w-24 h-24 bg-indigo-500/20 blur-2xl rounded-full" />
 
@@ -336,8 +325,7 @@ export default function Home() {
                                 MEB müfredatına birebir uygun, 50 soruluk tam kapsamlı deneme sınavı.
                             </Text>
 
-                            {/* <View className={`self-start p-1.5 pl-5 pr-1.5 rounded-full flex-row items-center shadow-lg ${!isPro ? 'bg-amber-600 shadow-amber-600/30' : 'bg-blue-600 shadow-blue-600/30'}`}> */}
-                            <View className="self-start p-1.5 pl-5 pr-1.5 rounded-full flex-row items-center shadow-lg bg-blue-600 shadow-blue-600/30">
+                            <View className={`self-start p-1.5 pl-5 pr-1.5 rounded-full flex-row items-center shadow-lg ${!isPro ? 'bg-amber-600 shadow-amber-600/30' : 'bg-blue-600 shadow-blue-600/30'}`}>
                                 <Text className="text-white font-bold text-sm mr-4">Hemen Başla</Text>
                                 <View className="w-8 h-8 bg-white/20 rounded-full items-center justify-center">
                                     <ChevronRight size={18} color="white" />
@@ -352,16 +340,13 @@ export default function Home() {
                     <TouchableOpacity
                         activeOpacity={0.9}
                         onPress={() => handlePremiumFeature('/quiz/quick', 'Hızlı Antrenman')}
-                        /* className={`bg-emerald-500 rounded-[24px] p-5 flex-row items-center justify-between shadow-lg shadow-emerald-500/20 overflow-hidden relative ${!isPro ? 'opacity-90' : ''}`} */
-                        className="bg-emerald-500 rounded-[24px] p-5 flex-row items-center justify-between shadow-lg shadow-emerald-500/20 overflow-hidden relative"
+                        className={`bg-emerald-500 rounded-[24px] p-5 flex-row items-center justify-between shadow-lg shadow-emerald-500/20 overflow-hidden relative ${!isPro ? 'opacity-90' : ''}`}
                     >
-                        {/* 
                         {!isPro && (
                             <View className="absolute top-4 right-4 z-20 bg-black/20 p-1.5 rounded-full border border-white/10 backdrop-blur-md">
                                 <Lock size={12} color="white" />
                             </View>
                         )}
-                        */}
                         <View className="absolute -right-4 -top-8 opacity-10 rotate-12">
                             <Zap size={100} color="white" fill="white" />
                         </View>
@@ -383,17 +368,14 @@ export default function Home() {
                             <TouchableOpacity
                                 key={cat.id}
                                 activeOpacity={0.7}
-                                /* className={`w-[48%] bg-white dark:bg-slate-900 p-5 rounded-[28px] border border-slate-100 dark:border-slate-800 shadow-sm shadow-slate-200/50 dark:shadow-none flex-col h-[150px] relative ${!isPro ? 'opacity-95' : ''}`} */
-                                className="w-[48%] bg-white dark:bg-slate-900 p-5 rounded-[28px] border border-slate-100 dark:border-slate-800 shadow-sm shadow-slate-200/50 dark:shadow-none flex-col h-[150px] relative"
+                                className={`w-[48%] bg-white dark:bg-slate-900 p-5 rounded-[28px] border border-slate-100 dark:border-slate-800 shadow-sm shadow-slate-200/50 dark:shadow-none flex-col h-[150px] relative ${!isPro ? 'opacity-95' : ''}`}
                                 onPress={() => handlePremiumFeature(`/quiz/${cat.id}`, cat.name)}
                             >
-                                {/* 
                                 {!isPro && (
                                     <View className="absolute top-4 right-4 z-20 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-full border border-slate-200 dark:border-slate-700">
                                         <Lock size={12} color="#f59e0b" />
                                     </View>
                                 )}
-                                */}
                                 <View className={`w-12 h-12 rounded-2xl ${cat.bg} dark:bg-opacity-10 items-center justify-center mb-3`}>
                                     <cat.icon size={24} color={cat.color} />
                                 </View>
@@ -464,8 +446,8 @@ export default function Home() {
                                                     router.push(notif.data.route);
                                                 }
                                             }}
-                                            className={`mb-3 p-4 rounded-[24px] border flex-row items-start ${notif.isRead 
-                                                ? 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 opacity-75' 
+                                            className={`mb-3 p-4 rounded-[24px] border flex-row items-start ${notif.isRead
+                                                ? 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 opacity-75'
                                                 : 'bg-blue-50/50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-900/30'}`}
                                         >
                                             <View className={`w-12 h-12 rounded-2xl items-center justify-center mr-4 ${ui.bg} dark:bg-opacity-10`}>
@@ -473,8 +455,8 @@ export default function Home() {
                                             </View>
                                             <View className="flex-1">
                                                 <View className="flex-row justify-between items-start mb-1">
-                                                    <Text className={`font-bold text-[15px] flex-1 mr-2 ${notif.isRead 
-                                                        ? 'text-slate-700 dark:text-slate-300' 
+                                                    <Text className={`font-bold text-[15px] flex-1 mr-2 ${notif.isRead
+                                                        ? 'text-slate-700 dark:text-slate-300'
                                                         : 'text-slate-900 dark:text-slate-100'}`}>
                                                         {notif.title}
                                                     </Text>
@@ -492,26 +474,24 @@ export default function Home() {
                 </View>
             </Modal>
 
-            {/* REKLAM MODALI GEÇİCİ OLARAK DEVRE DIŞI
             <RewardedAdModal 
                 visible={showAdModal} 
                 type={adModalType}
                 onClose={() => setShowAdModal(false)} 
             />
-            */}
         </ScreenLayout>
     );
 }
 
 const HomeSkeleton = () => {
     const { isDarkMode, colorScheme } = useThemeMode();
-    
+
     return (
         <ScreenLayout className="bg-base">
             <View className="px-6 pt-12 pb-6">
                 <View className="flex-row justify-between items-center mb-8">
                     <View>
-                        <View className="h-3 w-24 bg-slate-200 dark:bg-slate-800 rounded mb-3 animate-pulse" />
+
                         <View className="h-8 w-48 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" />
                     </View>
                     <View className="w-11 h-11 bg-slate-200 dark:bg-slate-800 rounded-full animate-pulse" />

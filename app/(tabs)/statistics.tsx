@@ -201,8 +201,6 @@ export default function StatisticsScreen() {
                                     ))}
                                 </View>
 
-                                {/* Kilit Katmanı */}
-                                {/* Kilit Katmanı GİZLENDİ
                                 {!isPro && (
                                     <View className="absolute inset-0 z-10 rounded-3xl overflow-hidden shadow-2xl">
                                         <BlurView intensity={20} tint={isDarkMode ? "dark" : "light"} className="flex-1 items-center justify-center p-6">
@@ -222,7 +220,6 @@ export default function StatisticsScreen() {
                                         </BlurView>
                                     </View>
                                 )}
-                                */}
                             </View>
                         </View>
 
@@ -255,8 +252,6 @@ export default function StatisticsScreen() {
                                     )}
                                 </View>
 
-                                {/* Kilit Katmanı */}
-                                {/* Kilit Katmanı GİZLENDİ
                                 {!isPro && (
                                     <View className="absolute inset-0 z-10 rounded-2xl overflow-hidden">
                                         <BlurView intensity={25} tint={isDarkMode ? "dark" : "light"} className="flex-1 items-center justify-center p-4">
@@ -270,7 +265,6 @@ export default function StatisticsScreen() {
                                         </BlurView>
                                     </View>
                                 )}
-                                */}
                             </View>
                         </View>
                     </>

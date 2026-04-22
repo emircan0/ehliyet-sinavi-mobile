@@ -14,13 +14,10 @@ interface RewardedAdModalProps {
 }
 
 export default function RewardedAdModal({ visible, onClose, type }: RewardedAdModalProps) {
-    // App Store başvurusu için reklamları devre dışı bırak
-    return null;
-
     const config = {
-        short: { duration: 10, reward: 10, label: 'Kısa Reklam' },
-        long: { duration: 20, reward: 20, label: 'Uzun Reklam' },
-        mega: { duration: 40, reward: 50, label: 'Mega Reklam' },
+        short: { duration: 10, reward: 10, label: 'Kısa Tanıtım' },
+        long: { duration: 20, reward: 20, label: 'Uzun Tanıtım' },
+        mega: { duration: 40, reward: 50, label: 'Mega Tanıtım' },
     }[type];
 
     const [timeLeft, setTimeLeft] = useState(config.duration);
@@ -58,8 +55,8 @@ export default function RewardedAdModal({ visible, onClose, type }: RewardedAdMo
 
     const handleCloseEarly = () => {
         Alert.alert(
-            "Reklamı Kapat",
-            "Reklamı şimdi kapatırsanız kredi kazanamayacaksınız. Emin misiniz?",
+            "Tanıtımı Kapat",
+            "Bu tanıtımı şimdi kapatırsanız kredi kazanamayacaksınız. Emin misiniz?",
             [
                 { text: "İzlemeye Devam Et", style: "cancel" },
                 { text: "Kapat ve Kredi Kaybet", style: "destructive", onPress: () => onClose() }
@@ -89,7 +86,7 @@ export default function RewardedAdModal({ visible, onClose, type }: RewardedAdMo
                             {config.label}
                         </Text>
                         <Text className="text-slate-400 text-center text-lg leading-6 font-medium">
-                            Bu videoyu sonuna kadar izleyerek tam {config.reward} kredi kazanabilirsin!
+                            Bu tanıtım içeriğini sonuna kadar izleyerek tam {config.reward} kredi kazanabilirsin!
                         </Text>
                     </View>
 
@@ -125,7 +122,7 @@ export default function RewardedAdModal({ visible, onClose, type }: RewardedAdMo
 
                 {/* ALT BAR: PROGRESS VE BUTON */}
                 <View className="absolute bottom-16 left-0 right-0 px-8 items-center">
-                    {!isFinished ? (
+                    {!isFinished && (
                         <View className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden mb-6">
                             <Animated.View 
                                 style={{
@@ -138,7 +135,9 @@ export default function RewardedAdModal({ visible, onClose, type }: RewardedAdMo
                                 }}
                             />
                         </View>
-                    ) : (
+                    )}
+                    
+                    {isFinished && (
                         <TouchableOpacity
                             onPress={handleClaim}
                             activeOpacity={0.8}

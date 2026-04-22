@@ -193,16 +193,13 @@ export default function QuizzesScreen() {
                                         handlePremiumExam(featuredExam.id, featuredExam.title || "Özel Sınav");
                                     }
                                 }}
-                                /* className={`bg-slate-900 rounded-[32px] p-6 relative overflow-hidden shadow-2xl shadow-slate-900/30 ${!isPro ? 'opacity-90' : ''}`} */
-                                className="bg-slate-900 rounded-[32px] p-6 relative overflow-hidden shadow-2xl shadow-slate-900/30"
+                                className={`bg-slate-900 rounded-[32px] p-6 relative overflow-hidden shadow-2xl shadow-slate-900/30 ${!isPro ? 'opacity-90' : ''}`}
                             >
-                                {/* Kilit İkonu (Pro Değilse) GİZLENDİ
                                 {!isPro && (
                                     <View className="absolute top-5 right-5 z-20 bg-black/40 p-2.5 rounded-full border border-white/10 backdrop-blur-md">
                                         <Lock size={16} color="#f59e0b" />
                                     </View>
                                 )}
-                                */}
                                 
                                 {/* Arka Plan Efektleri (Blur) */}
                                 <View className="absolute -right-10 -top-10 w-40 h-40 bg-blue-500/20 blur-3xl rounded-full" />
@@ -256,9 +253,7 @@ export default function QuizzesScreen() {
                                             )}
                                         </View>
 
-                                        {/* Aksiyon Butonu (Hero Stili) */}
-                                        {/* <View className={`self-start p-1.5 pl-5 pr-1.5 rounded-full flex-row items-center shadow-lg ${!isPro ? 'bg-amber-600 shadow-amber-600/30' : 'bg-blue-600 shadow-blue-600/30'}`}> */}
-                                        <View className="self-start p-1.5 pl-5 pr-1.5 rounded-full flex-row items-center shadow-lg bg-blue-600 shadow-blue-600/30">
+                                        <View className={`self-start p-1.5 pl-5 pr-1.5 rounded-full flex-row items-center shadow-lg ${!isPro ? 'bg-amber-600 shadow-amber-600/30' : 'bg-blue-600 shadow-blue-600/30'}`}>
                                             <Text className="text-white font-bold text-sm mr-4">
                                                 {(Number(featuredExam?.progress_percentage) || 0) > 0 ? 'Devam Et' : 'Başla'}
                                             </Text>
@@ -303,13 +298,11 @@ export default function QuizzesScreen() {
                 </ScrollView>
             )}
 
-            {/* REKLAM MODALI GİZLENDİ
             <RewardedAdModal 
                 visible={showAdModal} 
                 type={adModalType}
                 onClose={() => setShowAdModal(false)} 
             />
-            */}
         </ScreenLayout>
     );
 }
@@ -371,13 +364,11 @@ const ExamListItem = ({ exam, isPro, onPress }: any) => {
                 <ChevronRight size={16} color={isDarkMode ? "#475569" : "#cbd5e1"} />
             </View>
 
-            {/* REKLAM MODALI GİZLENDİ
             {!isPro && (
                 <View className="absolute top-4 right-4 bg-slate-900/5 dark:bg-white/5 p-1.5 rounded-full">
                     <Lock size={12} color="#f59e0b" />
                 </View>
-            )} 
-            */}
+            )}
             
         </TouchableOpacity>
     );

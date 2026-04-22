@@ -182,7 +182,7 @@ export default function LoginScreen() {
             <StatusBar style="light" />
 
             <ImageBackground
-                source={require('../../assets/images/driving-bg.png')}
+                source={require('../../assets/images/driving-bg.jpg')}
                 style={styles.backgroundImage}
                 resizeMode="cover"
             >

@@ -18,16 +18,14 @@ interface SubscriptionState {
 export const useSubscriptionStore = create<SubscriptionState>()(
     persist(
         (set, get) => ({
-            isPro: true, // TEKRAR GİZLİYE ALDIK: Herkes Pro olsun
+            isPro: false,
             credits: 5,   // Yeni kullanıcılara başlangıç kredisi verelim
             proExpiryDate: null,
 
             initializePurchases: async () => {
-                /* 
                 await purchaseService.initialize();
                 const status = await purchaseService.checkSubscriptionStatus();
                 set({ isPro: status });
-                */
             },
 
             setPro: (status, durationDays) => {
@@ -57,19 +55,14 @@ export const useSubscriptionStore = create<SubscriptionState>()(
             },
 
             checkSubscriptionStatus: async () => {
-                /*
                 const status = await purchaseService.checkSubscriptionStatus();
                 set({ isPro: status });
-                */
             },
 
             restorePurchases: async () => {
-                /*
                 const status = await purchaseService.restorePurchases();
                 set({ isPro: status });
                 return status;
-                */
-                return true;
             },
         }),
         {

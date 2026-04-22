@@ -87,10 +87,10 @@ export default function SettingsScreen() {
     const setReminderTime = useSettingsStore(state => state.setReminderTime);
 
     // NativeWind State
-    const { isDarkMode, colorScheme, setColorScheme  } = useThemeMode();
+    const { isDarkMode, colorScheme, setColorScheme } = useThemeMode();
 
     // Switch, isDarkMode değerini doğrudan useThemeMode'dan alır.
-    
+
     const [userName, setUserName] = useState('');
     const [userEmail, setUserEmail] = useState('');
     const [isDeleting, setIsDeleting] = useState(false);
@@ -121,11 +121,11 @@ export default function SettingsScreen() {
     const handleNotificationChange = async (newValue: boolean) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         setNotificationsEnabled(newValue);
-        
+
         if (newValue) {
             // Push bildirimleri için kayıt ol
             const token = await registerForPushNotificationsAsync(user?.id);
-            
+
             Toast.show({
                 type: 'success',
                 text1: 'Bildirimler Aktif',
@@ -157,7 +157,7 @@ export default function SettingsScreen() {
     const handleReminderToggle = async (newValue: boolean) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         setReminderEnabled(newValue);
-        
+
         if (newValue) {
             await scheduleDailyReminder(reminderTime.hour, reminderTime.minute);
             Toast.show({
@@ -179,7 +179,7 @@ export default function SettingsScreen() {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         setReminderTime(tempTime.hour, tempTime.minute);
         setShowTimePicker(false);
-        
+
         if (isReminderEnabled) {
             await scheduleDailyReminder(tempTime.hour, tempTime.minute);
             Toast.show({
@@ -215,7 +215,6 @@ export default function SettingsScreen() {
                     <ChevronRight size={20} color={isDarkMode ? "#5c5c62" : "#c7c7cc"} />
                 </TouchableOpacity>
 
-                {/* ABONELİK REKLAMI GİZLENDİ
                 {!isPro && (
                     <View className="mx-5 mt-6">
                         <TouchableOpacity
@@ -233,40 +232,38 @@ export default function SettingsScreen() {
                             <View className="absolute -right-4 -bottom-4 w-20 h-20 bg-white/20 rounded-full" />
                         </TouchableOpacity>
                     </View>
-                )} 
-                */}
-                
+                )}
 
                 <SectionHeader title="Hesap" />
                 <View className="mx-5 bg-white dark:bg-slate-900 rounded-[16px] overflow-hidden border border-slate-100 dark:border-slate-800 shadow-sm dark:shadow-none">
-                    {/* <SettingItem icon={CreditCard} label="Aboneliklerim" isLast onPress={() => router.push('/subscriptions')} /> */}
+                    <SettingItem icon={CreditCard} label="Aboneliklerim" isLast onPress={() => router.push('/subscriptions')} />
                     {isGuest ? (
-                         <SettingItem icon={User} label="Hesap Oluştur veya Giriş Yap" isLast onPress={() => router.push('/auth/register')} color="#0A84FF" />
+                        <SettingItem icon={User} label="Hesap Oluştur veya Giriş Yap" isLast onPress={() => router.push('/auth/register')} color="#0A84FF" />
                     ) : (
-                         <SettingItem icon={User} label="Profil Detayları" isLast onPress={() => router.push('/profile')} />
+                        <SettingItem icon={User} label="Profil Detayları" isLast onPress={() => router.push('/profile')} />
                     )}
                 </View>
 
                 <SectionHeader title="Tercihler" />
                 <View className="mx-5 bg-white dark:bg-slate-900 rounded-[16px] overflow-hidden border border-slate-100 dark:border-slate-800 shadow-sm dark:shadow-none">
                     <SettingItem icon={Bell} label="Bildirimler" type="toggle" value={notificationsEnabled} onPress={handleNotificationChange} />
-                    <SettingItem 
-                        icon={Clock} 
-                        label="Çalışma Hatırlatıcısı" 
-                        type="toggle" 
-                        value={isReminderEnabled} 
-                        onPress={handleReminderToggle} 
+                    <SettingItem
+                        icon={Clock}
+                        label="Çalışma Hatırlatıcısı"
+                        type="toggle"
+                        value={isReminderEnabled}
+                        onPress={handleReminderToggle}
                     />
                     {isReminderEnabled && (
-                        <SettingItem 
-                            icon={Clock} 
-                            label="Hatırlatma Saati" 
-                            type="value" 
-                            value={`${reminderTime.hour.toString().padStart(2, '0')}:${reminderTime.minute.toString().padStart(2, '0')}`} 
+                        <SettingItem
+                            icon={Clock}
+                            label="Hatırlatma Saati"
+                            type="value"
+                            value={`${reminderTime.hour.toString().padStart(2, '0')}:${reminderTime.minute.toString().padStart(2, '0')}`}
                             onPress={() => {
                                 setTempTime(reminderTime);
                                 setShowTimePicker(true);
-                            }} 
+                            }}
                         />
                     )}
                     <SettingItem icon={Moon} label="Karanlık Mod" type="toggle" value={isDarkMode} isLast onPress={toggleDarkMode} />
@@ -283,7 +280,7 @@ export default function SettingsScreen() {
                 {/* Removed Logout actions per user request */}
 
                 <View className="items-center mb-8">
-                    <Text className="text-slate-400 dark:text-[#EBEBF54D] text-[13px] font-medium">Ehliyet Hocam v1.2.0</Text>
+                    <Text className="text-slate-400 dark:text-[#EBEBF54D] text-[13px] font-medium">Ehliyet Hocam v1.2.2</Text>
                 </View>
             </ScrollView>
 
@@ -299,11 +296,11 @@ export default function SettingsScreen() {
                         <Text className="text-xl font-black text-slate-900 dark:text-white text-center mb-6">
                             Hatırlatma Saati Seçin
                         </Text>
-                        
+
                         <View className="flex-row items-center justify-center gap-x-8 mb-8">
                             {/* Hour Selector */}
                             <View className="items-center">
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     onPress={() => {
                                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                         setTempTime(t => ({ ...t, hour: (t.hour + 1) % 24 }));
@@ -315,7 +312,7 @@ export default function SettingsScreen() {
                                 <Text className="text-5xl font-black text-slate-900 dark:text-white w-16 text-center">
                                     {tempTime.hour.toString().padStart(2, '0')}
                                 </Text>
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     onPress={() => {
                                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                         setTempTime(t => ({ ...t, hour: t.hour === 0 ? 23 : t.hour - 1 }));
@@ -331,7 +328,7 @@ export default function SettingsScreen() {
 
                             {/* Minute Selector */}
                             <View className="items-center">
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     onPress={() => {
                                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                         setTempTime(t => ({ ...t, minute: (t.minute + 5) % 60 }));
@@ -343,7 +340,7 @@ export default function SettingsScreen() {
                                 <Text className="text-5xl font-black text-slate-900 dark:text-white w-16 text-center">
                                     {tempTime.minute.toString().padStart(2, '0')}
                                 </Text>
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     onPress={() => {
                                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                         setTempTime(t => ({ ...t, minute: t.minute < 5 ? 55 : t.minute - 5 }));
@@ -357,13 +354,13 @@ export default function SettingsScreen() {
                         </View>
 
                         <View className="flex-row gap-3">
-                            <TouchableOpacity 
+                            <TouchableOpacity
                                 onPress={() => setShowTimePicker(false)}
                                 className="flex-1 bg-slate-100 dark:bg-white/5 py-4 rounded-2xl items-center"
                             >
                                 <Text className="text-slate-600 dark:text-slate-400 font-bold text-base">Vazgeç</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity 
+                            <TouchableOpacity
                                 onPress={handleSaveTime}
                                 className="flex-[1.5] bg-blue-600 py-4 rounded-2xl items-center shadow-lg shadow-blue-600/30"
                             >

@@ -300,7 +300,6 @@ export default function AITutorScreen() {
 
             </Animated.ScrollView>
 
-            {/* AI KOÇ KİLİT EKRANI GİZLENDİ
             {!isPro && (
                 <View className="absolute inset-0 z-50 overflow-hidden">
                     <BlurView intensity={30} tint={isDarkMode ? "dark" : "light"} className="flex-1 items-center justify-center px-7">
@@ -321,8 +320,7 @@ export default function AITutorScreen() {
                         </View>
                     </BlurView>
                 </View>
-            )} 
-            */}
+            )}
             
         </ScreenLayout>
     );

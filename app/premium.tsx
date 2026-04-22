@@ -10,6 +10,7 @@ import * as Haptics from 'expo-haptics';
 import { purchaseService } from '../src/services/purchaseService';
 import { Alert, ActivityIndicator } from 'react-native';
 import Purchases from 'react-native-purchases';
+import { Linking } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -121,6 +122,23 @@ export default function PremiumScreen() {
             }
         } catch (error) {
             Alert.alert("Hata", "Satın alma işlemi sırasında bir hata oluştu.");
+        } finally {
+            setIsPurchasing(false);
+        }
+    };
+
+    const handleRestore = async () => {
+        try {
+            setIsPurchasing(true);
+            const status = await purchaseService.restorePurchases();
+            if (status) {
+                Alert.alert("Başarılı", "Satın alımlarınız başarıyla geri yüklendi!");
+                router.replace('/(tabs)');
+            } else {
+                Alert.alert("Bilgi", "Aktif bir aboneliğiniz bulunamadı.");
+            }
+        } catch (error) {
+            Alert.alert("Hata", "Geri yükleme işlemi başarısız oldu.");
         } finally {
             setIsPurchasing(false);
         }
@@ -249,18 +267,13 @@ export default function PremiumScreen() {
 
                 </ScrollView>
 
-                {/* SABİT ALT BUTON - EN ÖNE ALINDI */}
+                {/* SABİT ALT BUTON VE APPLE UYARI METİNLERİ */}
                 <View
-                    className="absolute bottom-0 w-full pt-4 pb-8 px-6 bg-[#020617] border-t border-slate-800 z-50"
+                    className="absolute bottom-0 w-full pt-4 pb-6 px-6 bg-[#020617] border-t border-slate-800 z-50"
                     style={Platform.OS === 'android' ? { elevation: 20 } : { shadowColor: '#000', shadowOffset: { width: 0, height: -10 }, shadowOpacity: 0.5, shadowRadius: 15 }}
                 >
 
-                    {/* Uyarı yazısı */}
-                    <Text className="text-slate-500 text-[10px] text-center mb-3 font-medium px-4">
-                        Ödeme onayından sonra App Store hesabınızdan tahsil edilecektir. İptal edilmediği sürece yenilenir.
-                    </Text>
-
-                    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+                    <Animated.View style={{ transform: [{ scale: scaleAnim }] }} className="mb-4">
                         <TouchableOpacity
                             activeOpacity={0.9}
                             onPress={handlePurchase}
@@ -289,15 +302,33 @@ export default function PremiumScreen() {
                             </LinearGradient>
                         </TouchableOpacity>
                     </Animated.View>
+
+                    {/* APPLE ZORUNLU LİNKLER: Satın Almaları Geri Yükle, EULA, Gizlilik */}
+                    <View className="flex-row justify-center items-center mb-3">
+                        <TouchableOpacity onPress={handleRestore}>
+                            <Text className="text-white text-[12px] font-bold mx-2">Satın Almaları Geri Yükle</Text>
+                        </TouchableOpacity>
+                    </View>
+                    
+                    <View className="flex-row justify-center items-center mb-3">
+                        <TouchableOpacity onPress={() => router.push('/terms')}>
+                            <Text className="text-slate-500 text-[11px] underline mx-2">Kullanım Koşulları</Text>
+                        </TouchableOpacity>
+                        <Text className="text-slate-700 text-[11px]">|</Text>
+                        <TouchableOpacity onPress={() => router.push('/privacy')}>
+                            <Text className="text-slate-500 text-[11px] underline mx-2">Gizlilik Politikası</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* APPLE ZORUNLU BİLGİLENDİRME YAZISI */}
+                    <Text className="text-slate-500 text-[9px] text-center font-medium px-2">
+                        {selectedPlan === 'monthly' ? 
+                            "Ödeme, satın alma onayında App Store hesabınızdan tahsil edilecektir. Abonelik, mevcut dönemin bitiminden en az 24 saat önce otomatik yenileme kapatılmadığı sürece aynı fiyatla otomatik olarak yenilenir. Satın alma işleminden sonra Hesap Ayarlarına giderek aboneliklerinizi yönetebilir ve iptal edebilirsiniz." 
+                            : 
+                            "Ömür boyu plan tek seferlik ödemedir. Ödeme, satın alma onayında App Store hesabınızdan tahsil edilecektir."}
+                    </Text>
+
                 </View>
-                
-                {/* Developer / Testing: Official RC Paywall Link */}
-                <TouchableOpacity 
-                    onPress={() => router.push('/paywall')}
-                    className="mb-10 items-center"
-                >
-                    <Text className="text-slate-600 text-[10px] underline">Resmi Satın Alma Sayfasını Gör (Yedek)</Text>
-                </TouchableOpacity>
 
             </LinearGradient>
         </ScreenLayout>

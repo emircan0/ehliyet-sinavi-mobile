@@ -22,11 +22,6 @@ export const usePremiumAccess = () => {
     }: PremiumAccessOptions) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-        // Her zaman başarılı olsun
-        onSuccess();
-        return;
-
-        /* 
         if (isPro) {
             onSuccess();
             return;
@@ -64,7 +59,6 @@ export const usePremiumAccess = () => {
                 }
             ]
         );
-        */
     };
 
     return { checkAccess, isPro };
