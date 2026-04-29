@@ -6,11 +6,14 @@ const isExpoGo = Constants.appOwnership === 'expo';
  * Google Sign-In wrapper that is safe for Expo Go
  */
 export const GoogleAuth = {
-    configure: (webClientId: string) => {
+    configure: (webClientId: string, iosClientId?: string, androidClientId?: string) => {
         if (!isExpoGo) {
             try {
                 const { GoogleSignin } = require('@react-native-google-signin/google-signin');
-                GoogleSignin.configure({ webClientId });
+                GoogleSignin.configure({ 
+                    webClientId,
+                    iosClientId
+                });
             } catch (error) {
                 console.warn('Google Sign-In configuration failed:', error);
             }

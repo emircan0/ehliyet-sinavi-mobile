@@ -16,13 +16,13 @@ const { width } = Dimensions.get('window');
 
 export default function PremiumScreen() {
     const router = useRouter();
-    const setPro = useSubscriptionStore(state => state.setPro);
+    const setPremium = useSubscriptionStore(state => state.setPremium);
     const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'lifetime'>('lifetime');
     const [timeLeft, setTimeLeft] = useState<{ hours: number, minutes: number, seconds: number } | null>(null);
     const [isPurchasing, setIsPurchasing] = useState(false);
     const [plans, setPlans] = useState({
-        monthly: { price: "99", decimals: ",90", oldPrice: "₺149", text: "Aylık", identifier: "" },
-        lifetime: { price: "990", decimals: ",00", oldPrice: "₺2500", text: "Ömür Boyu Erişim (Sınırsız)", identifier: "" }
+        monthly: { price: "99", decimals: ",00", text: "Aylık Erişim", identifier: "" },
+        lifetime: { price: "199", decimals: ",00", text: "Ömür Boyu Sınırsız Erişim", identifier: "" }
     });
 
     useEffect(() => {
@@ -31,31 +31,21 @@ export default function PremiumScreen() {
                 const offerings = await Purchases.getOfferings();
                 if (offerings.current && offerings.current.availablePackages.length > 0) {
                     const availablePackages = offerings.current.availablePackages;
-                    
+
                     const newPlans = { ...plans };
-                    
+
                     // Map Monthly
                     const monthlyPkg = availablePackages.find(p => p.packageType === Purchases.PACKAGE_TYPE.MONTHLY);
                     if (monthlyPkg) {
-                        const { priceString } = monthlyPkg.product;
-                        const parts = priceString.match(/(\d+)(,\d+)?/);
-                        if (parts) {
-                            newPlans.monthly.price = parts[1];
-                            newPlans.monthly.decimals = parts[2] || "";
-                        }
+                        newPlans.monthly.price = monthlyPkg.product.priceString;
                     }
 
-                    // Map Lifetime / Annual (User wants Lifetime)
-                    const lifetimePkg = availablePackages.find(p => p.packageType === Purchases.PACKAGE_TYPE.LIFETIME || p.packageType === Purchases.PACKAGE_TYPE.ANNUAL);
+                    // Map Lifetime
+                    const lifetimePkg = availablePackages.find(p => p.packageType === Purchases.PACKAGE_TYPE.LIFETIME);
                     if (lifetimePkg) {
-                        const { priceString } = lifetimePkg.product;
-                        const parts = priceString.match(/(\d+)(,\d+)?/);
-                        if (parts) {
-                            newPlans.lifetime.price = parts[1];
-                            newPlans.lifetime.decimals = parts[2] || "";
-                        }
+                        newPlans.lifetime.price = lifetimePkg.product.priceString;
                     }
-                    
+
                     setPlans(newPlans);
                 }
             } catch (e) {
@@ -112,10 +102,10 @@ export default function PremiumScreen() {
         try {
             setIsPurchasing(true);
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            
+
             // Present RevenueCat UI Paywall if entitlement is not active
             const success = await purchaseService.presentPaywallIfNeeded();
-            
+
             if (success) {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 router.replace('/(tabs)');
@@ -135,10 +125,13 @@ export default function PremiumScreen() {
                 Alert.alert("Başarılı", "Satın alımlarınız başarıyla geri yüklendi!");
                 router.replace('/(tabs)');
             } else {
-                Alert.alert("Bilgi", "Aktif bir aboneliğiniz bulunamadı.");
+                // Hata değil, sadece bilgi veriyoruz
+                Alert.alert("Bilgi", "Bu hesapla ilişkili aktif bir Premium paket bulunamadı.");
             }
         } catch (error) {
-            Alert.alert("Hata", "Geri yükleme işlemi başarısız oldu.");
+            console.log("Restore error (ignored):", error);
+            // Kritik bir hata olmadıkça kullanıcıya yansıtmıyoruz
+            Alert.alert("Bilgi", "Geri yüklenecek aktif bir abonelik bulunamadı.");
         } finally {
             setIsPurchasing(false);
         }
@@ -187,7 +180,7 @@ export default function PremiumScreen() {
                         </View>
 
                         <Text className="text-white text-3xl font-black text-center tracking-tight mb-2">
-                            İlk Seferde <Text className="text-amber-400">Garantili</Text> Geç.
+                            Sınava <Text className="text-amber-400">Eksiksiz</Text> Hazırlan.
                         </Text>
                         <Text className="text-slate-400 text-center text-[13px] px-2 leading-5">
                             Sınavda çıkacak soruları önceden çöz, stresi sıfırla. Bugüne özel fiyattan faydalan.
@@ -205,11 +198,7 @@ export default function PremiumScreen() {
                             activeOpacity={0.9}
                             className={`relative rounded-[28px] p-5 pt-6 border-2 transition-all ${selectedPlan === 'lifetime' ? 'bg-amber-400/10 border-amber-400' : 'bg-white/5 border-white/5'}`}
                         >
-                            <View className="absolute -top-3 left-0 right-0 items-center z-10">
-                                <View className="bg-amber-400 px-3 py-1 rounded-full shadow-md shadow-amber-400/40">
-                                    <Text className="text-amber-950 text-[10px] font-black uppercase tracking-widest">En Mantıklı Seçenek</Text>
-                                </View>
-                            </View>
+                            {/* Badge removed per user request */}
 
                             <View className="flex-row justify-between items-center mb-1">
                                 <Text className={`font-black text-lg ${selectedPlan === 'lifetime' ? 'text-amber-400' : 'text-white'}`}>Ömür Boyu</Text>
@@ -221,9 +210,8 @@ export default function PremiumScreen() {
                             <Text className="text-emerald-400 text-[10px] font-bold uppercase tracking-wider mb-2">BİR KERELİK ÖDEME</Text>
 
                             <View className="flex-row items-end flex-wrap">
-                                <Text className="text-slate-500 text-base font-bold line-through mr-2 mb-1">{plans.lifetime.oldPrice}</Text>
-                                <Text className="text-white text-3xl font-black">₺{plans.lifetime.price}</Text>
-                                <Text className="text-slate-400 text-lg font-bold mb-1">{plans.lifetime.decimals}</Text>
+                                {/* oldPrice removed */}
+                                <Text className="text-white text-3xl font-black">{plans.lifetime.price}</Text>
                             </View>
                             <Text className="text-slate-400 text-[11px] font-medium mt-1">{plans.lifetime.text}</Text>
                         </TouchableOpacity>
@@ -244,8 +232,7 @@ export default function PremiumScreen() {
                                 </View>
                             </View>
                             <View className="flex-row items-end">
-                                <Text className="text-white text-2xl font-black">₺{plans.monthly.price}</Text>
-                                <Text className="text-slate-400 text-sm font-bold mb-0.5">{plans.monthly.decimals}</Text>
+                                <Text className="text-white text-2xl font-black">{plans.monthly.price}</Text>
                             </View>
                         </TouchableOpacity>
                     </View>
@@ -293,7 +280,7 @@ export default function PremiumScreen() {
                                         <View className="absolute left-6">
                                             <Sparkles size={22} color="#78350f" fill="#78350f" />
                                         </View>
-        
+
                                         <Text className="text-amber-950 font-black text-[17px] uppercase tracking-wider text-center">
                                             {selectedPlan === 'lifetime' ? "Ömür Boyu Kilidi Aç" : "Hemen Başla"}
                                         </Text>
@@ -309,7 +296,7 @@ export default function PremiumScreen() {
                             <Text className="text-white text-[12px] font-bold mx-2">Satın Almaları Geri Yükle</Text>
                         </TouchableOpacity>
                     </View>
-                    
+
                     <View className="flex-row justify-center items-center mb-3">
                         <TouchableOpacity onPress={() => router.push('/terms')}>
                             <Text className="text-slate-500 text-[11px] underline mx-2">Kullanım Koşulları</Text>
@@ -322,9 +309,9 @@ export default function PremiumScreen() {
 
                     {/* APPLE ZORUNLU BİLGİLENDİRME YAZISI */}
                     <Text className="text-slate-500 text-[9px] text-center font-medium px-2">
-                        {selectedPlan === 'monthly' ? 
-                            "Ödeme, satın alma onayında App Store hesabınızdan tahsil edilecektir. Abonelik, mevcut dönemin bitiminden en az 24 saat önce otomatik yenileme kapatılmadığı sürece aynı fiyatla otomatik olarak yenilenir. Satın alma işleminden sonra Hesap Ayarlarına giderek aboneliklerinizi yönetebilir ve iptal edebilirsiniz." 
-                            : 
+                        {selectedPlan === 'monthly' ?
+                            "Ödeme, satın alma onayında App Store hesabınızdan tahsil edilecektir. Abonelik, mevcut dönemin bitiminden en az 24 saat önce otomatik yenileme kapatılmadığı sürece aynı fiyatla otomatik olarak yenilenir. Satın alma işleminden sonra Hesap Ayarlarına giderek aboneliklerinizi yönetebilir ve iptal edebilirsiniz."
+                            :
                             "Ömür boyu plan tek seferlik ödemedir. Ödeme, satın alma onayında App Store hesabınızdan tahsil edilecektir."}
                     </Text>
 

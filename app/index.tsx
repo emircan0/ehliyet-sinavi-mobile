@@ -28,29 +28,23 @@ export default function Index() {
 
                 // 1.5 Hesap pasif mi kontrol et (Hesabımı Sil diyenler için)
                 if (session) {
-                    const { data: profile } = await supabase
+                    const { data: profile, error: profileError } = await supabase
                         .from('profiles')
-                        .select('is_active')
+                        .select('id, full_name')
                         .eq('id', session.user.id)
-                        .single();
+                        .maybeSingle();
 
-                    if (profile && profile.is_active === false) {
-                        await supabase.auth.signOut();
-                        setInitialRoute('/auth/login');
-                        return;
+                    if (profileError) {
+                        console.warn('Profile check failed:', profileError.message);
+                    }
+
+                    if (!profile) {
+                        const fullName = session.user.user_metadata?.full_name || session.user.email || 'Sürücü Adayı';
+                        await supabase.from('profiles').insert([{ id: session.user.id, full_name: fullName }]);
                     }
                 }
 
-                // 2. Onboarding kontrolü (GEÇİCİ OLARAK PASİF EDİLDİ)
-                /* 
-                const hasCompletedOnboarding = await AsyncStorage.getItem('has_completed_onboarding');
-                if (hasCompletedOnboarding !== 'true') {
-                    setInitialRoute('/onboarding');
-                    return;
-                }
-                */
-
-                // 3. Her şey tamamsa ana sayfaya
+                // 2. Doğrudan Ana Sayfaya (Onboarding Zorunluluğu Kaldırıldı)
                 setInitialRoute('/(tabs)');
             } catch (error) {
                 setInitialRoute('/auth/login');
@@ -59,13 +53,15 @@ export default function Index() {
         checkNavigationState();
     }, []);
 
-    if (initialRoute === null) {
-        return (
-            <View className="flex-1 items-center justify-center bg-base">
-                <ActivityIndicator size="large" color="#3b82f6" />
-            </View>
-        );
-    }
+    useEffect(() => {
+        if (initialRoute) {
+            router.replace(initialRoute as any);
+        }
+    }, [initialRoute]);
 
-    return <Redirect href={initialRoute as any} />;
+    return (
+        <View className="flex-1 items-center justify-center bg-base">
+            <ActivityIndicator size="large" color="#3b82f6" />
+        </View>
+    );
 }

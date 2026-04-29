@@ -15,7 +15,14 @@
       "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://frrerflkeorjlkknvexe.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_4xvjCxmKca-vZ293K33jsQ_hsDcrkiL"
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_4xvjCxmKca-vZ293K33jsQ_hsDcrkiL",
+        "EXPO_PUBLIC_REVENUECAT_APPLE_KEY": "appl_AOxUjoUcaSNxMmtObOQRDmPNAss",
+        "EXPO_PUBLIC_REVENUECAT_GOOGLE_KEY": "goog_jVqRLrsPtKXyuVWLYxUGjEWaEfA",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "247538031791-72bnu3ntpqqnq2bl67aur8ure6nh1pt7.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "247538031791-tl9ub933k1qp5q351ls1c3ubcru7uufe.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "247538031791-k9q9q6kc6usq3eje70q4fs392nt43p42.apps.googleusercontent.com",
+        "EXPO_PUBLIC_ADMOB_IOS_APP_ID": "ca-app-pub-4597159043915160~9655088226",
+        "EXPO_PUBLIC_ADMOB_IOS_REWARDED_ID": "ca-app-pub-4597159043915160/5069810104"
       }
     }
   },

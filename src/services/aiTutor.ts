@@ -1,4 +1,4 @@
-import { Question } from '../types/question';
+import { Question } from '../types/database';
 
 export interface AiExplanation {
     questionId: string;
@@ -15,7 +15,7 @@ export const AiTutorService = {
         await new Promise(resolve => setTimeout(resolve, 1500));
 
         const wrongOption = question.options[wrongAnswerIndex];
-        const correctOption = question.options[question.correctAnswer];
+        const correctOption = question.options[question.correct_option];
 
         // In a real app, this would call the Gemini API
         return `"${wrongOption}" seçeneğini işaretledin, ancak bu yanlış. 

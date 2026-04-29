@@ -37,7 +37,11 @@ import { GoogleAuth } from '../../src/api/google-auth';
 const isExpoGo = Constants.appOwnership === 'expo';
 
 // Google Sign-In SDK Configuration (Safe for all platforms)
-GoogleAuth.configure(process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '');
+GoogleAuth.configure(
+    process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '',
+    process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '',
+    process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || ''
+);
 
 const { width, height } = Dimensions.get('window');
 
@@ -117,6 +121,26 @@ export default function LoginScreen() {
 
                 await AsyncStorage.removeItem('is_guest');
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                // Ensure profile exists (new social sign-ups)
+                try {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    if (session) {
+                        const userId = session.user.id;
+                        const { data: existingProfile } = await supabase
+                            .from('profiles')
+                            .select('id')
+                            .eq('id', userId)
+                            .maybeSingle();
+
+                        if (!existingProfile) {
+                            const fullNameToUse = session.user.user_metadata?.full_name || session.user.email || 'Sürücü Adayı';
+                            await supabase.from('profiles').insert([{ id: userId, full_name: fullNameToUse, has_completed_onboarding: false }]);
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Profile ensure after Apple sign-in failed', e);
+                }
+
                 router.replace('/');
             } else {
                 throw new Error('Apple Identity Token bulunamadı.');
@@ -155,6 +179,26 @@ export default function LoginScreen() {
 
                 await AsyncStorage.removeItem('is_guest');
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                // Ensure profile exists (new social sign-ups)
+                try {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    if (session) {
+                        const userId = session.user.id;
+                        const { data: existingProfile } = await supabase
+                            .from('profiles')
+                            .select('id')
+                            .eq('id', userId)
+                            .maybeSingle();
+
+                        if (!existingProfile) {
+                            const fullNameToUse = session.user.user_metadata?.full_name || session.user.email || 'Sürücü Adayı';
+                            await supabase.from('profiles').insert([{ id: userId, full_name: fullNameToUse, has_completed_onboarding: false }]);
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Profile ensure after Google sign-in failed', e);
+                }
+
                 router.replace('/');
             } else {
                 throw new Error('Google ID Token bulunamadı.');

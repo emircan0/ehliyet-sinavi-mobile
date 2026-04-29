@@ -3,8 +3,8 @@ import Toast from 'react-native-toast-message';
 /**
  * Teknik hata kodlarını kullanıcı dostu Türkçe mesajlara çevirir.
  */
-export const getFriendlyErrorMessage = (error: any): string => {
-    const message = error?.message || String(error);
+export const getFriendlyErrorMessage = (error: unknown): string => {
+    const message = (error as any)?.message || String(error);
     const code = error?.code || '';
 
     // Ağ Hataları
@@ -28,7 +28,7 @@ export const getFriendlyErrorMessage = (error: any): string => {
 /**
  * Hatayı hem konsola basar hem de kullanıcıya Toast olarak gösterir.
  */
-export const globalHandleError = (context: string, error: any) => {
+export const globalHandleError = (context: string, error: unknown) => {
     // Geliştirici için teknik log (User'ın isteği üzerine console.error duruyor)
     console.error(`[${context}] Error:`, error);
 

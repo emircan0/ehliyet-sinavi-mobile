@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { View, Image, ActivityIndicator, StyleSheet } from 'react-native';
 
-interface Props {
+interface Premiumps {
     imageUrl: string | undefined;
 }
 
-export const QuestionImage = ({ imageUrl }: Props) => {
+export const QuestionImage = ({ imageUrl }: Premiumps) => {
     const [isLoading, setIsLoading] = useState(true);
 
     if (!imageUrl) return null;

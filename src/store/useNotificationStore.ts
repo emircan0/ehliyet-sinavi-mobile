@@ -11,7 +11,7 @@ export interface AppNotification {
     time: string;
     type: NotificationType;
     isRead: boolean;
-    data?: any;
+    data?: Record<string, unknown>;
 }
 
 interface NotificationState {

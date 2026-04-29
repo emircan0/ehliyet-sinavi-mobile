@@ -2,14 +2,14 @@ import React from 'react';
 import { View, Text, TouchableOpacity, Dimensions } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
-interface Props {
+interface Premiumps {
     question: string;
     options: string[];
     selectedOption: number | null;
     onSelect: (index: number) => void;
 }
 
-export const QuestionCard = ({ question, options, selectedOption, onSelect }: Props) => {
+export const QuestionCard = ({ question, options, selectedOption, onSelect }: Premiumps) => {
     return (
         <View className="px-6 py-4">
             {/* Soru Alanı */}

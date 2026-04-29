@@ -8,14 +8,16 @@ import { supabase } from '../../src/api/supabase';
 import { useRouter } from 'expo-router';
 import { useSubscriptionStore } from '../../src/store/useSubscriptionStore';
 import { useThemeMode } from '../../src/hooks/useThemeMode';
+import { purchaseService } from '../../src/services/purchaseService';
 import { MasteryCard } from '../../src/components/quiz/MasteryCard';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import { useAuth } from '../../src/hooks/useAuth';
 import * as Haptics from 'expo-haptics';
 
 export default function AITutorScreen() {
     const router = useRouter();
-    const { isPro } = useSubscriptionStore();
+    const { isPremium } = useSubscriptionStore();
     const [loading, setLoading] = useState(true);
     const [masteryData, setMasteryData] = useState<any[]>([]);
     const [preferences, setPreferences] = useState<Record<string, string>>({});
@@ -30,17 +32,14 @@ export default function AITutorScreen() {
         'adap': 'Trafik Adabı',
     };
 
+    const { user, loading: authLoading } = useAuth();
+
     useEffect(() => {
         const getAnalysis = async () => {
-            const guestFlag = await AsyncStorage.getItem('is_guest');
-            if (guestFlag === 'true') {
-                setIsGuest(true);
-                setLoading(false);
-                return;
-            }
+            if (authLoading) return;
 
-            const { data: { user } } = await supabase.auth.getUser();
             if (user) {
+                setIsGuest(false);
                 const data = await fetchAdvancedMasteryData(user.id);
                 setMasteryData(data);
 
@@ -50,7 +49,12 @@ export default function AITutorScreen() {
                     useNativeDriver: true,
                 }).start();
             } else {
-                setIsGuest(true);
+                const guestFlag = await AsyncStorage.getItem('is_guest');
+                if (guestFlag === 'true') {
+                    setIsGuest(true);
+                } else {
+                    setIsGuest(true); // Varsayılan misafir
+                }
             }
 
             const prefsData = await AsyncStorage.getItem('user_preferences');
@@ -61,7 +65,7 @@ export default function AITutorScreen() {
             setLoading(false);
         };
         getAnalysis();
-    }, [fadeAnim]);
+    }, [user, authLoading, fadeAnim]);
 
     // --- PROFESYONEL GÖREV ALGORİTMASI ---
     const getProfessionalTask = () => {
@@ -71,7 +75,7 @@ export default function AITutorScreen() {
         // 1. ACİL DURUM (Sınav Yakın)
         if (preferences.exam_date === 'urgent') {
             return {
-                title: "Simülasyon Aktif: Sınav Provası",
+                title: "Simülasyon Aktif: Sınav Premiumvası",
                 desc: "Sınav vaktin geldi! AI Hoca şu an konu çalışmanı değil, gerçek süre baskısı altında 50 soruluk tam deneme çözmeni öneriyor.",
                 route: "/quiz/general",
                 btnText: "Simülasyonu Başlat",
@@ -300,7 +304,7 @@ export default function AITutorScreen() {
 
             </Animated.ScrollView>
 
-            {!isPro && (
+            {!isPremium && (
                 <View className="absolute inset-0 z-50 overflow-hidden">
                     <BlurView intensity={30} tint={isDarkMode ? "dark" : "light"} className="flex-1 items-center justify-center px-7">
                         <View className="items-center max-w-xs bg-white/90 dark:bg-slate-900/90 p-8 rounded-[40px] border border-white/20 shadow-2xl">
@@ -309,10 +313,10 @@ export default function AITutorScreen() {
                             </View>
                             <Text className="text-2xl font-black text-slate-900 dark:text-white text-center mb-3 tracking-tight">AI Koç Kilitli</Text>
                             <Text className="text-slate-500 dark:text-slate-400 text-center mb-8 leading-5 font-medium">
-                                Kişiselleştirilmiş hata analizi ve gelişim araçları için Pro üyeliğe geçmelisiniz.
+                                Kişiselleştirilmiş hata analizi ve gelişim araçları için Premium üyeliğe geçmelisiniz.
                             </Text>
                             <TouchableOpacity
-                                onPress={() => router.push('/premium')}
+                                onPress={() => purchaseService.presentPaywall()}
                                 className="bg-amber-500 w-full py-4 rounded-2xl items-center shadow-lg shadow-amber-500/20 active:scale-95"
                             >
                                 <Text className="text-amber-950 font-black text-base">Üyeliği Başlat</Text>

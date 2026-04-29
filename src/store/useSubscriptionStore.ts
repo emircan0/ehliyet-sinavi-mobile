@@ -4,10 +4,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { purchaseService } from '../services/purchaseService';
 
 interface SubscriptionState {
-    isPro: boolean;
+    isPremium: boolean;
     credits: number;
-    proExpiryDate: string | null;
-    setPro: (status: boolean, durationDays?: number) => void;
+    premiumExpiryDate: string | null;
+    setPremium: (status: boolean, durationDays?: number) => void;
     addCredits: (amount: number) => void;
     spendCredits: (amount: number) => boolean;
     checkSubscriptionStatus: () => Promise<void>;
@@ -18,33 +18,33 @@ interface SubscriptionState {
 export const useSubscriptionStore = create<SubscriptionState>()(
     persist(
         (set, get) => ({
-            isPro: false,
-            credits: 5,   // Yeni kullanıcılara başlangıç kredisi verelim
-            proExpiryDate: null,
+            isPremium: false,
+            credits: 5,
+            premiumExpiryDate: null,
 
             initializePurchases: async () => {
                 await purchaseService.initialize();
-                const status = await purchaseService.checkSubscriptionStatus();
-                set({ isPro: status });
+                const { isPremium, premiumUntil } = await purchaseService.checkSubscriptionStatus();
+                set({ isPremium, premiumExpiryDate: premiumUntil });
             },
 
-            setPro: (status, durationDays) => {
+            setPremium: (status, durationDays) => {
                 let expiryDate: string | null = null;
                 if (status && durationDays) {
                     const date = new Date();
                     date.setDate(date.getDate() + durationDays);
                     expiryDate = date.toISOString();
                 }
-                set({ isPro: status, proExpiryDate: expiryDate });
+                set({ isPremium: status, premiumExpiryDate: expiryDate });
             },
 
             addCredits: (amount) => set((state) => ({ credits: state.credits + amount })),
             
             spendCredits: (amount) => {
-                const { isPro, credits } = get();
+                const { isPremium, credits } = get();
                 
-                // Pro kullanıcılar kredi harcamaz, her zaman başarılı
-                if (isPro) return true;
+                // Premium kullanıcılar kredi harcamaz, her zaman başarılı
+                if (isPremium) return true;
 
                 // Standart kullanıcılar kredi harcar
                 if (credits >= amount) {
@@ -55,13 +55,14 @@ export const useSubscriptionStore = create<SubscriptionState>()(
             },
 
             checkSubscriptionStatus: async () => {
-                const status = await purchaseService.checkSubscriptionStatus();
-                set({ isPro: status });
+                const { isPremium, premiumUntil } = await purchaseService.checkSubscriptionStatus();
+                set({ isPremium, premiumExpiryDate: premiumUntil });
             },
 
             restorePurchases: async () => {
                 const status = await purchaseService.restorePurchases();
-                set({ isPro: status });
+                // Geri yüklemede Apple verisi önceliklidir, tarih varsa o set edilir
+                set({ isPremium: status });
                 return status;
             },
         }),

@@ -5,7 +5,8 @@ import Constants from 'expo-constants';
 import { supabase } from './supabase';
 
 const isExpoGo = Constants.appOwnership === 'expo';
-const Notifications: any = !isExpoGo ? require('expo-notifications') : null;
+type NotificationsType = typeof import('expo-notifications');
+const Notifications: NotificationsType | null = !isExpoGo ? require('expo-notifications') : null;
 
 if (Notifications) {
     try {
@@ -78,8 +79,8 @@ export const registerForPushNotificationsAsync = async (userId?: string) => {
             await savePushToken(userId, token);
         }
 
-    } catch (e: any) {
-        if (e?.message?.includes('EXPERIENCE_NOT_FOUND')) {
+    } catch (e: unknown) {
+        if ((e as any)?.message?.includes('EXPERIENCE_NOT_FOUND')) {
             console.warn("\n🚨 DİKKAT: app.json içindeki EAS Project ID geçersiz veya hatalı.");
             console.warn("   Bildirimleri uçtan uca test etmek veya gerçek cihaza kurmak için terminalde 'npx eas init' komutunu çalıştırarak yeni bir ID almalısınız.");
             console.warn(`   Mevcut ID: ${projectId}\n`);

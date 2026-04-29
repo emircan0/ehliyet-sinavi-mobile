@@ -10,16 +10,15 @@ import { fetchExamsWithProgress, fetchSmartTestCounts } from '../../src/api/quer
 import { supabase } from '../../src/api/supabase';
 import { useSubscriptionStore } from '../../src/store/useSubscriptionStore';
 import { usePremiumAccess } from '../../src/hooks/usePremiumAccess';
-import RewardedAdModal from '../../src/components/RewardedAdModal';
-import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useThemeMode } from '../../src/hooks/useThemeMode';
+import { adService } from '../../src/services/adService';
 
 const { width } = Dimensions.get('window');
 
 export default function QuizzesScreen() {
     const router = useRouter();
-    const isPro = useSubscriptionStore(state => state.isPro);
+    const isPremium = useSubscriptionStore(state => state.isPremium);
     const { isDarkMode, colorScheme } = useThemeMode();
 
     const [isLoading, setIsLoading] = useState(true);
@@ -28,20 +27,23 @@ export default function QuizzesScreen() {
     const [exams, setExams] = useState<any[]>([]);
     const [counts, setCounts] = useState({ wrongCount: 0, favoriteCount: 0 });
 
-    const [showAdModal, setShowAdModal] = useState(false);
-    const [adModalType, setAdModalType] = useState<'short' | 'long' | 'mega'>('short');
-
     const { checkAccess } = usePremiumAccess();
+    const addCredits = useSubscriptionStore(state => state.addCredits);
 
     const triggerRandomAd = () => {
-        const rand = Math.random();
-        let type: 'short' | 'long' | 'mega';
-        if (rand < 0.5) type = 'mega';
-        else if (rand < 0.8) type = 'long';
-        else type = 'short';
-
-        setAdModalType(type);
-        setShowAdModal(true);
+        const adShown = adService.showRewarded(() => {
+            // Kullanıcıya 10 kredi verelim
+            addCredits(10);
+            // Alert in index.tsx is enough if triggered from checkAccess but let's add one here just in case
+            // Actually, checkAccess handles this generically so we just show ad.
+        });
+        
+        if (!adShown) {
+            // Alert
+            import('react-native').then(rn => {
+                rn.Alert.alert("Bilgi", "Video reklam henüz yüklenmedi, lütfen birkaç saniye sonra tekrar deneyin.");
+            });
+        }
     };
 
     const handlePremiumExam = (examId: string, title: string) => {
@@ -144,7 +146,7 @@ export default function QuizzesScreen() {
                     <View className="px-6 pt-4 pb-6">
                         <View className="flex-row justify-between items-center mb-6">
                             <View>
-                                <Text className="text-[12px] font-black text-blue-600 dark:text-[#0A84FF] uppercase tracking-widest mb-1">Başarı Merkezi</Text>
+                                <Text className="text-[12px] font-black text-blue-600 dark:text-[#0A84FF] uppercase tracking-widest mb-1">Hazırlık Merkezi</Text>
                                 <Text className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Sınavlar</Text>
                             </View>
                             <View className="w-12 h-12 bg-blue-50 dark:bg-[#0A84FF]/10 rounded-2xl items-center justify-center border border-blue-100 dark:border-[#0A84FF]/20">
@@ -193,9 +195,9 @@ export default function QuizzesScreen() {
                                         handlePremiumExam(featuredExam.id, featuredExam.title || "Özel Sınav");
                                     }
                                 }}
-                                className={`bg-slate-900 rounded-[32px] p-6 relative overflow-hidden shadow-2xl shadow-slate-900/30 ${!isPro ? 'opacity-90' : ''}`}
+                                className={`bg-slate-900 rounded-[32px] p-6 relative overflow-hidden shadow-2xl shadow-slate-900/30 ${!isPremium ? 'opacity-90' : ''}`}
                             >
-                                {!isPro && (
+                                {!isPremium && (
                                     <View className="absolute top-5 right-5 z-20 bg-black/40 p-2.5 rounded-full border border-white/10 backdrop-blur-md">
                                         <Lock size={16} color="#f59e0b" />
                                     </View>
@@ -253,7 +255,7 @@ export default function QuizzesScreen() {
                                             )}
                                         </View>
 
-                                        <View className={`self-start p-1.5 pl-5 pr-1.5 rounded-full flex-row items-center shadow-lg ${!isPro ? 'bg-amber-600 shadow-amber-600/30' : 'bg-blue-600 shadow-blue-600/30'}`}>
+                                        <View className={`self-start p-1.5 pl-5 pr-1.5 rounded-full flex-row items-center shadow-lg ${!isPremium ? 'bg-amber-600 shadow-amber-600/30' : 'bg-blue-600 shadow-blue-600/30'}`}>
                                             <Text className="text-white font-bold text-sm mr-4">
                                                 {(Number(featuredExam?.progress_percentage) || 0) > 0 ? 'Devam Et' : 'Başla'}
                                             </Text>
@@ -277,7 +279,7 @@ export default function QuizzesScreen() {
                                     <ExamListItem
                                         key={exam.id || `exam-${index}`}
                                         exam={exam}
-                                        isPro={isPro}
+                                        isPremium={isPremium}
                                         onPress={() => {
                                             if (exam.id) {
                                                 handlePremiumExam(exam.id, exam.title || "Sınav");
@@ -298,11 +300,6 @@ export default function QuizzesScreen() {
                 </ScrollView>
             )}
 
-            <RewardedAdModal 
-                visible={showAdModal} 
-                type={adModalType}
-                onClose={() => setShowAdModal(false)} 
-            />
         </ScreenLayout>
     );
 }
@@ -321,7 +318,7 @@ const QuickActionCard = ({ title, count, icon: Icon, color, bg, onPress }: any) 
     </TouchableOpacity>
 );
 
-const ExamListItem = ({ exam, isPro, onPress }: any) => {
+const ExamListItem = ({ exam, isPremium, onPress }: any) => {
     const { isDarkMode, colorScheme } = useThemeMode();
 
     const progress = Number(exam?.progress_percentage) || 0;
@@ -364,7 +361,7 @@ const ExamListItem = ({ exam, isPro, onPress }: any) => {
                 <ChevronRight size={16} color={isDarkMode ? "#475569" : "#cbd5e1"} />
             </View>
 
-            {!isPro && (
+            {!isPremium && (
                 <View className="absolute top-4 right-4 bg-slate-900/5 dark:bg-white/5 p-1.5 rounded-full">
                     <Lock size={12} color="#f59e0b" />
                 </View>

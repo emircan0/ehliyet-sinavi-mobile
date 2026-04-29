@@ -8,6 +8,7 @@ import type { Notification, NotificationResponse } from 'expo-notifications';
 // import * as Notifications from 'expo-notifications'; // Expo Go'da çökmeyi önlemek için kaldırıldı
 import { useNetworkStatus } from "../src/hooks/useNetworkStatus";
 import { useNotificationStore } from "../src/store/useNotificationStore";
+import * as Linking from 'expo-linking';
 import "../global.css";
 
 import { useThemeMode } from "../src/hooks/useThemeMode";
@@ -15,6 +16,10 @@ import { useSettingsStore } from "../src/store/useSettingsStore";
 import { useSubscriptionStore } from "../src/store/useSubscriptionStore";
 import { useAuth } from "../src/hooks/useAuth";
 import { registerForPushNotificationsAsync } from "../src/api/notifications";
+import mobileAds from 'react-native-google-mobile-ads';
+import { adService } from '../src/services/adService';
+import { purchaseService } from '../src/services/purchaseService';
+import { supabase } from '../src/api/supabase';
 
 import GlobalErrorBoundary from "../src/components/GlobalErrorBoundary";
 
@@ -28,16 +33,39 @@ export default function RootLayout() {
     // Network status listener
     useNetworkStatus();
 
-    // Purchase initialization
+    // Purchase and Ads initialization
     const initializePurchases = useSubscriptionStore(state => state.initializePurchases);
+    const isPremium = useSubscriptionStore(state => state.isPremium);
     useEffect(() => {
         initializePurchases();
-    }, []);
+
+        // Initialize Mobile Ads
+        mobileAds()
+            .initialize()
+            .then(adapterStatuses => {
+                console.log('Mobile Ads initialized');
+                // Preload ads if not premium
+                if (!isPremium) {
+                    adService.loadRewarded();
+                }
+            });
+    }, [isPremium]);
 
     // 2. Push Notification Registration
     useEffect(() => {
         if (user?.id) {
             registerForPushNotificationsAsync(user.id);
+        }
+    }, [user?.id]);
+
+    // 2. RevenueCat User Sync
+    useEffect(() => {
+        if (user?.id) {
+            const fullName = user.user_metadata?.full_name || '';
+            const email = user.email || '';
+            purchaseService.logIn(user.id, fullName, email);
+        } else {
+            purchaseService.logOut();
         }
     }, [user?.id]);
 
@@ -81,33 +109,97 @@ export default function RootLayout() {
         };
     }, []);
 
+    // 4. Deep Link Handling for Auth (Password Reset & Confirmation)
+    useEffect(() => {
+        const handleDeepLink = async (url: string) => {
+            console.log('Incoming Deep Link:', url);
+            const { path, queryParams } = Linking.parse(url);
+            
+            // Supabase auth links usually come in the hash (#) part of the URL
+            // Expo Linking.parse handles basic extraction
+            const fragment = url.split('#')[1];
+            if (fragment) {
+                // Parse fragment manually to avoid URLSearchParams issues in some environments
+                const params: Record<string, string> = {};
+                fragment.split('&').forEach(part => {
+                    const [key, value] = part.split('=');
+                    if (key && value) params[key] = decodeURIComponent(value);
+                });
+
+                const accessToken = params['access_token'];
+                const refreshToken = params['refresh_token'];
+                const type = params['type'];
+
+                if (accessToken && refreshToken) {
+                    const { error } = await supabase.auth.setSession({
+                        access_token: accessToken,
+                        refresh_token: refreshToken,
+                    });
+
+                    if (error) {
+                        console.error('Supabase setSession error:', error.message);
+                    } else {
+                        // Navigator'ın ve Router'ın tamamen hazır olduğundan emin olmak için 1 saniyelik güvenli gecikme
+                        setTimeout(() => {
+                            try {
+                                if (type === 'recovery') {
+                                    router.replace('/auth/reset-password');
+                                } else if (type === 'signup') {
+                                    router.replace('/confirmation');
+                                    Toast.show({
+                                        type: 'success',
+                                        text1: 'E-posta Onaylandı',
+                                        text2: 'Uygulamaya hoş geldiniz!'
+                                    });
+                                }
+                            } catch (navError) {
+                                console.error('Navigation error during deep link:', navError);
+                            }
+                        }, 1000);
+                    }
+                }
+            }
+        };
+
+        const subscription = Linking.addEventListener('url', ({ url }) => {
+            handleDeepLink(url);
+        });
+
+        // Check for initial URL (if app was closed)
+        Linking.getInitialURL().then((url) => {
+            if (url) handleDeepLink(url);
+        });
+
+        return () => subscription.remove();
+    }, []);
+
     return (
         <GlobalErrorBoundary>
-            <GestureHandlerRootView style={{ flex: 1 }}>
-                <SafeAreaProvider>
-                <Stack
-                    screenOptions={{
-                        headerShown: false,
-                        animation: "fade_from_bottom",
-                        contentStyle: {
-                            backgroundColor: isDarkMode ? "#020617" : "#f8fafc"
-                        }
-                    }}
-                >
-                    <Stack.Screen name="index" />
-                    <Stack.Screen name="onboarding" />
-                    <Stack.Screen name="(tabs)" />
-                    <Stack.Screen name="quiz/[id]" options={{ gestureEnabled: false }} />
-                    <Stack.Screen name="terms" options={{ presentation: 'modal', title: 'Koşullar' }} />
-                    <Stack.Screen name="privacy" options={{ presentation: 'modal', title: 'Gizlilik' }} />
-                    <Stack.Screen name="support" options={{ presentation: 'modal', title: 'Yardım' }} />
-                    <Stack.Screen name="contact" options={{ presentation: 'modal', title: 'İletişim' }} />
-                    <Stack.Screen name="auth/login" />
-                    <Stack.Screen name="auth/register" />
-                </Stack>
-                <Toast />
-                </SafeAreaProvider>
-            </GestureHandlerRootView>
+            <SafeAreaProvider>
+                <GestureHandlerRootView style={{ flex: 1 }}>
+                    <Stack
+                        screenOptions={{
+                            headerShown: false,
+                            animation: "fade_from_bottom",
+                            contentStyle: {
+                                backgroundColor: isDarkMode ? "#020617" : "#f8fafc"
+                            }
+                        }}
+                    >
+                        <Stack.Screen name="index" />
+                        <Stack.Screen name="onboarding" />
+                        <Stack.Screen name="(tabs)" />
+                        <Stack.Screen name="quiz/[id]" options={{ gestureEnabled: false }} />
+                        <Stack.Screen name="terms" options={{ presentation: 'modal', title: 'Koşullar' }} />
+                        <Stack.Screen name="privacy" options={{ presentation: 'modal', title: 'Gizlilik' }} />
+                        <Stack.Screen name="support" options={{ presentation: 'modal', title: 'Yardım' }} />
+                        <Stack.Screen name="contact" options={{ presentation: 'modal', title: 'İletişim' }} />
+                        <Stack.Screen name="auth/login" />
+                        <Stack.Screen name="auth/register" />
+                    </Stack>
+                    <Toast />
+                </GestureHandlerRootView>
+            </SafeAreaProvider>
         </GlobalErrorBoundary>
     );
 }

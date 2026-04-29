@@ -12,12 +12,12 @@ interface MasteryData {
     status: 'expert' | 'learning' | 'critical';
 }
 
-interface Props {
+interface Premiumps {
     data: MasteryData;
     onPress: () => void;
 }
 
-export const MasteryCard = ({ data, onPress }: Props) => {
+export const MasteryCard = ({ data, onPress }: Premiumps) => {
     const isExpert = data.status === 'expert';
     const isCritical = data.status === 'critical';
     
@@ -74,7 +74,7 @@ export const MasteryCard = ({ data, onPress }: Props) => {
                 </View>
             </View>
 
-            {/* Progress Bar */}
+            {/* Premiumgress Bar */}
             <View className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                 <View
                     className={`h-full ${isExpert ? 'bg-emerald-500' : isCritical ? 'bg-rose-500' : 'bg-blue-500'}`}

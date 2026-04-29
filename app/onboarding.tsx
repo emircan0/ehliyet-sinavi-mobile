@@ -3,6 +3,7 @@ import { View, Text, Pressable, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router'; 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '../src/api/supabase';
 import { Car, Bike, Truck, Calendar, Clock, Bell, ChevronRight, CheckCircle2 } from 'lucide-react-native';
 import { useThemeMode } from '../src/hooks/useThemeMode';
 import { scheduleDailyReminder } from '../src/api/notifications';
@@ -38,7 +39,7 @@ const ONBOARDING_STEPS = [
         options: [
             { label: 'Günde 10 Dakika (Hızlı Tekrar)', value: '10', icon: Clock },
             { label: 'Günde 20 Dakika (Önerilen)', value: '20', icon: Clock },
-            { label: 'Günde 45+ Dakika (Garantili)', value: '45', icon: Clock },
+            { label: 'Günde 45+ Dakika (Hızlı)', value: '45', icon: Clock },
         ]
     },
     {
@@ -71,9 +72,37 @@ export default function OnboardingScreen() {
             await AsyncStorage.setItem('user_preferences', JSON.stringify(preferences));
             await AsyncStorage.setItem('has_completed_onboarding', 'true');
 
-            // Bildirim saatini ayarla
-            const timeParts = preferences['notification_time'].split(':');
-            await scheduleDailyReminder(parseInt(timeParts[0]), parseInt(timeParts[1]));
+            // Sunucu tarafında profil varsa flag'i güncelle
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session) {
+                    await supabase
+                        .from('profiles')
+                        .update({ has_completed_onboarding: true })
+                        .eq('id', session.user.id);
+                }
+            } catch (e) {
+                console.warn('Onboarding: could not update server flag', e);
+            }
+
+            // Bildirim saatini ayarla (güvenlik: boş/hatalıysa atla)
+            try {
+                const notif = preferences['notification_time'];
+                if (notif && typeof notif === 'string' && notif.includes(':')) {
+                    const timeParts = notif.split(':');
+                    const hour = parseInt(timeParts[0], 10);
+                    const minute = parseInt(timeParts[1], 10);
+                    if (!Number.isNaN(hour) && !Number.isNaN(minute)) {
+                        await scheduleDailyReminder(hour, minute);
+                    } else {
+                        console.warn('Onboarding: notification_time parsed to NaN, skipping scheduleDailyReminder');
+                    }
+                } else {
+                    console.warn('Onboarding: notification_time missing or invalid, skipping scheduleDailyReminder');
+                }
+            } catch (e) {
+                console.warn('scheduleDailyReminder failed:', e);
+            }
 
             // Ana sayfaya yönlendir
             router.replace('/(tabs)/'); 
@@ -84,7 +113,7 @@ export default function OnboardingScreen() {
     const isOptionSelected = !!preferences[stepData.id];
 
     return (
-        <SafeAreaView className="flex-1 bg-white dark:bg-slate-950">
+        <SafeAreaView className="flex-1 bg-white dark:bg-slate-950" edges={['top']}>
             {/* Üst İlerleme Çubuğu (Progress Bar) */}
             <View className="px-6 pt-8 pb-4">
                 <View className="h-2 w-full bg-slate-100 dark:bg-slate-900 rounded-full overflow-hidden flex-row">
@@ -110,7 +139,6 @@ export default function OnboardingScreen() {
                 {/* Seçenekler */}
                 <View className="gap-4">
                     {stepData.options.map((option, index) => {
-                        const Icon = option.icon;
                         const isSelected = preferences[stepData.id] === option.value;
 
                         return (
@@ -123,7 +151,7 @@ export default function OnboardingScreen() {
                                 }`}
                             >
                                 <View className={`p-3 rounded-xl mr-4 ${isSelected ? 'bg-blue-600' : 'bg-slate-100 dark:bg-slate-800'}`}>
-                                    <Icon size={24} color={isSelected ? 'white' : (isDarkMode ? '#475569' : '#94a3b8')} />
+                                    <option.icon size={24} color={isSelected ? 'white' : (isDarkMode ? '#475569' : '#94a3b8')} />
                                 </View>
                                 <View className="flex-1">
                                     <Text className={`font-black text-[16px] ${isSelected ? 'text-blue-900 dark:text-blue-400' : 'text-slate-700 dark:text-slate-300'}`}>

@@ -1,7 +1,8 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { ShieldAlert, RotateCcw } from 'lucide-react-native';
-import { router } from 'expo-router';
+// router will be imported dynamically inside handleReset to avoid navigation-context errors during module init
 
 interface Props {
   children: ReactNode;
@@ -27,7 +28,15 @@ class GlobalErrorBoundary extends Component<Props, State> {
 
   private handleReset = () => {
     this.setState({ hasError: false });
-    router.replace('/');
+    // Import router dynamically to avoid accessing navigation context during module initialization
+    (async () => {
+      try {
+        const { router } = await import('expo-router');
+        router.replace('/');
+      } catch (e) {
+        console.warn('Failed to navigate on reset:', e);
+      }
+    })();
   };
 
   public render() {
@@ -38,11 +47,11 @@ class GlobalErrorBoundary extends Component<Props, State> {
             <View className="w-20 h-20 bg-rose-50 dark:bg-rose-900/10 items-center justify-center rounded-3xl mb-6">
               <ShieldAlert size={40} color="#ef4444" />
             </View>
-            
+
             <Text className="text-2xl font-black text-slate-900 dark:text-slate-50 text-center mb-4 leading-8">
               Beklenmedik Bir Şey Oldu
             </Text>
-            
+
             <Text className="text-slate-500 dark:text-slate-400 text-center font-medium leading-6 mb-8 px-2">
               Uygulama çalışırken teknik bir aksaklık yaşandı. Endişelenme, verilerin güvende!
             </Text>

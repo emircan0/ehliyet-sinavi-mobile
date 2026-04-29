@@ -14,6 +14,8 @@ import { useThemeMode } from '../../src/hooks/useThemeMode';
 import { BlurView } from 'expo-blur';
 import { Lock } from 'lucide-react-native';
 
+import { purchaseService } from '../../src/services/purchaseService';
+
 const { width } = Dimensions.get('window');
 
 // --- MOCK DATA ---
@@ -64,7 +66,7 @@ export default function StudyDetailScreen() {
     const [searchQuery, setSearchQuery] = useState('');
     const [isUnlocked, setIsUnlocked] = useState(false);
 
-    const { isPro } = useSubscriptionStore();
+    const { isPremium } = useSubscriptionStore();
     const { checkAccess } = usePremiumAccess();
     const { isDarkMode } = useThemeMode();
 
@@ -178,7 +180,7 @@ export default function StudyDetailScreen() {
             </ScrollView>
 
             {/* Kilit Katmanı */}
-            {!isPro && !isUnlocked && (
+            {!isPremium && !isUnlocked && (
                 <View className="absolute inset-0 z-50 overflow-hidden">
                     <BlurView intensity={30} tint={isDarkMode ? "dark" : "light"} className="flex-1 items-center justify-center px-8">
                         <View className="bg-white/90 dark:bg-slate-900/90 p-8 rounded-[40px] items-center border border-white/20 shadow-2xl w-full">
@@ -199,10 +201,10 @@ export default function StudyDetailScreen() {
                             </TouchableOpacity>
 
                             <TouchableOpacity 
-                                onPress={() => router.push('/premium')}
+                                onPress={() => purchaseService.presentPaywall()}
                                 className="py-2"
                             >
-                                <Text className="text-blue-600 dark:text-blue-400 font-bold text-sm">Veya Pro'ya Geç</Text>
+                                <Text className="text-blue-600 dark:text-blue-400 font-bold text-sm">Veya Premium'a Geç</Text>
                             </TouchableOpacity>
                         </View>
                     </BlurView>

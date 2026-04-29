@@ -6,8 +6,9 @@ import { useRouter } from 'expo-router';
 import { supabase } from '../src/api/supabase'; // Supabase eklendi
 import {
     User, Bell, Car, Calendar, Clock, ChevronRight,
-    LogOut, ShieldCheck, X, CheckCircle2, Mail, Trash2, KeyRound
+    LogOut, ShieldCheck, X, CheckCircle2, Mail, Trash2, KeyRound, ExternalLink, ShieldAlert
 } from 'lucide-react-native';
+import { Linking } from 'react-native';
 import { scheduleDailyReminder } from '../src/api/notifications';
 import { useThemeMode } from '../src/hooks/useThemeMode';
 
@@ -176,37 +177,29 @@ export default function ProfileScreen() {
                     onPress: async () => {
                         try {
                             setIsLoading(true);
-                            const { data: { user } } = await supabase.auth.getUser();
+                            
+                            // 1. Supabase üzerinden 'Soft Delete' fonksiyonunu çağır
+                            const { error } = await supabase.rpc('soft_delete_user_account');
 
-                            if (user) {
-                                // 1. Veritabanında pasife al (Opsiyonel/Hata alsa da devam et)
-                                try {
-                                    const { error: profileError } = await supabase
-                                        .from('profiles')
-                                        .update({ is_active: false })
-                                        .eq('id', user.id);
-
-                                    if (profileError) {
-                                        console.warn('Hesap pasife alınamadı (DB hatası):', profileError.message);
-                                    }
-                                } catch (e) {
-                                    console.warn('DB Güncelleme hatası:', e);
-                                }
-
-                                // 2. Supabase Auth'dan çıkış yap
-                                await supabase.auth.signOut();
-
-                                // 3. Yerel verileri temizle
-                                await AsyncStorage.clear();
-
-                                // 4. Login ekranına yönlendir
-                                router.replace('/auth/login');
-
-                                Alert.alert("Başarılı", "Hesabınız başarıyla silindi ve oturumunuz kapatıldı.");
+                            if (error) {
+                                console.error("Silme hatası:", error);
+                                Alert.alert("Hata", "Hesap pasife alınırken bir sorun oluştu.");
+                                return;
                             }
+
+                            // 2. Auth'dan tamamen temizle ve çıkış yap
+                            await supabase.auth.signOut();
+
+                            // 3. Yerel verileri temizle
+                            await AsyncStorage.clear();
+
+                            // 4. Login ekranına yönlendir
+                            router.replace('/auth/login');
+
+                            Alert.alert("Başarılı", "Hesabınız kalıcı olarak silindi. Tekrar aramızda görmek dileğiyle!");
                         } catch (error) {
                             console.error("Profil silme genel hata:", error);
-                            Alert.alert("Sistem Hatası", "İşlem yapılırken bir sorun oluştu. Lütfen tekrar deneyin.");
+                            Alert.alert("Sistem Hatası", "İşlem yapılırken bir sorun oluştu.");
                         } finally {
                             setIsLoading(false);
                         }
@@ -388,6 +381,25 @@ export default function ProfileScreen() {
                             value={getLabel('notification_time', preferences.notification_time)}
                             onPress={() => openSettingModal('notification_time')}
                             isFirst isLast
+                        />
+                    </View>
+                </View>
+
+                {/* --- YASAL BİLGİLER --- */}
+                <View className="px-6 mb-8">
+                    <Text className="text-slate-900 dark:text-white font-bold text-lg mb-4 ml-1">Yasal Bilgiler</Text>
+                    <View className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
+                        <SettingItem
+                            icon={ShieldCheck} color="#10b981" title="Gizlilik Politikası"
+                            value="Görüntüle"
+                            onPress={() => router.push('/privacy')}
+                            isFirst
+                        />
+                        <SettingItem
+                            icon={ShieldAlert} color="#6366f1" title="Kullanım Koşulları (EULA)"
+                            value="Görüntüle"
+                            onPress={() => Linking.openURL('https://www.apple.com/legal/internet-services/itunes/dev/stdeula/')}
+                            isLast
                         />
                     </View>
                 </View>

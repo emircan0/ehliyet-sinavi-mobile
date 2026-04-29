@@ -27,8 +27,11 @@ import { GoogleAuth } from '../../src/api/google-auth';
 
 const isExpoGo = Constants.appOwnership === 'expo';
 
-// Google Sign-In SDK Configuration (Safe for all platforms)
-GoogleAuth.configure(process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '');
+GoogleAuth.configure(
+    process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '',
+    process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '',
+    process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || ''
+);
 import Animated, {
     useSharedValue,
     useAnimatedStyle,
@@ -100,7 +103,8 @@ export default function RegisterScreen() {
                 options: {
                     data: {
                         full_name: trimmedFullName,
-                    }
+                    },
+                    emailRedirectTo: 'ehliyet-sinavi://confirmation',
                 }
             });
 
@@ -112,6 +116,23 @@ export default function RegisterScreen() {
                 if (data?.session) {
                     await AsyncStorage.removeItem('is_guest');
                     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    // Ensure profile exists and mark onboarding as incomplete by default
+                    try {
+                        const userId = data.session.user.id;
+                        const { data: existingProfile } = await supabase
+                            .from('profiles')
+                            .select('id')
+                            .eq('id', userId)
+                            .maybeSingle();
+
+                        if (!existingProfile) {
+                            const fullNameToUse = trimmedFullName || data.session.user.user_metadata?.full_name || data.session.user.email || 'Sürücü Adayı';
+                            await supabase.from('profiles').insert([{ id: userId, full_name: fullNameToUse, has_completed_onboarding: false }]);
+                        }
+                    } catch (e) {
+                        console.warn('Profile upsert after signUp failed', e);
+                    }
+
                     router.replace('/');
                 } else {
                     Alert.alert(
@@ -156,9 +177,30 @@ export default function RegisterScreen() {
                     throw error;
                 }
 
-                await AsyncStorage.removeItem('is_guest');
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                router.replace('/');
+                    await AsyncStorage.removeItem('is_guest');
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+                    // Ensure profile exists (new social sign-ups)
+                    try {
+                        const { data: { session } } = await supabase.auth.getSession();
+                        if (session) {
+                            const userId = session.user.id;
+                            const { data: existingProfile } = await supabase
+                                .from('profiles')
+                                .select('id')
+                                .eq('id', userId)
+                                .maybeSingle();
+
+                            if (!existingProfile) {
+                                const fullNameToUse = session.user.user_metadata?.full_name || session.user.email || 'Sürücü Adayı';
+                                await supabase.from('profiles').insert([{ id: userId, full_name: fullNameToUse, has_completed_onboarding: false }]);
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('Profile ensure after Apple sign-in failed', e);
+                    }
+
+                    router.replace('/');
             } else {
                 throw new Error('Apple Identity Token bulunamadı.');
             }
@@ -202,6 +244,27 @@ export default function RegisterScreen() {
 
                 await AsyncStorage.removeItem('is_guest');
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+                // Ensure profile exists (new social sign-ups)
+                try {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    if (session) {
+                        const userId = session.user.id;
+                        const { data: existingProfile } = await supabase
+                            .from('profiles')
+                            .select('id')
+                            .eq('id', userId)
+                            .maybeSingle();
+
+                        if (!existingProfile) {
+                            const fullNameToUse = session.user.user_metadata?.full_name || session.user.email || 'Sürücü Adayı';
+                            await supabase.from('profiles').insert([{ id: userId, full_name: fullNameToUse, has_completed_onboarding: false }]);
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Profile ensure after Google sign-in failed', e);
+                }
+
                 router.replace('/');
             } else {
                 throw new Error('Google ID Token bulunamadı.');

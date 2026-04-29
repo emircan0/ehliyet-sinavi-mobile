@@ -4,24 +4,60 @@ import { globalHandleError } from '../utils/errorHandler';
 /**
  * Merkezi API Hata Yönetimi - Olası ağ koptu vb. durumlarda kullanılır
  */
-export const handleApiError = (context: string, error: any, fallbackValue: any) => {
+export const handleApiError = <T,>(context: string, error: unknown, fallbackValue: T): T => {
     globalHandleError(context, error);
     return fallbackValue;
 };
 
+export const ensureUserProfile = async (userId: string, fullName?: string) => {
+    const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', userId)
+        .maybeSingle();
+
+    if (error) {
+        throw error;
+    }
+
+    if (profile) {
+        return profile;
+    }
+
+    const { error: insertError } = await supabase
+        .from('profiles')
+        .insert([{ id: userId, full_name: fullName || null }]);
+
+    if (insertError) {
+        throw insertError;
+    }
+
+    return { id: userId };
+};
+
 export const fetchHomeDashboardData = async () => {
     try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data, error: userError } = await supabase.auth.getUser();
+        const user = data?.user;
 
         let fullName = 'Misafir Sürücü';
+        
         if (user) {
-            const { data: profile } = await supabase
+            // İlk olarak metadata'daki ismi alalım (Hızlı fallback)
+            if (user.user_metadata?.full_name) {
+                fullName = user.user_metadata.full_name;
+            }
+
+            // Sonra güncel profil tablosuna bakalım
+            const { data: profile, error: profileError } = await supabase
                 .from('profiles')
                 .select('full_name')
                 .eq('id', user.id)
-                .single();
+                .maybeSingle();
 
-            if (profile?.full_name) fullName = profile.full_name;
+            if (!profileError && profile?.full_name) {
+                fullName = profile.full_name;
+            }
         }
 
         const categories = ['trafik', 'ilkyardim', 'motor', 'adap'];
@@ -136,6 +172,7 @@ export const saveQuizResults = async (
     answers: { questionId: string; selectedOption: number; isCorrect: boolean }[]
 ) => {
     try {
+        await ensureUserProfile(userId);
         // 1. Özet sonuçları kaydet (exam_results)
         const { error: resultError } = await supabase
             .from('exam_results')
@@ -288,7 +325,7 @@ export const fetchExamsWithProgress = async (userId: string) => {
 
         // Her sınav için toplam soru sayısını bir haritada sakla
         const examTotalMap: Record<string, number> = {};
-        qCounts.forEach(q => {
+        (qCounts || []).forEach((q: any) => {
             examTotalMap[q.exam_id] = (examTotalMap[q.exam_id] || 0) + 1;
         });
 
@@ -302,7 +339,7 @@ export const fetchExamsWithProgress = async (userId: string) => {
         if (uaError) throw uaError;
 
         // Kullanıcının hangi soruları çözdüğünü bir set'e atalım
-        const solvedQuestionIds = new Set(userAnswers.map(ua => ua.question_id));
+        const solvedQuestionIds = new Set((userAnswers || []).map((ua: any) => ua.question_id));
 
         // Şimdi her sınavın sorularını çekip kullanıcının kaçını çözdüğünü bulmalıyız
         // (Performans için toplu çekiyoruz)
@@ -313,7 +350,7 @@ export const fetchExamsWithProgress = async (userId: string) => {
         if (aeqError) throw aeqError;
 
         const examSolvedMap: Record<string, number> = {};
-        allExamQuestions.forEach(eq => {
+        (allExamQuestions || []).forEach((eq: any) => {
             if (solvedQuestionIds.has(eq.question_id)) {
                 examSolvedMap[eq.exam_id] = (examSolvedMap[eq.exam_id] || 0) + 1;
             }
@@ -408,7 +445,7 @@ export const toggleFavorite = async (userId: string, questionId: string) => {
             .select('*')
             .eq('user_id', userId)
             .eq('question_id', questionId)
-            .single();
+            .maybeSingle();
 
         if (existing) {
             // Varsa sil
@@ -421,6 +458,7 @@ export const toggleFavorite = async (userId: string, questionId: string) => {
             return { action: 'removed', success: true };
         } else {
             // Yoksa ekle
+            await ensureUserProfile(userId);
             const { error: insertError } = await supabase
                 .from('saved_questions')
                 .insert([{ user_id: userId, question_id: questionId }]);

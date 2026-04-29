@@ -12,7 +12,7 @@ export default function SupportScreen() {
     const faqs = [
         { q: "Sınavda kaç soru çıkıyor?", a: "Sınavda toplam 50 soru sorulmaktadır." },
         { q: "Uygulama internetsiz çalışır mı?", a: "Soru veritabanını güncellemek için internet gerekir." },
-        { q: "Pro üyelik tüm cihazlarda geçerli mi?", a: "Evet, hesabınızla giriş yaptığınız her yerde geçerlidir." },
+        { q: "Premium üyelik tüm cihazlarda geçerli mi?", a: "Evet, hesabınızla giriş yaptığınız her yerde geçerlidir." },
     ];
 
     return (

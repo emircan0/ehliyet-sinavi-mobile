@@ -9,6 +9,7 @@ import { ScreenLayout } from '../../src/components/ScreenLayout';
 import { supabase } from '../../src/api/supabase';
 import { fetchUserStats } from '../../src/api/queries';
 import { useSubscriptionStore } from '../../src/store/useSubscriptionStore';
+import { purchaseService } from '../../src/services/purchaseService';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { useThemeMode } from '../../src/hooks/useThemeMode';
@@ -23,7 +24,7 @@ const CATEGORY_NAMES: Record<string, string> = {
 
 export default function StatisticsScreen() {
     const router = useRouter();
-    const isPro = useSubscriptionStore(state => state.isPro);
+    const isPremium = useSubscriptionStore(state => state.isPremium);
     const { isDarkMode, colorScheme } = useThemeMode();
 
     const [isLoading, setIsLoading] = useState(true);
@@ -201,7 +202,7 @@ export default function StatisticsScreen() {
                                     ))}
                                 </View>
 
-                                {!isPro && (
+                                {!isPremium && (
                                     <View className="absolute inset-0 z-10 rounded-3xl overflow-hidden shadow-2xl">
                                         <BlurView intensity={20} tint={isDarkMode ? "dark" : "light"} className="flex-1 items-center justify-center p-6">
                                             <View className="bg-white/80 dark:bg-slate-900/80 p-6 rounded-[32px] items-center border border-white/20 shadow-xl">
@@ -211,7 +212,7 @@ export default function StatisticsScreen() {
                                                 <Text className="text-slate-900 dark:text-white font-black text-center mb-1">Konu Analizi Kilitli</Text>
                                                 <Text className="text-slate-500 dark:text-slate-400 text-[10px] font-bold text-center mb-4 uppercase tracking-widest">Detaylı Performans Raporu</Text>
                                                 <TouchableOpacity 
-                                                    onPress={() => router.push('/premium')}
+                                                    onPress={() => purchaseService.presentPaywall()}
                                                     className="bg-amber-500 px-6 py-2.5 rounded-xl shadow-lg shadow-amber-500/20 active:scale-95"
                                                 >
                                                     <Text className="text-amber-950 font-black text-xs">Kilidi Kaldır</Text>
@@ -252,13 +253,13 @@ export default function StatisticsScreen() {
                                     )}
                                 </View>
 
-                                {!isPro && (
+                                {!isPremium && (
                                     <View className="absolute inset-0 z-10 rounded-2xl overflow-hidden">
                                         <BlurView intensity={25} tint={isDarkMode ? "dark" : "light"} className="flex-1 items-center justify-center p-4">
                                             <View className="flex-row items-center bg-white/90 dark:bg-slate-900/90 py-3 px-5 rounded-2xl border border-white/20 shadow-lg">
                                                 <Lock size={16} color="#d97706" className="mr-3" />
                                                 <Text className="text-slate-900 dark:text-white font-bold text-xs mr-4">AI Gelişim Raporu Kilitli</Text>
-                                                <TouchableOpacity onPress={() => router.push('/premium')}>
+                                                <TouchableOpacity onPress={() => purchaseService.presentPaywall()}>
                                                     <Text className="text-amber-600 dark:text-amber-400 font-black text-xs uppercase">Yükselt</Text>
                                                 </TouchableOpacity>
                                             </View>

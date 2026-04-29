@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Question } from '../types/question';
+import { Question } from '../types/database';
 import { AiTutorService } from '../services/aiTutor';
 
 export interface SelectedAnswer {

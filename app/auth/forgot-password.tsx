@@ -58,7 +58,9 @@ export default function ForgotPasswordScreen() {
 
         setIsLoading(true);
         try {
-            const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
+            const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+                redirectTo: 'ehliyet-sinavi://auth/reset-password',
+            });
 
             if (error) {
                 triggerShake();
@@ -66,7 +68,7 @@ export default function ForgotPasswordScreen() {
             } else {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 Alert.alert(
-                    'Bağlantı Gönderildi', 
+                    'Bağlantı Gönderildi',
                     'E-posta adresinize şifre sıfırlama bağlantısı gönderildi. Lütfen gelen kutunuzu kontrol edin.',
                     [{ text: 'Tamam', onPress: () => router.back() }]
                 );
@@ -107,7 +109,7 @@ export default function ForgotPasswordScreen() {
                                 tint="dark"
                                 className="px-6 py-8"
                             >
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     onPress={() => router.back()}
                                     className="mb-6 w-10 h-10 rounded-full bg-white/10 items-center justify-center border border-white/20"
                                 >

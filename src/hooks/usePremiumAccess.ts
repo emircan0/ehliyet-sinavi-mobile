@@ -2,6 +2,7 @@ import { Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useSubscriptionStore } from '../store/useSubscriptionStore';
+import { purchaseService } from '../services/purchaseService';
 
 interface PremiumAccessOptions {
     onSuccess: () => void;
@@ -12,17 +13,17 @@ interface PremiumAccessOptions {
 
 export const usePremiumAccess = () => {
     const router = useRouter();
-    const { isPro, spendCredits } = useSubscriptionStore();
+    const { isPremium, spendCredits, checkSubscriptionStatus } = useSubscriptionStore();
 
-    const checkAccess = ({ 
-        onSuccess, 
-        featureName = "Premium Özellik", 
+    const checkAccess = ({
+        onSuccess,
+        featureName = "Premium Özellik",
         onAdRequired,
-        creditCost = 1 
+        creditCost = 1
     }: PremiumAccessOptions) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-        if (isPro) {
+        if (isPremium) {
             onSuccess();
             return;
         }
@@ -30,19 +31,28 @@ export const usePremiumAccess = () => {
         // Kredi harcayarak girme mantığı
         Alert.alert(
             featureName,
-            `Bu özelliği kullanmak için Pro abone olmalısınız veya ${creditCost} kredi harcamalısınız.`,
+            `Bu özelliği kullanmak için Premium abone olmalısınız veya ${creditCost} kredi harcamalısınız.`,
             [
                 { text: "Vazgeç", style: "cancel" },
-                { text: "Pro'ya Geç", onPress: () => router.push('/premium') },
-                { 
-                    text: `${creditCost} Kredi Harca`, 
+                {
+                    text: "Premium'a Geç",
+                    onPress: async () => {
+                        const success = await purchaseService.presentPaywall();
+                        if (success) {
+                            await checkSubscriptionStatus();
+                            onSuccess();
+                        }
+                    }
+                },
+                {
+                    text: `${creditCost} Kredi Harca`,
                     onPress: () => {
                         if (spendCredits(creditCost)) {
                             onSuccess();
                         } else {
                             Alert.alert("Kredi Yetersiz", "Reklam izleyerek kredi kazanabilirsiniz.", [
-                                { 
-                                    text: "Reklam İzle", 
+                                {
+                                    text: "Reklam İzle",
                                     onPress: () => {
                                         if (onAdRequired) {
                                             onAdRequired();
@@ -61,5 +71,5 @@ export const usePremiumAccess = () => {
         );
     };
 
-    return { checkAccess, isPro };
+    return { checkAccess, isPremium };
 };

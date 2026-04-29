@@ -3,10 +3,11 @@ import { View, Text, ScrollView, Switch, TouchableOpacity, StatusBar, Alert } fr
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSubscriptionStore } from '../../src/store/useSubscriptionStore';
+import { useSettingsStore } from '../../src/store/useSettingsStore';
 import { ScreenLayout } from '../../src/components/ScreenLayout';
 import { supabase } from '../../src/api/supabase';
 import { useThemeMode } from '../../src/hooks/useThemeMode';
-import { useSettingsStore } from '../../src/store/useSettingsStore';
+import { purchaseService } from '../../src/services/purchaseService';
 import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
 import {
@@ -74,7 +75,7 @@ const SettingItem = ({
 
 export default function SettingsScreen() {
     const router = useRouter();
-    const isPro = useSubscriptionStore(state => state.isPro);
+    const isPremium = useSubscriptionStore(state => state.isPremium);
 
     // Zustand State
     const notificationsEnabled = useSettingsStore(state => state.notificationsEnabled);
@@ -102,17 +103,18 @@ export default function SettingsScreen() {
 
     useEffect(() => {
         const fetchUserData = async () => {
+            if (user) {
+                setIsGuest(false);
+                setUserEmail(user.email || '');
+                setUserName(user.user_metadata?.full_name || 'Kullanıcı');
+                return;
+            }
+
             const guestFlag = await AsyncStorage.getItem('is_guest');
             if (guestFlag === 'true') {
                 setIsGuest(true);
                 setUserName('Misafir Kullanıcı');
                 setUserEmail('Kayıtlı hesap bulunmuyor.');
-                return;
-            }
-
-            if (user) {
-                setUserEmail(user.email || '');
-                setUserName(user.user_metadata?.full_name || 'Kullanıcı');
             }
         };
         fetchUserData();
@@ -215,15 +217,15 @@ export default function SettingsScreen() {
                     <ChevronRight size={20} color={isDarkMode ? "#5c5c62" : "#c7c7cc"} />
                 </TouchableOpacity>
 
-                {!isPro && (
+                {!isPremium && (
                     <View className="mx-5 mt-6">
                         <TouchableOpacity
-                            onPress={() => router.push('/premium')}
+                            onPress={() => purchaseService.presentPaywall()}
                             activeOpacity={0.9}
                             className="bg-amber-400 rounded-[20px] p-4 flex-row items-center relative overflow-hidden shadow-sm"
                         >
                             <View className="flex-1 pr-4 z-10">
-                                <Text className="text-amber-950 font-black text-[18px] tracking-tight">Pro'ya Geçin</Text>
+                                <Text className="text-amber-950 font-black text-[18px] tracking-tight">Premium'a Geçin</Text>
                                 <Text className="text-amber-900/70 text-[12px] font-bold mt-0.5">Ömür boyu sınırsız erişim fırsatını kaçırmayın.</Text>
                             </View>
                             <View className="w-10 h-10 bg-white/30 rounded-full items-center justify-center z-10">

@@ -2,17 +2,17 @@ import React from 'react';
 import { View, ViewProps } from 'react-native';
 import { clsx } from 'clsx';
 
-interface ProgressBarProps extends ViewProps {
+interface PremiumgressBarProps extends ViewProps {
     progress: number; // 0 to 1
     color?: string;
 }
 
-export function ProgressBar({
+export function PremiumgressBar({
     progress,
     className,
     color = 'bg-primary',
     ...props
-}: ProgressBarProps) {
+}: PremiumgressBarProps) {
     const widthPercentage = `${Math.min(100, Math.max(0, progress * 100))}%`;
 
     return (

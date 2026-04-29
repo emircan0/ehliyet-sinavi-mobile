@@ -1,10 +1,13 @@
+export type QuestionCategory = 'trafik' | 'ilkyardim' | 'motor' | 'adap';
+
 export interface Question {
     id: string;
-    text: string;
+    content: string;
     options: string[];
     correct_option: number; // 0-3 index
     category: string;
     difficulty: 'easy' | 'medium' | 'hard';
+    explanation?: string;
     image_url?: string;
 }
 
