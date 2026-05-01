@@ -59,7 +59,7 @@ export default function ForgotPasswordScreen() {
         setIsLoading(true);
         try {
             const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-                redirectTo: 'ehliyet-sinavi://auth/reset-password',
+                redirectTo: 'ehliyet-sinavi:///auth/reset-password',
             });
 
             if (error) {

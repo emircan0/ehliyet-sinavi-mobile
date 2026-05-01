@@ -10,7 +10,6 @@ import {
     Platform,
     ScrollView,
     ImageBackground,
-    Dimensions,
     StyleSheet
 } from 'react-native';
 import { useRouter, Link } from 'expo-router';
@@ -29,8 +28,7 @@ const isExpoGo = Constants.appOwnership === 'expo';
 
 GoogleAuth.configure(
     process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '',
-    process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '',
-    process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || ''
+    process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || ''
 );
 import Animated, {
     useSharedValue,
@@ -41,8 +39,6 @@ import Animated, {
     FadeInDown,
     FadeInUp
 } from 'react-native-reanimated';
-
-const { width, height } = Dimensions.get('window');
 
 export default function RegisterScreen() {
     const router = useRouter();
@@ -104,7 +100,7 @@ export default function RegisterScreen() {
                     data: {
                         full_name: trimmedFullName,
                     },
-                    emailRedirectTo: 'ehliyet-sinavi://confirmation',
+                    emailRedirectTo: 'ehliyet-sinavi:///confirmation',
                 }
             });
 
@@ -233,8 +229,12 @@ export default function RegisterScreen() {
         try {
             await GoogleAuth.hasPlayServices();
             const userInfo = await GoogleAuth.signIn();
-            
-            if (userInfo.data?.idToken) {
+
+            if (userInfo.type === 'cancelled') {
+                return;
+            }
+
+            if (userInfo.type === 'success' && userInfo.data?.idToken) {
                 const { error } = await supabase.auth.signInWithIdToken({
                     provider: 'google',
                     token: userInfo.data.idToken,
@@ -271,8 +271,12 @@ export default function RegisterScreen() {
             }
         } catch (error: any) {
             console.error('Google Sign-In Error:', error);
-            if (error.code !== 'STATUS_CODES.SIGN_IN_CANCELLED') {
-                Alert.alert('Google Girişi Hatası', 'Giriş yapılamadı veya iptal edildi.');
+            const statusCodes = GoogleAuth.getStatusCodes();
+            if (error?.code !== statusCodes.SIGN_IN_CANCELLED) {
+                Alert.alert(
+                    'Google Girişi Hatası',
+                    error?.message || 'Giriş yapılamadı. Google OAuth istemci ayarlarını ve cihaz yapılandırmasını kontrol edin.'
+                );
             }
         } finally {
             setIsLoading(false);
@@ -506,8 +510,6 @@ const styles = StyleSheet.create({
         backgroundColor: '#000',
     },
     backgroundImage: {
-        width: width,
-        height: height,
-        position: 'absolute',
+        ...StyleSheet.absoluteFillObject,
     }
 });

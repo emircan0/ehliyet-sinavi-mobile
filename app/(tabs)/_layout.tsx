@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
     Home,
     ClipboardList,
@@ -11,6 +12,9 @@ import { useThemeMode } from '../../src/hooks/useThemeMode';
 
 export default function TabLayout() {
     const { isDarkMode } = useThemeMode();
+    const insets = useSafeAreaInsets();
+    const bottomInset = Math.max(insets.bottom, Platform.OS === 'ios' ? 20 : 8);
+    const tabBarHeight = 60 + bottomInset;
 
     return (
         <Tabs
@@ -26,9 +30,9 @@ export default function TabLayout() {
                     borderTopWidth: 1,
                     borderTopColor: isDarkMode ? 'rgba(30, 41, 59, 0.8)' : 'rgba(226, 232, 240, 0.6)',
                     backgroundColor: isDarkMode ? 'rgba(2, 6, 23, 0.95)' : 'rgba(255, 255, 255, 0.92)',
-                    height: Platform.OS === 'ios' ? 88 : 70,
+                    height: tabBarHeight,
                     paddingTop: 8,
-                    paddingBottom: Platform.OS === 'ios' ? 28 : 12,
+                    paddingBottom: bottomInset,
                 },
                 tabBarActiveTintColor: isDarkMode ? '#3b82f6' : '#2563eb',
                 tabBarInactiveTintColor: isDarkMode ? '#475569' : '#94a3b8',

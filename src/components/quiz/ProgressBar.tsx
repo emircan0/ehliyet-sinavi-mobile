@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, ViewProps } from 'react-native';
+import { DimensionValue, View, ViewProps } from 'react-native';
 import { clsx } from 'clsx';
 
 interface PremiumgressBarProps extends ViewProps {
@@ -13,7 +13,7 @@ export function PremiumgressBar({
     color = 'bg-primary',
     ...props
 }: PremiumgressBarProps) {
-    const widthPercentage = `${Math.min(100, Math.max(0, progress * 100))}%`;
+    const widthPercentage = `${Math.min(100, Math.max(0, progress * 100))}%` as DimensionValue;
 
     return (
         <View

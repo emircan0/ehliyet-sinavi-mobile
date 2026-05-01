@@ -219,7 +219,9 @@ export default function ProfileScreen() {
                     text: "Gönder",
                     onPress: async () => {
                         try {
-                            const { error } = await supabase.auth.resetPasswordForEmail(userEmail);
+                            const { error } = await supabase.auth.resetPasswordForEmail(userEmail, {
+                                redirectTo: 'ehliyet-sinavi:///auth/reset-password',
+                            });
                             if (error) {
                                 Alert.alert("Hata", error.message);
                             } else {

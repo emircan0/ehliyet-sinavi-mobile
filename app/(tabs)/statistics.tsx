@@ -166,7 +166,7 @@ export default function StatisticsScreen() {
                         <TouchableOpacity
                             onPress={() => {
                                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                router.push('/quizzes');
+                                router.push('/(tabs)/quizzes');
                             }}
                             className="bg-blue-600 px-6 py-3 rounded-xl"
                         >

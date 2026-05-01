@@ -114,6 +114,42 @@ export default function RootLayout() {
         const handleDeepLink = async (url: string) => {
             console.log('Incoming Deep Link:', url);
             const { path, queryParams } = Linking.parse(url);
+            const normalizedPath = path || '';
+
+            const getQueryParam = (key: string) => {
+                const value = queryParams?.[key];
+                return Array.isArray(value) ? value[0] : value;
+            };
+
+            const navigateAfterAuthLink = () => {
+                setTimeout(() => {
+                    try {
+                        if (normalizedPath.includes('reset-password')) {
+                            router.replace('/auth/reset-password');
+                        } else if (normalizedPath.includes('confirmation')) {
+                            router.replace('/confirmation');
+                            Toast.show({
+                                type: 'success',
+                                text1: 'E-posta Onaylandı',
+                                text2: 'Uygulamaya hoş geldiniz!'
+                            });
+                        }
+                    } catch (navError) {
+                        console.error('Navigation error during deep link:', navError);
+                    }
+                }, 1000);
+            };
+
+            const code = getQueryParam('code');
+            if (typeof code === 'string' && code.length > 0) {
+                const { error } = await supabase.auth.exchangeCodeForSession(code);
+                if (error) {
+                    console.error('Supabase exchangeCodeForSession error:', error.message);
+                } else {
+                    navigateAfterAuthLink();
+                }
+                return;
+            }
             
             // Supabase auth links usually come in the hash (#) part of the URL
             // Expo Linking.parse handles basic extraction
@@ -139,23 +175,18 @@ export default function RootLayout() {
                     if (error) {
                         console.error('Supabase setSession error:', error.message);
                     } else {
-                        // Navigator'ın ve Router'ın tamamen hazır olduğundan emin olmak için 1 saniyelik güvenli gecikme
-                        setTimeout(() => {
-                            try {
-                                if (type === 'recovery') {
-                                    router.replace('/auth/reset-password');
-                                } else if (type === 'signup') {
-                                    router.replace('/confirmation');
-                                    Toast.show({
-                                        type: 'success',
-                                        text1: 'E-posta Onaylandı',
-                                        text2: 'Uygulamaya hoş geldiniz!'
-                                    });
-                                }
-                            } catch (navError) {
-                                console.error('Navigation error during deep link:', navError);
-                            }
-                        }, 1000);
+                        if (type === 'recovery') {
+                            router.replace('/auth/reset-password');
+                        } else if (type === 'signup') {
+                            router.replace('/confirmation');
+                            Toast.show({
+                                type: 'success',
+                                text1: 'E-posta Onaylandı',
+                                text2: 'Uygulamaya hoş geldiniz!'
+                            });
+                        } else {
+                            navigateAfterAuthLink();
+                        }
                     }
                 }
             }

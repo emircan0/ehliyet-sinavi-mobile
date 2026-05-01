@@ -9,7 +9,6 @@ import {
     KeyboardAvoidingView,
     Platform,
     ImageBackground,
-    Dimensions,
     StyleSheet
 } from 'react-native';
 import { useRouter, Link } from 'expo-router';
@@ -39,11 +38,8 @@ const isExpoGo = Constants.appOwnership === 'expo';
 // Google Sign-In SDK Configuration (Safe for all platforms)
 GoogleAuth.configure(
     process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '',
-    process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '',
-    process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || ''
+    process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || ''
 );
-
-const { width, height } = Dimensions.get('window');
 
 export default function LoginScreen() {
     const router = useRouter();
@@ -168,8 +164,12 @@ export default function LoginScreen() {
         try {
             await GoogleAuth.hasPlayServices();
             const userInfo = await GoogleAuth.signIn();
-            
-            if (userInfo.data?.idToken) {
+
+            if (userInfo.type === 'cancelled') {
+                return;
+            }
+
+            if (userInfo.type === 'success' && userInfo.data?.idToken) {
                 const { data, error } = await supabase.auth.signInWithIdToken({
                     provider: 'google',
                     token: userInfo.data.idToken,
@@ -205,8 +205,12 @@ export default function LoginScreen() {
             }
         } catch (error: any) {
             console.error('Google Sign-In Error:', error);
-            if (error.code !== 'STATUS_CODES.SIGN_IN_CANCELLED') {
-                Alert.alert('Google Girişi Hatası', 'Giriş yapılamadı veya iptal edildi.');
+            const statusCodes = GoogleAuth.getStatusCodes();
+            if (error?.code !== statusCodes.SIGN_IN_CANCELLED) {
+                Alert.alert(
+                    'Google Girişi Hatası',
+                    error?.message || 'Giriş yapılamadı. Google OAuth istemci ayarlarını ve cihaz yapılandırmasını kontrol edin.'
+                );
             }
         } finally {
             setIsLoading(false);
@@ -407,8 +411,6 @@ const styles = StyleSheet.create({
         backgroundColor: '#000', // Resim yüklenene kadar siyah göstersin
     },
     backgroundImage: {
-        width: width,
-        height: height,
-        position: 'absolute',
+        ...StyleSheet.absoluteFillObject,
     }
 });

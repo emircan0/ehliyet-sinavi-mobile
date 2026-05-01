@@ -14,7 +14,14 @@ export default function Index() {
         const checkNavigationState = async () => {
             try {
                 // 1. Oturum kontrolü (En öncelikli)
-                const { data: { session } } = await supabase.auth.getSession();
+                const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+                if (sessionError) {
+                    await supabase.auth.signOut();
+                    await AsyncStorage.removeItem('is_guest');
+                    setInitialRoute('/auth/login');
+                    return;
+                }
 
                 // Misafir modunu kontrol edelim
                 const isGuestStr = await AsyncStorage.getItem('is_guest');

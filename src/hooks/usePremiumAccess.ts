@@ -19,7 +19,7 @@ export const usePremiumAccess = () => {
         onSuccess,
         featureName = "Premium Özellik",
         onAdRequired,
-        creditCost = 1
+        creditCost = 10
     }: PremiumAccessOptions) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 

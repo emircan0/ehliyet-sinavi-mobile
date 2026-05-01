@@ -5,7 +5,7 @@ import Toast from 'react-native-toast-message';
  */
 export const getFriendlyErrorMessage = (error: unknown): string => {
     const message = (error as any)?.message || String(error);
-    const code = error?.code || '';
+    const code = (error as { code?: string })?.code || '';
 
     // Ağ Hataları
     if (message.includes('network') || message.includes('fetch')) {

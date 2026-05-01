@@ -13,6 +13,7 @@ export const mockQuestions: Question[] = [
             'D) Gerekli hallerde yavaşlamamak'
         ],
         correct_option: 1,
+        difficulty: 'medium',
         explanation: 'Kavşaklarda geçiş önceliğine uymamak, trafiğin akışını ve güvenliğini doğrudan tehlikeye attığı için asli kusur sayılır.'
     },
     {
@@ -26,6 +27,7 @@ export const mockQuestions: Question[] = [
             'D) Hararet ikaz ışığı'
         ],
         correct_option: 2,
+        difficulty: 'easy',
         explanation: 'Yakıt seviyesi düşük ikaz ışığı yandığında araç hemen durdurulmak zorunda değildir, ancak en kısa sürede yakıt alınmalıdır. Diğerleri motor sağlığı için kritik öneme sahiptir.'
     },
     // İlk Yardım
@@ -40,6 +42,7 @@ export const mockQuestions: Question[] = [
             'D) Kalp masajı hızı dakikada 30 bası olacak şekilde ayarlanır.'
         ],
         correct_option: 2,
+        difficulty: 'medium',
         explanation: 'Yetişkinlerde temel yaşam desteği döngüsü 30 kalp masajı ve 2 yapay solunum (30:2) şeklindedir.'
     },
     {
@@ -53,6 +56,7 @@ export const mockQuestions: Question[] = [
             'D) Zihinsel aktivitenin artması'
         ],
         correct_option: 2,
+        difficulty: 'easy',
         explanation: 'Şok durumunda dolaşım yetmezliği nedeniyle kan basıncı düşer, nabız hızlanır ve zayıflar, cilt soğuk ve nemli olur.'
     },
     // Motor
@@ -67,6 +71,7 @@ export const mockQuestions: Question[] = [
             'D) Şarj sistemi ikaz ışığı'
         ],
         correct_option: 2,
+        difficulty: 'medium',
         explanation: 'Dizel motorlarda soğuk havalarda silindir içini ısıtmak için kızdırma bujileri kullanılır ve buna ait ikaz ışığı yay şeklindedir.'
     },
     // Trafik Adabı
@@ -81,6 +86,7 @@ export const mockQuestions: Question[] = [
             'D) Feragat ve fedakarlık'
         ],
         correct_option: 3,
+        difficulty: 'easy',
         explanation: 'Kendi hakkından vazgeçerek başkasına yol vermek feragat ve fedakarlık örneğidir.'
     }
 ];
