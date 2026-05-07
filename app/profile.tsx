@@ -424,8 +424,12 @@ export default function ProfileScreen() {
                             Alert.alert("Çıkış Yap", "Oturumu kapatmak istediğinize emin misiniz?", [
                                 { text: "Vazgeç", style: "cancel" },
                                 {
-                                    text: "Çıkış Yap", style: "destructive", onPress: () => {
-                                        supabase.auth.signOut();
+                                    text: "Çıkış Yap", style: "destructive", onPress: async () => {
+                                        await supabase.auth.signOut();
+                                        await AsyncStorage.removeItem('is_guest');
+                                        if (router.canDismiss()) {
+                                            router.dismissAll();
+                                        }
                                         router.replace('/auth/login');
                                     }
                                 }
@@ -455,7 +459,7 @@ export default function ProfileScreen() {
                         <Text className="text-slate-400 dark:text-slate-500 font-bold text-[13px] underline">Cihaz Verilerini Sıfırla</Text>
                     </TouchableOpacity>
 
-                    <Text className="text-slate-400 text-center text-[11px] mt-2">Sürüm 1.0.0 • Ehliyet Hocam – AI Destekli Eğitim</Text>
+                    <Text className="text-slate-400 text-center text-[11px] mt-2">Sürüm 1.2.2 • Ehliyet Hocam – AI Destekli Eğitim</Text>
                 </View>
             </ScrollView>
 

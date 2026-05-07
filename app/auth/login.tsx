@@ -35,10 +35,10 @@ import { GoogleAuth } from '../../src/api/google-auth';
 
 const isExpoGo = Constants.appOwnership === 'expo';
 
-// Google Sign-In SDK Configuration (Safe for all platforms)
+// Google Sign-In SDK Configuration (Hardcoded for maximum reliability during testing)
 GoogleAuth.configure(
-    process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '',
-    process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || ''
+    '247538031791-bueg0qbqglbo7p9od98lg7glgnfd47m1.apps.googleusercontent.com', // Web application (Supabase audience)
+    '247538031791-tl9ub933k1qp5q351ls1c3ubcru7uufe.apps.googleusercontent.com'  // iOS Client ID
 );
 
 export default function LoginScreen() {

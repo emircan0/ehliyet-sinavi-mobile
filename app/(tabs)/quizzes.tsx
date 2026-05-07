@@ -32,8 +32,8 @@ export default function QuizzesScreen() {
 
     const triggerRandomAd = () => {
         const adShown = adService.showRewarded(() => {
-            // Kullanıcıya 10 kredi verelim
-            addCredits(10);
+            // Kullanıcıya 3 kredi verelim
+            addCredits(3);
             // Alert in index.tsx is enough if triggered from checkAccess but let's add one here just in case
             // Actually, checkAccess handles this generically so we just show ad.
         });

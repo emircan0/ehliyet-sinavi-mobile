@@ -11,9 +11,11 @@ export const GoogleAuth = {
             try {
                 const { GoogleSignin } = require('@react-native-google-signin/google-signin');
                 GoogleSignin.configure({
-                    scopes: ['email', 'profile'],
-                    webClientId,
-                    iosClientId
+                    scopes: ['email', 'profile', 'openid'],
+                    // Doğrudan ID'leri buraya yazıyoruz ki hata payı kalmasın
+                    webClientId: '247538031791-bueg0qbqglbo7p9od98lg7glgnfd47m1.apps.googleusercontent.com',
+                    iosClientId: '247538031791-tl9ub933k1qp5q351ls1c3ubcru7uufe.apps.googleusercontent.com',
+                    offlineAccess: true,
                 });
             } catch (error) {
                 console.warn('Google Sign-In configuration failed:', error);

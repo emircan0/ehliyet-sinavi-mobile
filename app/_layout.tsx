@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Stack, router } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
 import Constants from 'expo-constants';
 import type { Notification, NotificationResponse } from 'expo-notifications';
@@ -73,6 +74,24 @@ export default function RootLayout() {
     useEffect(() => {
         setColorScheme(isDarkMode ? 'dark' : 'light');
     }, [isDarkMode, setColorScheme]);
+
+    // 2.5 Global Auth Observer
+    useEffect(() => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            if (event === 'SIGNED_OUT') {
+                // Clear any guest state just in case
+                AsyncStorage.removeItem('is_guest').catch(() => {});
+                
+                // Reset navigation and go to login
+                if (router.canDismiss()) {
+                    router.dismissAll();
+                }
+                router.replace('/auth/login');
+            }
+        });
+
+        return () => subscription.unsubscribe();
+    }, []);
 
     // 3. Notification Listeners 
     useEffect(() => {

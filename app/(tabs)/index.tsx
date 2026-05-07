@@ -201,9 +201,9 @@ export default function Home() {
 
     const triggerRandomAd = () => {
         const adShown = adService.showRewarded(() => {
-            // Kullanıcıya 10 kredi verelim
-            addCredits(10);
-            Alert.alert("Tebrikler!", "10 Kredi kazandınız.");
+            // Kullanıcıya 3 kredi verelim
+            addCredits(3);
+            Alert.alert("Tebrikler!", "3 Kredi kazandınız.");
         });
         
         if (!adShown) {
