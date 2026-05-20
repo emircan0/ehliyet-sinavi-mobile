@@ -97,7 +97,12 @@ export class PurchaseService {
             let hasApplePremium = false;
             if (PurchaseService.isInitialized) {
                 const customerInfo = await Purchases.getCustomerInfo();
-                hasApplePremium = typeof customerInfo.entitlements.active[ENTITLEMENT_ID] !== "undefined";
+                
+                // Güvenli ve dinamik kontrol: Herhangi bir aktif yetki (entitlement) varsa kullanıcı premiumdur
+                const activeEntitlements = Object.keys(customerInfo.entitlements?.active || {});
+                hasApplePremium = activeEntitlements.length > 0;
+                
+                console.log("RevenueCat: Active entitlements found:", activeEntitlements);
             }
 
             // 2. Supabase Kontrolü (Promosyon Kodu için)
@@ -142,20 +147,16 @@ export class PurchaseService {
     public async presentPaywallIfNeeded(): Promise<boolean> {
         if (!PurchaseService.isInitialized) return false;
         try {
-            const paywallResult: PAYWALL_RESULT = await RevenueCatUI.presentPaywallIfNeeded({
-                requiredEntitlementIdentifier: ENTITLEMENT_ID
-            });
-
-            switch (paywallResult) {
-                case PAYWALL_RESULT.NOT_PRESENTED:
-                    // User already has entitlement
-                    return true;
-                case PAYWALL_RESULT.PURCHASED:
-                case PAYWALL_RESULT.RESTORED:
-                    return true;
-                default:
-                    return false;
+            // Önce JS tarafındaki esnek ve dinamik kontrolümüzü yapıyoruz
+            const { isPremium } = await this.checkSubscriptionStatus();
+            if (isPremium) {
+                console.log("RevenueCat: User is already premium, skipping paywall presentation");
+                return true;
             }
+
+            // Eğer premium değilse resmi paywall ekranını zorla açıyoruz
+            console.log("RevenueCat: User is not premium, presenting paywall...");
+            return await this.presentPaywall();
         } catch (error) {
             console.error("Present paywall if needed error:", error);
             return false;
@@ -194,7 +195,9 @@ export class PurchaseService {
         if (!PurchaseService.isInitialized) return false;
         try {
             const customerInfo = await Purchases.restorePurchases();
-            return typeof customerInfo.entitlements.active[ENTITLEMENT_ID] !== "undefined";
+            const activeEntitlements = Object.keys(customerInfo.entitlements?.active || {});
+            console.log("RevenueCat restore: Active entitlements:", activeEntitlements);
+            return activeEntitlements.length > 0;
         } catch (error) {
             console.error("Restore purchases error:", error);
             return false;

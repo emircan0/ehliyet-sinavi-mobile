@@ -17,7 +17,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.ehliyet.ai.sinav",
       "usesAppleSignIn": true,
-      "buildNumber": "25",
+      "buildNumber": "29",
       "infoPlist": {
         "CFBundleDisplayName": "Ehliyet Hocam",
         "NSCameraUsageDescription": "Uygulama, profil fotoğrafınızı güncellemek için kameraya erişim gerektirir.",
