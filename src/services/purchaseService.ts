@@ -31,6 +31,7 @@ export class PurchaseService {
      */
     private static isInitialized = false;
     private static isExpoGo = Constants.appOwnership === 'expo';
+    private static customerInfoListener: ((customerInfo: any) => void) | null = null;
 
     /**
      * Initialize RevenueCat SDK
@@ -46,10 +47,25 @@ export class PurchaseService {
             await Purchases.configure({ apiKey: REVENUECAT_API_KEY });
             PurchaseService.isInitialized = true;
             console.log("RevenueCat initialized successfully");
+
+            // Set up real-time listener for purchase and subscription updates
+            Purchases.addCustomerInfoUpdateListener((customerInfo) => {
+                console.log("RevenueCat: Real-time customerInfo update received");
+                if (PurchaseService.customerInfoListener) {
+                    PurchaseService.customerInfoListener(customerInfo);
+                }
+            });
         } catch (error) {
             console.error("RevenueCat initialization error:", error);
             PurchaseService.isInitialized = false;
         }
+    }
+
+    /**
+     * Register a callback to listen to real-time subscription changes
+     */
+    public setCustomerInfoListener(listener: (customerInfo: any) => void) {
+        PurchaseService.customerInfoListener = listener;
     }
 
     /**

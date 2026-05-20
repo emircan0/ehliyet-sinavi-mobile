@@ -9,7 +9,7 @@ import { supabase } from '../src/api/supabase';
 import { TextInput, ActivityIndicator, Alert } from 'react-native';
 
 export default function SubscriptionsScreen() {
-    const { isPremium, setPremium, restorePurchases, premiumExpiryDate } = useSubscriptionStore();
+    const { isPremium, setPremium, restorePurchases, premiumExpiryDate, checkSubscriptionStatus } = useSubscriptionStore();
     const router = useRouter();
 
     const getRemainingText = () => {
@@ -110,7 +110,12 @@ export default function SubscriptionsScreen() {
                     </View>
                 ) : (
                     <TouchableOpacity
-                        onPress={() => purchaseService.presentPaywall()}
+                        onPress={async () => {
+                            const success = await purchaseService.presentPaywall();
+                            if (success) {
+                                await checkSubscriptionStatus();
+                            }
+                        }}
                         className="bg-amber-100 dark:bg-amber-900/20 p-5 rounded-2xl border border-amber-200 dark:border-amber-900/30 items-center mb-4 flex-row justify-center"
                     >
                         <Crown size={18} color="#d97706" className="mr-2" />

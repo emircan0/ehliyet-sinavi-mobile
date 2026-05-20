@@ -25,6 +25,7 @@ const CATEGORY_NAMES: Record<string, string> = {
 export default function StatisticsScreen() {
     const router = useRouter();
     const isPremium = useSubscriptionStore(state => state.isPremium);
+    const checkSubscriptionStatus = useSubscriptionStore(state => state.checkSubscriptionStatus);
     const { isDarkMode, colorScheme } = useThemeMode();
 
     const [isLoading, setIsLoading] = useState(true);
@@ -212,7 +213,12 @@ export default function StatisticsScreen() {
                                                 <Text className="text-slate-900 dark:text-white font-black text-center mb-1">Konu Analizi Kilitli</Text>
                                                 <Text className="text-slate-500 dark:text-slate-400 text-[10px] font-bold text-center mb-4 uppercase tracking-widest">Detaylı Performans Raporu</Text>
                                                 <TouchableOpacity 
-                                                    onPress={() => purchaseService.presentPaywall()}
+                                                    onPress={async () => {
+                                                        const success = await purchaseService.presentPaywall();
+                                                        if (success) {
+                                                            await checkSubscriptionStatus();
+                                                        }
+                                                    }}
                                                     className="bg-amber-500 px-6 py-2.5 rounded-xl shadow-lg shadow-amber-500/20 active:scale-95"
                                                 >
                                                     <Text className="text-amber-950 font-black text-xs">Kilidi Kaldır</Text>
@@ -259,7 +265,12 @@ export default function StatisticsScreen() {
                                             <View className="flex-row items-center bg-white/90 dark:bg-slate-900/90 py-3 px-5 rounded-2xl border border-white/20 shadow-lg">
                                                 <Lock size={16} color="#d97706" className="mr-3" />
                                                 <Text className="text-slate-900 dark:text-white font-bold text-xs mr-4">AI Gelişim Raporu Kilitli</Text>
-                                                <TouchableOpacity onPress={() => purchaseService.presentPaywall()}>
+                                                <TouchableOpacity onPress={async () => {
+                                                    const success = await purchaseService.presentPaywall();
+                                                    if (success) {
+                                                        await checkSubscriptionStatus();
+                                                    }
+                                                }}>
                                                     <Text className="text-amber-600 dark:text-amber-400 font-black text-xs uppercase">Yükselt</Text>
                                                 </TouchableOpacity>
                                             </View>

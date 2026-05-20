@@ -17,7 +17,7 @@ import * as Haptics from 'expo-haptics';
 
 export default function AITutorScreen() {
     const router = useRouter();
-    const { isPremium } = useSubscriptionStore();
+    const { isPremium, checkSubscriptionStatus } = useSubscriptionStore();
     const [loading, setLoading] = useState(true);
     const [masteryData, setMasteryData] = useState<any[]>([]);
     const [preferences, setPreferences] = useState<Record<string, string>>({});
@@ -316,7 +316,12 @@ export default function AITutorScreen() {
                                 Kişiselleştirilmiş hata analizi ve gelişim araçları için Premium üyeliğe geçmelisiniz.
                             </Text>
                             <TouchableOpacity
-                                onPress={() => purchaseService.presentPaywall()}
+                                onPress={async () => {
+                                    const success = await purchaseService.presentPaywall();
+                                    if (success) {
+                                        await checkSubscriptionStatus();
+                                    }
+                                }}
                                 className="bg-amber-500 w-full py-4 rounded-2xl items-center shadow-lg shadow-amber-500/20 active:scale-95"
                             >
                                 <Text className="text-amber-950 font-black text-base">Üyeliği Başlat</Text>

@@ -24,6 +24,15 @@ export const useSubscriptionStore = create<SubscriptionState>()(
 
             initializePurchases: async () => {
                 await purchaseService.initialize();
+                
+                // Set the real-time listener to sync state automatically on purchases or restores
+                purchaseService.setCustomerInfoListener(async (customerInfo) => {
+                    console.log("SubscriptionStore: Real-time update triggered by listener");
+                    // Re-run subscription status check to update the Zustand store state
+                    const { isPremium: hasPremium, premiumUntil } = await purchaseService.checkSubscriptionStatus();
+                    set({ isPremium: hasPremium, premiumExpiryDate: premiumUntil });
+                });
+
                 const { isPremium, premiumUntil } = await purchaseService.checkSubscriptionStatus();
                 set({ isPremium, premiumExpiryDate: premiumUntil });
             },

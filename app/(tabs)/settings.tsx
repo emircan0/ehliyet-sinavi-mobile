@@ -76,6 +76,7 @@ const SettingItem = ({
 export default function SettingsScreen() {
     const router = useRouter();
     const isPremium = useSubscriptionStore(state => state.isPremium);
+    const checkSubscriptionStatus = useSubscriptionStore(state => state.checkSubscriptionStatus);
 
     // Zustand State
     const notificationsEnabled = useSettingsStore(state => state.notificationsEnabled);
@@ -220,7 +221,12 @@ export default function SettingsScreen() {
                 {!isPremium && (
                     <View className="mx-5 mt-6">
                         <TouchableOpacity
-                            onPress={() => purchaseService.presentPaywall()}
+                            onPress={async () => {
+                                const success = await purchaseService.presentPaywall();
+                                if (success) {
+                                    await checkSubscriptionStatus();
+                                }
+                            }}
                             activeOpacity={0.9}
                             className="bg-amber-400 rounded-[20px] p-4 flex-row items-center relative overflow-hidden shadow-sm"
                         >
