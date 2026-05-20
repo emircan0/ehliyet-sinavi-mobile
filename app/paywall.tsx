@@ -11,14 +11,14 @@ import { useSubscriptionStore } from '../src/store/useSubscriptionStore';
  */
 export default function PaywallScreen() {
     const router = useRouter();
-    const initializePurchases = useSubscriptionStore(state => state.initializePurchases);
+    const checkSubscriptionStatus = useSubscriptionStore(state => state.checkSubscriptionStatus);
 
     return (
         <View style={{ flex: 1, backgroundColor: '#000' }}>
             <RevenueCatUI.Paywall 
                 onDismiss={() => {
                     // Update subscription status in store after dismissal
-                    initializePurchases();
+                    checkSubscriptionStatus();
                     router.back();
                 }}
             />

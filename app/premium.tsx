@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { purchaseService } from '../src/services/purchaseService';
+import { useSubscriptionStore } from '../src/store/useSubscriptionStore';
 
 /**
  * PremiumScreen (Deactivated)
@@ -10,11 +11,15 @@ import { purchaseService } from '../src/services/purchaseService';
  */
 export default function PremiumScreen() {
     const router = useRouter();
+    const checkSubscriptionStatus = useSubscriptionStore(state => state.checkSubscriptionStatus);
 
     useEffect(() => {
         const triggerPaywall = async () => {
             // Trigger the RevenueCat paywall
-            await purchaseService.presentPaywall();
+            const success = await purchaseService.presentPaywall();
+            if (success) {
+                await checkSubscriptionStatus();
+            }
             
             // After closing the paywall, go back to the previous screen
             if (router.canGoBack()) {

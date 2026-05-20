@@ -29,14 +29,17 @@ export default function RootLayout() {
     const addNotification = useNotificationStore(state => state.addNotification);
     const { isDarkMode, setColorScheme } = useThemeMode();
     const theme = useSettingsStore(state => state.theme);
-    const { user } = useAuth();
+    const { user, loading: authLoading } = useAuth();
 
     // Network status listener
     useNetworkStatus();
 
     // Purchase and Ads initialization
     const initializePurchases = useSubscriptionStore(state => state.initializePurchases);
+    const checkSubscriptionStatus = useSubscriptionStore(state => state.checkSubscriptionStatus);
+    const resetSubscription = useSubscriptionStore(state => state.resetSubscription);
     const isPremium = useSubscriptionStore(state => state.isPremium);
+
     useEffect(() => {
         initializePurchases();
 
@@ -45,11 +48,13 @@ export default function RootLayout() {
             .initialize()
             .then(adapterStatuses => {
                 console.log('Mobile Ads initialized');
-                // Preload ads if not premium
-                if (!isPremium) {
-                    adService.loadRewarded();
-                }
             });
+    }, []);
+
+    useEffect(() => {
+        if (!isPremium) {
+            adService.loadRewarded();
+        }
     }, [isPremium]);
 
     // 2. Push Notification Registration
@@ -61,14 +66,32 @@ export default function RootLayout() {
 
     // 2. RevenueCat User Sync
     useEffect(() => {
-        if (user?.id) {
-            const fullName = user.user_metadata?.full_name || '';
-            const email = user.email || '';
-            purchaseService.logIn(user.id, fullName, email);
-        } else {
-            purchaseService.logOut();
-        }
-    }, [user?.id]);
+        if (authLoading) return;
+
+        let isMounted = true;
+
+        const syncRevenueCatUser = async () => {
+            if (user?.id) {
+                const fullName = user.user_metadata?.full_name || '';
+                const email = user.email || '';
+                await purchaseService.logIn(user.id, fullName, email);
+                if (isMounted) {
+                    await checkSubscriptionStatus();
+                }
+            } else {
+                await purchaseService.logOut();
+                if (isMounted) {
+                    resetSubscription();
+                }
+            }
+        };
+
+        syncRevenueCatUser();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [authLoading, user?.id]);
 
     // 2. Theme Management logic
     useEffect(() => {
