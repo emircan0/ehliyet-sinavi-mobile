@@ -7,10 +7,13 @@ import { fetchQuickPracticeQuestions } from '../../src/api/queries';
 import { supabase } from '../../src/api/supabase';
 import { useThemeMode } from '../../src/hooks/useThemeMode';
 import { QuestionImage } from '../../src/components/quiz/QuestionImage';
+import { useSubscriptionStore } from '../../src/store/useSubscriptionStore';
+import { adService } from '../../src/services/adService';
 
 export default function QuickPracticeScreen() {
     const router = useRouter();
     const { isDarkMode } = useThemeMode();
+    const isPremium = useSubscriptionStore(state => state.isPremium);
     const [questions, setQuestions] = useState<any[]>([]);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isLoading, setIsLoading] = useState(true);
@@ -82,6 +85,11 @@ export default function QuickPracticeScreen() {
         handleNext();
     };
 
+    const returnHome = () => {
+        adService.showInterstitialAtStudyBreak(isPremium);
+        router.back();
+    };
+
     if (isLoading) {
         return (
             <ScreenLayout className="bg-base justify-center items-center">
@@ -127,7 +135,7 @@ export default function QuickPracticeScreen() {
                     </View>
 
                     <TouchableOpacity
-                        onPress={() => router.back()}
+                        onPress={returnHome}
                         className="w-full bg-slate-900 p-4 rounded-2xl items-center shadow-lg shadow-slate-900/30 mb-3"
                     >
                         <Text className="text-white font-bold text-lg">Ana Sayfaya Dön</Text>

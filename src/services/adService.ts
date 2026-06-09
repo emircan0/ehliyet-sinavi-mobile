@@ -16,6 +16,13 @@ const rewardedAdUnitId = Platform.select({
 class AdService {
   private interstitial: InterstitialAd | null = null;
   private rewarded: RewardedAd | null = null;
+  private appStartedAt = Date.now();
+  private lastInterstitialShownAt = 0;
+  private interstitialShowsThisSession = 0;
+
+  private readonly minSessionAgeBeforeInterstitialMs = 5 * 60 * 1000;
+  private readonly minInterstitialGapMs = 8 * 60 * 1000;
+  private readonly maxInterstitialsPerSession = 4;
 
   public loadInterstitial() {
     this.interstitial = InterstitialAd.createForAdRequest(interstitialAdUnitId, {
@@ -38,14 +45,66 @@ class AdService {
     this.interstitial.load();
   }
 
-  public showInterstitial(): boolean {
+  public showInterstitial(onClosed?: () => void): boolean {
     if (this.interstitial && this.interstitial.loaded) {
+      let closeListener: (() => void) | null = null;
+      if (onClosed) {
+        closeListener = this.interstitial.addAdEventListener(AdEventType.CLOSED, () => {
+          closeListener?.();
+          onClosed();
+        });
+      }
+
       this.interstitial.show();
+      this.lastInterstitialShownAt = Date.now();
+      this.interstitialShowsThisSession += 1;
       return true;
     }
     console.log('Interstitial ad not loaded yet.');
     this.loadInterstitial();
     return false;
+  }
+
+  public showInterstitialAtStudyBreak(isPremium: boolean): boolean {
+    if (isPremium) return false;
+
+    const now = Date.now();
+    const sessionAge = now - this.appStartedAt;
+    const timeSinceLastShow = now - this.lastInterstitialShownAt;
+
+    if (sessionAge < this.minSessionAgeBeforeInterstitialMs) {
+      this.loadInterstitial();
+      return false;
+    }
+
+    if (this.interstitialShowsThisSession >= this.maxInterstitialsPerSession) {
+      return false;
+    }
+
+    if (this.lastInterstitialShownAt > 0 && timeSinceLastShow < this.minInterstitialGapMs) {
+      this.loadInterstitial();
+      return false;
+    }
+
+    return this.showInterstitial();
+  }
+
+  public showInterstitialAfterQuiz(isPremium: boolean): boolean {
+    if (isPremium) return false;
+
+    const now = Date.now();
+    const timeSinceLastShow = now - this.lastInterstitialShownAt;
+
+    if (this.interstitialShowsThisSession >= this.maxInterstitialsPerSession) {
+      return false;
+    }
+
+    if (this.lastInterstitialShownAt > 0 && timeSinceLastShow < this.minInterstitialGapMs) {
+      this.loadInterstitial();
+      return false;
+    }
+
+    return this.showInterstitial();
   }
 
   public loadRewarded() {

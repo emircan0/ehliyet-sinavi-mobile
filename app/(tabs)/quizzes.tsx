@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StatusBar, RefreshControl, Dimensions } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StatusBar, RefreshControl, Dimensions, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import {
     FileText, Star, AlertTriangle, ChevronRight,
@@ -32,17 +32,12 @@ export default function QuizzesScreen() {
 
     const triggerRandomAd = () => {
         const adShown = adService.showRewarded(() => {
-            // Kullanıcıya 3 kredi verelim
             addCredits(3);
-            // Alert in index.tsx is enough if triggered from checkAccess but let's add one here just in case
-            // Actually, checkAccess handles this generically so we just show ad.
+            Alert.alert("Tebrikler!", "3 Kredi kazandınız.");
         });
         
         if (!adShown) {
-            // Alert
-            import('react-native').then(rn => {
-                rn.Alert.alert("Bilgi", "Video reklam henüz yüklenmedi, lütfen birkaç saniye sonra tekrar deneyin.");
-            });
+            Alert.alert("Bilgi", "Video reklam henüz yüklenmedi, lütfen birkaç saniye sonra tekrar deneyin.");
         }
     };
 
@@ -50,7 +45,8 @@ export default function QuizzesScreen() {
         checkAccess({
             onSuccess: () => router.push({ pathname: '/quiz/[id]', params: { id: examId } }),
             featureName: title,
-            onAdRequired: triggerRandomAd
+            onAdRequired: triggerRandomAd,
+            creditCost: 6
         });
     };
 

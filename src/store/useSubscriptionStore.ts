@@ -41,7 +41,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
     persist(
         (set, get) => ({
             isPremium: false,
-            credits: 5,
+            credits: 11,
             premiumExpiryDate: null,
             subscriptionStatus: FREE_SUBSCRIPTION_STATUS,
             isCheckingSubscription: false,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     View, Text, TouchableOpacity, ActivityIndicator, ScrollView,
     Alert, StatusBar, Modal, TextInput, KeyboardAvoidingView, Platform
@@ -24,10 +24,22 @@ import { useQuizStore } from '../../src/store/useQuizStore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { QuestionImage } from '../../src/components/quiz/QuestionImage';
+import { useSubscriptionStore } from '../../src/store/useSubscriptionStore';
+import { purchaseService } from '../../src/services/purchaseService';
+import { adService } from '../../src/services/adService';
+
+const GENERAL_EXAM_DAILY_KEY = '@free_general_exam_date';
+const GENERAL_EXAM_EXTRA_ACCESS_KEY = '@general_exam_extra_access_count';
+const EXTRA_GENERAL_EXAM_CREDIT_COST = 6;
+const getTodayKey = () => new Date().toISOString().slice(0, 10);
 
 export default function QuizScreen() {
     const { id } = useLocalSearchParams();
     const router = useRouter();
+    const isPremium = useSubscriptionStore(state => state.isPremium);
+    const spendCredits = useSubscriptionStore(state => state.spendCredits);
+    const checkSubscriptionStatus = useSubscriptionStore(state => state.checkSubscriptionStatus);
+    const generalExtraAccessRef = useRef(false);
 
     const {
         questions, setQuestions,
@@ -38,12 +50,29 @@ export default function QuizScreen() {
 
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isCheckpointAdShowing, setIsCheckpointAdShowing] = useState(false);
 
     const [reportModalVisible, setReportModalVisible] = useState(false);
     const [reportReason, setReportReason] = useState('');
     const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
 
     const isTopicQuiz = ['trafik', 'motor', 'ilkyardim', 'adap'].includes(id as string);
+
+    const consumeExtraGeneralExamAccess = async () => {
+        const rawCount = await AsyncStorage.getItem(GENERAL_EXAM_EXTRA_ACCESS_KEY);
+        const currentCount = Number(rawCount || 0);
+        if (currentCount <= 0) return false;
+
+        const nextCount = currentCount - 1;
+        if (nextCount > 0) {
+            await AsyncStorage.setItem(GENERAL_EXAM_EXTRA_ACCESS_KEY, String(nextCount));
+        } else {
+            await AsyncStorage.removeItem(GENERAL_EXAM_EXTRA_ACCESS_KEY);
+        }
+
+        generalExtraAccessRef.current = true;
+        return true;
+    };
 
     // Temizleme (Unmount)
     useEffect(() => {
@@ -60,6 +89,55 @@ export default function QuizScreen() {
 
                 let data = [];
                 const idString = id as string;
+
+                if (idString === 'general' && !isPremium && !generalExtraAccessRef.current) {
+                    const lastFreeGeneralExamDate = await AsyncStorage.getItem(GENERAL_EXAM_DAILY_KEY);
+                    if (lastFreeGeneralExamDate === getTodayKey()) {
+                        const hasStoredExtraAccess = await consumeExtraGeneralExamAccess();
+                        if (hasStoredExtraAccess) {
+                            generalExtraAccessRef.current = true;
+                        } else {
+                            Alert.alert(
+                                'Günlük deneme hakkın doldu',
+                                `Ücretsiz planda günde 1 genel deneme çözebilirsin. Ek deneme için Premium'a geçebilir veya ${EXTRA_GENERAL_EXAM_CREDIT_COST} kredi kullanabilirsin.`,
+                                [
+                                    {
+                                        text: "Premium'a Geç",
+                                        onPress: async () => {
+                                            const success = await purchaseService.presentPaywall();
+                                            if (success) {
+                                                generalExtraAccessRef.current = true;
+                                                await checkSubscriptionStatus();
+                                                loadQuestions();
+                                            } else {
+                                                router.replace('/(tabs)/' as any);
+                                            }
+                                        }
+                                    },
+                                    {
+                                        text: `${EXTRA_GENERAL_EXAM_CREDIT_COST} Kredi Kullan`,
+                                        onPress: () => {
+                                            if (spendCredits(EXTRA_GENERAL_EXAM_CREDIT_COST)) {
+                                                generalExtraAccessRef.current = true;
+                                                loadQuestions();
+                                            } else {
+                                                Alert.alert('Kredi Yetersiz', 'Ana sayfadan reklam izleyerek kredi kazanabilirsin.');
+                                                router.replace('/(tabs)/' as any);
+                                            }
+                                        }
+                                    },
+                                    {
+                                        text: 'Vazgeç',
+                                        style: 'cancel',
+                                        onPress: () => router.replace('/(tabs)/' as any)
+                                    }
+                                ]
+                            );
+                            setIsLoading(false);
+                            return;
+                        }
+                    }
+                }
 
                 const isNumeric = /^\d+$/.test(idString);
                 const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idString);
@@ -128,6 +206,28 @@ export default function QuizScreen() {
 
     const handleNext = async () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+        const shouldShowTopicCheckpointAd =
+            isTopicQuiz &&
+            !isPremium &&
+            currentIndex > 0 &&
+            (currentIndex + 1) % 10 === 0 &&
+            currentIndex < questions.length - 1;
+
+        if (shouldShowTopicCheckpointAd) {
+            setIsCheckpointAdShowing(true);
+            const adShown = adService.showInterstitial(() => {
+                setIsCheckpointAdShowing(false);
+                nextQuestion();
+            });
+
+            if (!adShown) {
+                setIsCheckpointAdShowing(false);
+                nextQuestion();
+            }
+            return;
+        }
+
         if (currentIndex < questions.length - 1) {
             nextQuestion();
         } else {
@@ -154,12 +254,12 @@ export default function QuizScreen() {
                 await AsyncStorage.removeItem(`@quiz_state_${id}`);
             }
 
-            // Misafir & Kullanıcı navigasyonu her zaman çalışmalı
-            if (id === 'favorites' || id === 'mistakes') {
-                router.replace('/(tabs)/quizzes');
-            } else {
-                router.replace('/quiz/result');
+            if (id === 'general' && !isPremium) {
+                await AsyncStorage.setItem(GENERAL_EXAM_DAILY_KEY, getTodayKey());
             }
+
+            adService.showInterstitialAfterQuiz(isPremium);
+            router.replace('/quiz/result');
         } catch (error) {
             Alert.alert('Hata', 'Sonuçlar kaydedilemedi/işlenemedi.');
         } finally {
@@ -389,10 +489,11 @@ export default function QuizScreen() {
 
                 <TouchableOpacity
                     onPress={handleNext}
+                    disabled={isCheckpointAdShowing}
                     className="h-14 flex-1 rounded-2xl bg-slate-900 items-center justify-center"
                 >
                     <Text className="text-white font-black">
-                        {currentIndex === questions.length - 1 ? 'Sınavı Bitir' : 'Sıradaki Soru'}
+                        {isCheckpointAdShowing ? 'Devam Hazırlanıyor...' : currentIndex === questions.length - 1 ? 'Sınavı Bitir' : 'Sıradaki Soru'}
                     </Text>
                 </TouchableOpacity>
             </View>

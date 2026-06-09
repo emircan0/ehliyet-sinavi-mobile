@@ -11,7 +11,7 @@ const Notifications = !isExpoGo ? require('expo-notifications') : null;
 import {
     Play, Car, Heart, ShieldAlert, GraduationCap,
     Bell, ChevronRight, Sparkles, Zap,
-    X, CheckCircle2, Award, Clock, Info, Lock, Timer, Crown
+    X, CheckCircle2, Award, Clock, Info, Timer, Crown
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { ScreenLayout } from '../../src/components/ScreenLayout';
@@ -24,6 +24,9 @@ import { registerForPushNotificationsAsync } from '../../src/api/notifications';
 import { useThemeMode } from '../../src/hooks/useThemeMode';
 import { adService } from '../../src/services/adService';
 import { purchaseService } from '../../src/services/purchaseService';
+
+const GENERAL_EXAM_DAILY_KEY = '@free_general_exam_date';
+const GENERAL_EXAM_EXTRA_ACCESS_KEY = '@general_exam_extra_access_count';
 
 // İkon ve Renk Eşleştirici
 const getNotificationUI = (type: NotificationType) => {
@@ -44,9 +47,9 @@ export default function Home() {
     const { user } = useAuth();
     const isPremium = useSubscriptionStore(state => state.isPremium);
     const credits = useSubscriptionStore(state => state.credits);
-    const spendCredits = useSubscriptionStore(state => state.spendCredits);
     const addCredits = useSubscriptionStore(state => state.addCredits);
     const checkSub = useSubscriptionStore(state => state.checkSubscriptionStatus);
+    const { checkAccess } = usePremiumAccess();
 
     // ABONELİK KONTROLÜ
     useEffect(() => {
@@ -211,13 +214,34 @@ export default function Home() {
         }
     };
 
-    const { checkAccess } = usePremiumAccess();
+    const getTodayKey = () => new Date().toISOString().slice(0, 10);
 
-    const handlePremiumFeature = (route: string, name: string = "Premium Özellik") => {
+    const grantExtraGeneralExamAccess = async () => {
+        const rawCount = await AsyncStorage.getItem(GENERAL_EXAM_EXTRA_ACCESS_KEY);
+        const currentCount = Number(rawCount || 0);
+        await AsyncStorage.setItem(GENERAL_EXAM_EXTRA_ACCESS_KEY, String(currentCount + 1));
+    };
+
+    const handleGeneralExam = async () => {
+        if (isPremium) {
+            router.push('/quiz/general' as any);
+            return;
+        }
+
+        const lastFreeGeneralExamDate = await AsyncStorage.getItem(GENERAL_EXAM_DAILY_KEY);
+        if (lastFreeGeneralExamDate !== getTodayKey()) {
+            router.push('/quiz/general' as any);
+            return;
+        }
+
         checkAccess({
-            onSuccess: () => router.push(route as any),
-            featureName: name,
-            onAdRequired: triggerRandomAd
+            onSuccess: async () => {
+                await grantExtraGeneralExamAccess();
+                router.push('/quiz/general' as any);
+            },
+            featureName: 'Günlük Genel Deneme',
+            onAdRequired: triggerRandomAd,
+            creditCost: 6
         });
     };
 
@@ -306,14 +330,9 @@ export default function Home() {
                 <View className="px-6 mb-5">
                     <TouchableOpacity
                         activeOpacity={0.9}
-                        onPress={() => handlePremiumFeature('/quiz/general')}
-                        className={`bg-slate-900 rounded-[32px] p-6 relative overflow-hidden shadow-2xl shadow-slate-900/30 ${!isPremium ? 'opacity-90' : ''}`}
+                        onPress={handleGeneralExam}
+                        className="bg-slate-900 rounded-[32px] p-6 relative overflow-hidden shadow-2xl shadow-slate-900/30"
                     >
-                        {!isPremium && (
-                            <View className="absolute top-5 right-5 z-20 bg-black/40 p-2.5 rounded-full border border-white/10 backdrop-blur-md">
-                                <Lock size={16} color="#f59e0b" />
-                            </View>
-                        )}
                         <View className="absolute -right-10 -top-10 w-40 h-40 bg-blue-500/20 blur-3xl rounded-full" />
                         <View className="absolute right-12 -bottom-12 w-24 h-24 bg-indigo-500/20 blur-2xl rounded-full" />
 
@@ -327,10 +346,10 @@ export default function Home() {
                                 Genel Deneme
                             </Text>
                             <Text className="text-slate-400 text-[13px] font-medium mb-7 leading-5 max-w-[85%]">
-                                MEB müfredatına birebir uygun, 50 soruluk tam kapsamlı deneme sınavı.
+                                MEB müfredatına uygun 50 soruluk deneme. Ücretsiz planda günde 1 hak.
                             </Text>
 
-                            <View className={`self-start p-1.5 pl-5 pr-1.5 rounded-full flex-row items-center shadow-lg ${!isPremium ? 'bg-amber-600 shadow-amber-600/30' : 'bg-blue-600 shadow-blue-600/30'}`}>
+                            <View className="self-start p-1.5 pl-5 pr-1.5 rounded-full flex-row items-center shadow-lg bg-blue-600 shadow-blue-600/30">
                                 <Text className="text-white font-bold text-sm mr-4">Hemen Başla</Text>
                                 <View className="w-8 h-8 bg-white/20 rounded-full items-center justify-center">
                                     <ChevronRight size={18} color="white" />
@@ -344,14 +363,9 @@ export default function Home() {
                 <View className="px-6 mb-8">
                     <TouchableOpacity
                         activeOpacity={0.9}
-                        onPress={() => handlePremiumFeature('/quiz/quick', 'Hızlı Antrenman')}
-                        className={`bg-emerald-500 rounded-[24px] p-5 flex-row items-center justify-between shadow-lg shadow-emerald-500/20 overflow-hidden relative ${!isPremium ? 'opacity-90' : ''}`}
+                        onPress={() => router.push('/quiz/quick' as any)}
+                        className="bg-emerald-500 rounded-[24px] p-5 flex-row items-center justify-between shadow-lg shadow-emerald-500/20 overflow-hidden relative"
                     >
-                        {!isPremium && (
-                            <View className="absolute top-4 right-4 z-20 bg-black/20 p-1.5 rounded-full border border-white/10 backdrop-blur-md">
-                                <Lock size={12} color="white" />
-                            </View>
-                        )}
                         <View className="absolute -right-4 -top-8 opacity-10 rotate-12">
                             <Zap size={100} color="white" fill="white" />
                         </View>
@@ -373,14 +387,9 @@ export default function Home() {
                             <TouchableOpacity
                                 key={cat.id}
                                 activeOpacity={0.7}
-                                className={`w-[48%] bg-white dark:bg-slate-900 p-5 rounded-[28px] border border-slate-100 dark:border-slate-800 shadow-sm shadow-slate-200/50 dark:shadow-none flex-col h-[150px] relative ${!isPremium ? 'opacity-95' : ''}`}
-                                onPress={() => handlePremiumFeature(`/quiz/${cat.id}`, cat.name)}
+                                className="w-[48%] bg-white dark:bg-slate-900 p-5 rounded-[28px] border border-slate-100 dark:border-slate-800 shadow-sm shadow-slate-200/50 dark:shadow-none flex-col h-[150px] relative"
+                                onPress={() => router.push(`/quiz/${cat.id}` as any)}
                             >
-                                {!isPremium && (
-                                    <View className="absolute top-4 right-4 z-20 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-full border border-slate-200 dark:border-slate-700">
-                                        <Lock size={12} color="#f59e0b" />
-                                    </View>
-                                )}
                                 <View className={`w-12 h-12 rounded-2xl ${cat.bg} dark:bg-opacity-10 items-center justify-center mb-3`}>
                                     <cat.icon size={24} color={cat.color} />
                                 </View>

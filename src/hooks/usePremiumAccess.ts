@@ -19,7 +19,7 @@ export const usePremiumAccess = () => {
         onSuccess,
         featureName = "Premium Özellik",
         onAdRequired,
-        creditCost = 10
+        creditCost = 6
     }: PremiumAccessOptions) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
@@ -31,11 +31,11 @@ export const usePremiumAccess = () => {
         // Kredi harcayarak girme mantığı
         Alert.alert(
             featureName,
-            `Bu özelliği kullanmak için Premium abone olmalısınız veya ${creditCost} kredi harcamalısınız.`,
+            `Bu ileri özelliği Premium ile sınırsız kullanabilir ya da ${creditCost} krediyle tek seferlik açabilirsin.`,
             [
                 { text: "Vazgeç", style: "cancel" },
                 {
-                    text: "Premium'a Geç",
+                    text: "Sınırsız Aç",
                     onPress: async () => {
                         const success = await purchaseService.presentPaywall();
                         if (success) {
@@ -52,7 +52,7 @@ export const usePremiumAccess = () => {
                         } else {
                             Alert.alert("Kredi Yetersiz", "Reklam izleyerek kredi kazanabilirsiniz.", [
                                 {
-                                    text: "Reklam İzle",
+                                    text: "3 Kredi Kazan",
                                     onPress: () => {
                                         if (onAdRequired) {
                                             onAdRequired();

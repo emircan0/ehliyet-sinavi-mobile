@@ -11,21 +11,29 @@ import {
     ScrollView
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Trophy, CheckCircle2, XCircle, Home, RotateCcw, Target, Sparkles, ChevronRight } from 'lucide-react-native';
+import { Trophy, CheckCircle2, XCircle, Home, RotateCcw, Target, Sparkles, ChevronRight, ArrowRight } from 'lucide-react-native';
 import { supabase } from '../../src/api/supabase';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, FadeInUp, ZoomIn } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { useThemeMode } from '../../src/hooks/useThemeMode';
+import { useSubscriptionStore } from '../../src/store/useSubscriptionStore';
+import { adService } from '../../src/services/adService';
 
 const { width, height } = Dimensions.get('window');
 
 export default function QuizResultScreen() {
     const router = useRouter();
     const { isDarkMode } = useThemeMode();
+    const isPremium = useSubscriptionStore(state => state.isPremium);
     const [isLoading, setIsLoading] = useState(true);
     const [result, setResult] = useState<any>(null);
+
+    const returnHome = () => {
+        adService.showInterstitialAtStudyBreak(isPremium);
+        router.replace('/(tabs)/');
+    };
 
     useEffect(() => {
         const fetchLatestResult = async () => {
@@ -196,19 +204,34 @@ export default function QuizResultScreen() {
                                         router.push('/quiz/mistakes');
                                     }}
                                     activeOpacity={0.9}
+                                    className="overflow-hidden rounded-[26px] border border-rose-400/20 bg-white/[0.04]"
                                 >
                                     <LinearGradient
-                                        colors={['#FF3B30', '#D7261B']}
+                                        colors={['rgba(255,59,48,0.20)', 'rgba(255,59,48,0.06)']}
                                         start={{ x: 0, y: 0 }}
                                         end={{ x: 1, y: 1 }}
-                                        className="w-full h-[68px] rounded-[24px] flex-row items-center justify-center shadow-2xl shadow-rose-500/50"
+                                        className="w-full min-h-[76px] px-5 py-4 flex-row items-center"
                                     >
-                                        <RotateCcw size={24} color="white" strokeWidth={2.5} />
-                                        <Text className="text-white text-lg font-black ml-3 tracking-wide uppercase">
-                                            Hataları Telafi Et
-                                        </Text>
-                                        <View className="ml-4 bg-black/20 px-3.5 py-1.5 rounded-xl border border-white/10">
-                                            <Text className="text-white text-[13px] font-black">{result?.wrong_count}</Text>
+                                        <View className="w-12 h-12 rounded-[18px] bg-rose-500/20 border border-rose-300/20 items-center justify-center mr-4">
+                                            <RotateCcw size={22} color="#fb7185" strokeWidth={2.5} />
+                                        </View>
+
+                                        <View className="flex-1 pr-3">
+                                            <View className="flex-row items-center mb-1">
+                                                <Text className="text-white text-base font-black tracking-tight">
+                                                    Hataları Telafi Et
+                                                </Text>
+                                                <View className="ml-2 bg-rose-500/20 px-2.5 py-1 rounded-full border border-rose-300/20">
+                                                    <Text className="text-rose-100 text-[11px] font-black">{result?.wrong_count} yanlış</Text>
+                                                </View>
+                                            </View>
+                                            <Text className="text-white/50 text-xs font-medium leading-4">
+                                                Yanlış yaptığın sorularla kısa bir tekrar seti çöz.
+                                            </Text>
+                                        </View>
+
+                                        <View className="w-9 h-9 rounded-full bg-white/10 items-center justify-center border border-white/10">
+                                            <ArrowRight size={18} color="white" strokeWidth={2.5} />
                                         </View>
                                     </LinearGradient>
                                 </TouchableOpacity>
@@ -217,7 +240,7 @@ export default function QuizResultScreen() {
                             <TouchableOpacity
                                 onPress={() => {
                                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                    router.replace('/(tabs)/');
+                                    returnHome();
                                 }}
                                 activeOpacity={0.8}
                                 className={`w-full h-[68px] rounded-[24px] flex-row items-center justify-center border-2 border-white/10 ${isDarkMode ? 'bg-white/5' : 'bg-slate-800'}`}

@@ -54,6 +54,7 @@ export default function RootLayout() {
     useEffect(() => {
         if (!isPremium) {
             adService.loadRewarded();
+            adService.loadInterstitial();
         }
     }, [isPremium]);
 

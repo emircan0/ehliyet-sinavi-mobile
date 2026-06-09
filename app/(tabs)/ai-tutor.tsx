@@ -11,7 +11,6 @@ import { useThemeMode } from '../../src/hooks/useThemeMode';
 import { purchaseService } from '../../src/services/purchaseService';
 import { MasteryCard } from '../../src/components/quiz/MasteryCard';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import { useAuth } from '../../src/hooks/useAuth';
 import * as Haptics from 'expo-haptics';
 
@@ -148,6 +147,14 @@ export default function AITutorScreen() {
 
     const task = getProfessionalTask();
     const TaskIcon = task.icon;
+    const visibleMasteryData = isPremium ? masteryData : masteryData.slice(0, 1);
+
+    const openPaywall = async () => {
+        const success = await purchaseService.presentPaywall();
+        if (success) {
+            await checkSubscriptionStatus();
+        }
+    };
 
     const { isDarkMode, colorScheme } = useThemeMode();
 
@@ -203,7 +210,9 @@ export default function AITutorScreen() {
                         <View>
                             <View className="flex-row items-center bg-indigo-500/20 self-start px-2 py-1 rounded-lg mb-3 border border-indigo-500/30">
                                 <Sparkles size={12} color="#818cf8" />
-                                <Text className="text-indigo-400 text-[10px] font-black ml-1.5 tracking-widest uppercase">AI Koç</Text>
+                                <Text className="text-indigo-400 text-[10px] font-black ml-1.5 tracking-widest uppercase">
+                                    {isPremium ? 'AI Koç' : 'AI Koç Önizleme'}
+                                </Text>
                             </View>
                             <Text className="text-white text-3xl font-black tracking-tighter">Gelişim Analizi</Text>
                         </View>
@@ -237,8 +246,8 @@ export default function AITutorScreen() {
                         <Text className="text-slate-400 dark:text-slate-500 font-bold text-xs uppercase tracking-widest">Mastery Analizi</Text>
                     </View>
 
-                    {masteryData.length > 0 ? (
-                        masteryData.map((data, index) => (
+                    {visibleMasteryData.length > 0 ? (
+                        visibleMasteryData.map((data, index) => (
                             <MasteryCard 
                                 key={index} 
                                 data={data} 
@@ -252,6 +261,24 @@ export default function AITutorScreen() {
                         <View className="bg-white dark:bg-slate-900 p-10 rounded-[32px] items-center border border-dashed border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none">
                             <Target size={48} color={isDarkMode ? "#1e293b" : "#e2e8f0"} />
                             <Text className="text-slate-400 dark:text-slate-500 text-center font-bold mt-4 text-sm tracking-tight px-4 leading-5">Akıllı analiz sistemi veri biriktiriyor... Test çözmeye başlayarak AI Hoca'yı eğitebilirsin!</Text>
+                        </View>
+                    )}
+
+                    {!isPremium && (
+                        <View className="bg-amber-50 dark:bg-amber-900/20 p-6 rounded-[28px] border border-amber-100 dark:border-amber-900/40 mt-4">
+                            <View className="flex-row items-center mb-3">
+                                <Lock size={18} color="#d97706" />
+                                <Text className="text-amber-900 dark:text-amber-300 font-black text-sm ml-2">Detaylı AI Plan Premium</Text>
+                            </View>
+                            <Text className="text-amber-900/70 dark:text-amber-200/80 text-sm leading-5 font-medium mb-5">
+                                Tüm zayıf konularını, telafi testlerini ve sınava hazır olma skorunu sınırsız görmek için Premium'a geç.
+                            </Text>
+                            <TouchableOpacity
+                                onPress={openPaywall}
+                                className="bg-amber-500 py-3.5 rounded-2xl items-center shadow-lg shadow-amber-500/20 active:scale-95"
+                            >
+                                <Text className="text-amber-950 font-black text-sm">Detaylı Planı Aç</Text>
+                            </TouchableOpacity>
                         </View>
                     )}
                 </View>
@@ -272,10 +299,18 @@ export default function AITutorScreen() {
                         </Text>
 
                         <TouchableOpacity
-                            onPress={() => router.push(task.route as any)}
+                            onPress={() => {
+                                if (isPremium) {
+                                    router.push(task.route as any);
+                                } else {
+                                    openPaywall();
+                                }
+                            }}
                             className="bg-white py-4 rounded-2xl items-center shadow-lg active:scale-95 transition-transform"
                         >
-                            <Text className={`${task.textColor} font-black text-base`}>{task.btnText}</Text>
+                            <Text className={`${task.textColor} font-black text-base`}>
+                                {isPremium ? task.btnText : 'Kişisel Görevi Aç'}
+                            </Text>
                         </TouchableOpacity>
 
                         <View className="absolute -right-8 -top-8 w-32 h-32 bg-white/10 rounded-full" />
@@ -304,33 +339,6 @@ export default function AITutorScreen() {
 
             </Animated.ScrollView>
 
-            {!isPremium && (
-                <View className="absolute inset-0 z-50 overflow-hidden">
-                    <BlurView intensity={30} tint={isDarkMode ? "dark" : "light"} className="flex-1 items-center justify-center px-7">
-                        <View className="items-center max-w-xs bg-white/90 dark:bg-slate-900/90 p-8 rounded-[40px] border border-white/20 shadow-2xl">
-                            <View className="w-20 h-20 bg-amber-100 dark:bg-amber-900/30 rounded-[32px] items-center justify-center mb-6">
-                                <Lock size={40} color="#d97706" />
-                            </View>
-                            <Text className="text-2xl font-black text-slate-900 dark:text-white text-center mb-3 tracking-tight">AI Koç Kilitli</Text>
-                            <Text className="text-slate-500 dark:text-slate-400 text-center mb-8 leading-5 font-medium">
-                                Kişiselleştirilmiş hata analizi ve gelişim araçları için Premium üyeliğe geçmelisiniz.
-                            </Text>
-                            <TouchableOpacity
-                                onPress={async () => {
-                                    const success = await purchaseService.presentPaywall();
-                                    if (success) {
-                                        await checkSubscriptionStatus();
-                                    }
-                                }}
-                                className="bg-amber-500 w-full py-4 rounded-2xl items-center shadow-lg shadow-amber-500/20 active:scale-95"
-                            >
-                                <Text className="text-amber-950 font-black text-base">Üyeliği Başlat</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </BlurView>
-                </View>
-            )}
-            
         </ScreenLayout>
     );
 }
