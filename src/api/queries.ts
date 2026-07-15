@@ -295,7 +295,12 @@ export const fetchExams = async () => {
             .eq('is_active', true)
             .order('created_at', { ascending: false });
         if (error) throw error;
-        return data || [];
+        
+        const examsList = data || [];
+        return examsList.map((exam, index) => ({
+            ...exam,
+            title: `Genel Deneme ${examsList.length - index}`
+        }));
     } catch (error) {
         return handleApiError('fetchExams', error, []);
     }
@@ -357,13 +362,14 @@ export const fetchExamsWithProgress = async (userId: string) => {
         });
 
         // 4. Verileri birleştir
-        const formattedExams = exams.map(exam => {
+        const formattedExams = exams.map((exam, index) => {
             const total = examTotalMap[exam.id] || 0;
             const solved = examSolvedMap[exam.id] || 0;
             const percentage = total > 0 ? Math.round((solved / total) * 100) : 0;
 
             return {
                 ...exam,
+                title: `Genel Deneme ${exams.length - index}`,
                 total_questions: total,
                 solved_questions: solved,
                 progress_percentage: percentage,

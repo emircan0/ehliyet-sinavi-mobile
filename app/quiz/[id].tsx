@@ -28,10 +28,7 @@ import { useSubscriptionStore } from '../../src/store/useSubscriptionStore';
 import { purchaseService } from '../../src/services/purchaseService';
 import { adService } from '../../src/services/adService';
 
-const GENERAL_EXAM_DAILY_KEY = '@free_general_exam_date';
-const GENERAL_EXAM_EXTRA_ACCESS_KEY = '@general_exam_extra_access_count';
 const EXTRA_GENERAL_EXAM_CREDIT_COST = 6;
-const getTodayKey = () => new Date().toISOString().slice(0, 10);
 
 export default function QuizScreen() {
     const { id } = useLocalSearchParams();
@@ -58,22 +55,6 @@ export default function QuizScreen() {
 
     const isTopicQuiz = ['trafik', 'motor', 'ilkyardim', 'adap'].includes(id as string);
 
-    const consumeExtraGeneralExamAccess = async () => {
-        const rawCount = await AsyncStorage.getItem(GENERAL_EXAM_EXTRA_ACCESS_KEY);
-        const currentCount = Number(rawCount || 0);
-        if (currentCount <= 0) return false;
-
-        const nextCount = currentCount - 1;
-        if (nextCount > 0) {
-            await AsyncStorage.setItem(GENERAL_EXAM_EXTRA_ACCESS_KEY, String(nextCount));
-        } else {
-            await AsyncStorage.removeItem(GENERAL_EXAM_EXTRA_ACCESS_KEY);
-        }
-
-        generalExtraAccessRef.current = true;
-        return true;
-    };
-
     // Temizleme (Unmount)
     useEffect(() => {
         return () => resetQuiz();
@@ -91,51 +72,49 @@ export default function QuizScreen() {
                 const idString = id as string;
 
                 if (idString === 'general' && !isPremium && !generalExtraAccessRef.current) {
-                    const lastFreeGeneralExamDate = await AsyncStorage.getItem(GENERAL_EXAM_DAILY_KEY);
-                    if (lastFreeGeneralExamDate === getTodayKey()) {
-                        const hasStoredExtraAccess = await consumeExtraGeneralExamAccess();
-                        if (hasStoredExtraAccess) {
-                            generalExtraAccessRef.current = true;
-                        } else {
-                            Alert.alert(
-                                'Günlük deneme hakkın doldu',
-                                `Ücretsiz planda günde 1 genel deneme çözebilirsin. Ek deneme için Premium'a geçebilir veya ${EXTRA_GENERAL_EXAM_CREDIT_COST} kredi kullanabilirsin.`,
-                                [
-                                    {
-                                        text: "Premium'a Geç",
-                                        onPress: async () => {
-                                            const success = await purchaseService.presentPaywall();
-                                            if (success) {
-                                                generalExtraAccessRef.current = true;
-                                                await checkSubscriptionStatus();
-                                                loadQuestions();
-                                            } else {
-                                                router.replace('/(tabs)/' as any);
-                                            }
+                    const isUnlockedStr = await AsyncStorage.getItem('@unlocked_exam_general');
+                    if (isUnlockedStr === 'true') {
+                        generalExtraAccessRef.current = true;
+                    } else {
+                        Alert.alert(
+                            'Genel Deneme Kilitli',
+                            `Genel denemeyi Premium ile sınırsız çözebilir veya ${EXTRA_GENERAL_EXAM_CREDIT_COST} krediyle tek seferlik açabilirsin.`,
+                            [
+                                {
+                                    text: "Premium'a Geç",
+                                    onPress: async () => {
+                                        const success = await purchaseService.presentPaywall();
+                                        if (success) {
+                                            generalExtraAccessRef.current = true;
+                                            await checkSubscriptionStatus();
+                                            loadQuestions();
+                                        } else {
+                                            router.replace('/(tabs)/' as any);
                                         }
-                                    },
-                                    {
-                                        text: `${EXTRA_GENERAL_EXAM_CREDIT_COST} Kredi Kullan`,
-                                        onPress: () => {
-                                            if (spendCredits(EXTRA_GENERAL_EXAM_CREDIT_COST)) {
-                                                generalExtraAccessRef.current = true;
-                                                loadQuestions();
-                                            } else {
-                                                Alert.alert('Kredi Yetersiz', 'Ana sayfadan reklam izleyerek kredi kazanabilirsin.');
-                                                router.replace('/(tabs)/' as any);
-                                            }
-                                        }
-                                    },
-                                    {
-                                        text: 'Vazgeç',
-                                        style: 'cancel',
-                                        onPress: () => router.replace('/(tabs)/' as any)
                                     }
-                                ]
-                            );
-                            setIsLoading(false);
-                            return;
-                        }
+                                },
+                                {
+                                    text: `${EXTRA_GENERAL_EXAM_CREDIT_COST} Kredi Kullan`,
+                                    onPress: async () => {
+                                        if (spendCredits(EXTRA_GENERAL_EXAM_CREDIT_COST)) {
+                                            await AsyncStorage.setItem('@unlocked_exam_general', 'true');
+                                            generalExtraAccessRef.current = true;
+                                            loadQuestions();
+                                        } else {
+                                            Alert.alert('Kredi Yetersiz', 'Ana sayfadan reklam izleyerek kredi kazanabilirsin.');
+                                            router.replace('/(tabs)/' as any);
+                                        }
+                                    }
+                                },
+                                {
+                                    text: 'Vazgeç',
+                                    style: 'cancel',
+                                    onPress: () => router.replace('/(tabs)/' as any)
+                                }
+                            ]
+                        );
+                        setIsLoading(false);
+                        return;
                     }
                 }
 
@@ -252,10 +231,6 @@ export default function QuizScreen() {
 
                 await saveQuizResults(user.id, id as string, score, correctCount, wrongCount, questions.length, validAnswers);
                 await AsyncStorage.removeItem(`@quiz_state_${id}`);
-            }
-
-            if (id === 'general' && !isPremium) {
-                await AsyncStorage.setItem(GENERAL_EXAM_DAILY_KEY, getTodayKey());
             }
 
             adService.showInterstitialAfterQuiz(isPremium);
@@ -443,10 +418,10 @@ export default function QuizScreen() {
                         let bgColor = 'bg-white dark:bg-slate-900';
                         
                         if (hasAnswered) {
-                            if (isCorrectOption) { borderColor = 'border-emerald-500'; bgColor = 'bg-emerald-50'; }
-                            else if (isSelected) { borderColor = 'border-red-500'; bgColor = 'bg-red-50'; }
+                            if (isCorrectOption) { borderColor = 'border-emerald-500 dark:border-emerald-500'; bgColor = 'bg-emerald-50 dark:bg-emerald-900/30'; }
+                            else if (isSelected) { borderColor = 'border-red-500 dark:border-red-500'; bgColor = 'bg-red-50 dark:bg-red-900/30'; }
                         } else if (isSelected) {
-                            borderColor = 'border-blue-500'; bgColor = 'bg-blue-50';
+                            borderColor = 'border-blue-500 dark:border-blue-500'; bgColor = 'bg-blue-50 dark:bg-blue-900/30';
                         }
 
                         return (
@@ -456,22 +431,22 @@ export default function QuizScreen() {
                                 onPress={() => handleSelectOption(index)}
                                 className={`p-5 rounded-2xl border-2 flex-row items-center ${borderColor} ${bgColor}`}
                             >
-                                <View className={`w-8 h-8 rounded-xl items-center justify-center mr-3 ${hasAnswered && isCorrectOption ? 'bg-emerald-500' : 'bg-slate-100'}`}>
-                                    <Text className={`font-black ${hasAnswered && isCorrectOption ? 'text-white' : 'text-slate-400'}`}>
+                                <View className={`w-8 h-8 rounded-xl items-center justify-center mr-3 ${hasAnswered && isCorrectOption ? 'bg-emerald-500' : 'bg-slate-100 dark:bg-slate-800'}`}>
+                                    <Text className={`font-black ${hasAnswered && isCorrectOption ? 'text-white' : 'text-slate-400 dark:text-slate-500'}`}>
                                         {['A', 'B', 'C', 'D'][index]}
                                     </Text>
                                 </View>
-                                <Text className="flex-1 font-bold text-slate-700">{opt}</Text>
+                                <Text className="flex-1 font-bold text-slate-700 dark:text-slate-200">{opt}</Text>
                             </TouchableOpacity>
                         );
                     })}
                 </View>
 
                 {hasAnswered && currentQuestion.explanation && (
-                    <View className="m-6 p-6 rounded-[32px] bg-blue-50 border border-blue-100">
+                    <View className="m-6 p-6 rounded-[32px] bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/50">
                         <View className="flex-row items-center mb-3">
                             <Sparkles size={18} color="#2563eb" />
-                            <Text className="ml-2 font-black text-blue-900">AI Hoca Yanıtı</Text>
+                            <Text className="ml-2 font-black text-blue-900 dark:text-blue-400">AI Hoca Yanıtı</Text>
                         </View>
                         <Text className="text-slate-600 dark:text-slate-300 leading-6">{currentQuestion.explanation}</Text>
                     </View>
@@ -490,9 +465,9 @@ export default function QuizScreen() {
                 <TouchableOpacity
                     onPress={handleNext}
                     disabled={isCheckpointAdShowing}
-                    className="h-14 flex-1 rounded-2xl bg-slate-900 items-center justify-center"
+                    className="h-14 flex-1 rounded-2xl bg-slate-900 dark:bg-slate-50 items-center justify-center"
                 >
-                    <Text className="text-white font-black">
+                    <Text className="text-white dark:text-slate-900 font-black">
                         {isCheckpointAdShowing ? 'Devam Hazırlanıyor...' : currentIndex === questions.length - 1 ? 'Sınavı Bitir' : 'Sıradaki Soru'}
                     </Text>
                 </TouchableOpacity>

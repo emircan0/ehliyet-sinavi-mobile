@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, StatusBar, RefreshControl, Di
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import {
     FileText, Star, AlertTriangle, ChevronRight,
-    Trophy, Clock, Zap, Crown, CheckCircle2, Lock
+    Trophy, Clock, Zap, Crown, CheckCircle2, Lock, Unlock
 } from 'lucide-react-native';
 import { ScreenLayout } from '../../src/components/ScreenLayout';
 import { fetchExamsWithProgress, fetchSmartTestCounts } from '../../src/api/queries';
@@ -13,6 +13,7 @@ import { usePremiumAccess } from '../../src/hooks/usePremiumAccess';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useThemeMode } from '../../src/hooks/useThemeMode';
 import { adService } from '../../src/services/adService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
 
@@ -41,9 +42,23 @@ export default function QuizzesScreen() {
         }
     };
 
-    const handlePremiumExam = (examId: string, title: string) => {
+    const handlePremiumExam = async (examId: string, title: string) => {
+        if (isPremium) {
+            router.push({ pathname: '/quiz/[id]', params: { id: examId } });
+            return;
+        }
+
+        const isUnlockedStr = await AsyncStorage.getItem(`@unlocked_exam_${examId}`);
+        if (isUnlockedStr === 'true') {
+            router.push({ pathname: '/quiz/[id]', params: { id: examId } });
+            return;
+        }
+
         checkAccess({
-            onSuccess: () => router.push({ pathname: '/quiz/[id]', params: { id: examId } }),
+            onSuccess: async () => {
+                await AsyncStorage.setItem(`@unlocked_exam_${examId}`, 'true');
+                router.push({ pathname: '/quiz/[id]', params: { id: examId } });
+            },
             featureName: title,
             onAdRequired: triggerRandomAd,
             creditCost: 6
@@ -59,7 +74,22 @@ export default function QuizzesScreen() {
                     fetchExamsWithProgress(user.id),
                     fetchSmartTestCounts(user.id)
                 ]);
-                setExams(Array.isArray(examsData) ? examsData : []);
+                const examsArray = Array.isArray(examsData) ? examsData : [];
+                
+                // Fetch unlock statuses from AsyncStorage
+                const unlockedKeys = examsArray.map(e => `@unlocked_exam_${e.id}`);
+                let unlockedMap: Record<string, string | null> = {};
+                if (unlockedKeys.length > 0) {
+                    const unlockedValues = await AsyncStorage.multiGet(unlockedKeys);
+                    unlockedMap = Object.fromEntries(unlockedValues);
+                }
+                
+                const examsWithUnlock = examsArray.map(e => ({
+                    ...e,
+                    isUnlocked: unlockedMap[`@unlocked_exam_${e.id}`] === 'true'
+                }));
+
+                setExams(examsWithUnlock);
                 setCounts(smartCounts || { wrongCount: 0, favoriteCount: 0 });
             }
         } catch (error) {
@@ -191,11 +221,16 @@ export default function QuizzesScreen() {
                                         handlePremiumExam(featuredExam.id, featuredExam.title || "Özel Sınav");
                                     }
                                 }}
-                                className={`bg-slate-900 rounded-[32px] p-6 relative overflow-hidden shadow-2xl shadow-slate-900/30 ${!isPremium ? 'opacity-90' : ''}`}
+                                className={`bg-slate-900 rounded-[32px] p-6 relative overflow-hidden shadow-2xl shadow-slate-900/30 ${!isPremium && !featuredExam?.isUnlocked ? 'opacity-90' : ''}`}
                             >
-                                {!isPremium && (
+                                {!isPremium && !featuredExam?.isUnlocked && (
                                     <View className="absolute top-5 right-5 z-20 bg-black/40 p-2.5 rounded-full border border-white/10 backdrop-blur-md">
                                         <Lock size={16} color="#f59e0b" />
+                                    </View>
+                                )}
+                                {!isPremium && featuredExam?.isUnlocked && (
+                                    <View className="absolute top-5 right-5 z-20 bg-emerald-500/20 p-2.5 rounded-full border border-emerald-500/20 backdrop-blur-md">
+                                        <Unlock size={16} color="#10b981" />
                                     </View>
                                 )}
                                 
@@ -357,9 +392,14 @@ const ExamListItem = ({ exam, isPremium, onPress }: any) => {
                 <ChevronRight size={16} color={isDarkMode ? "#475569" : "#cbd5e1"} />
             </View>
 
-            {!isPremium && (
+            {!isPremium && !exam?.isUnlocked && (
                 <View className="absolute top-4 right-4 bg-slate-900/5 dark:bg-white/5 p-1.5 rounded-full">
                     <Lock size={12} color="#f59e0b" />
+                </View>
+            )}
+            {!isPremium && exam?.isUnlocked && (
+                <View className="absolute top-4 right-4 bg-emerald-500/10 dark:bg-emerald-500/10 p-1.5 rounded-full">
+                    <Unlock size={12} color="#10b981" />
                 </View>
             )}
             

@@ -25,8 +25,7 @@ import { useThemeMode } from '../../src/hooks/useThemeMode';
 import { adService } from '../../src/services/adService';
 import { purchaseService } from '../../src/services/purchaseService';
 
-const GENERAL_EXAM_DAILY_KEY = '@free_general_exam_date';
-const GENERAL_EXAM_EXTRA_ACCESS_KEY = '@general_exam_extra_access_count';
+
 
 // İkon ve Renk Eşleştirici
 const getNotificationUI = (type: NotificationType) => {
@@ -214,32 +213,24 @@ export default function Home() {
         }
     };
 
-    const getTodayKey = () => new Date().toISOString().slice(0, 10);
-
-    const grantExtraGeneralExamAccess = async () => {
-        const rawCount = await AsyncStorage.getItem(GENERAL_EXAM_EXTRA_ACCESS_KEY);
-        const currentCount = Number(rawCount || 0);
-        await AsyncStorage.setItem(GENERAL_EXAM_EXTRA_ACCESS_KEY, String(currentCount + 1));
-    };
-
     const handleGeneralExam = async () => {
         if (isPremium) {
             router.push('/quiz/general' as any);
             return;
         }
 
-        const lastFreeGeneralExamDate = await AsyncStorage.getItem(GENERAL_EXAM_DAILY_KEY);
-        if (lastFreeGeneralExamDate !== getTodayKey()) {
+        const isUnlockedStr = await AsyncStorage.getItem('@unlocked_exam_general');
+        if (isUnlockedStr === 'true') {
             router.push('/quiz/general' as any);
             return;
         }
 
         checkAccess({
             onSuccess: async () => {
-                await grantExtraGeneralExamAccess();
+                await AsyncStorage.setItem('@unlocked_exam_general', 'true');
                 router.push('/quiz/general' as any);
             },
-            featureName: 'Günlük Genel Deneme',
+            featureName: 'Genel Deneme',
             onAdRequired: triggerRandomAd,
             creditCost: 6
         });
@@ -346,7 +337,7 @@ export default function Home() {
                                 Genel Deneme
                             </Text>
                             <Text className="text-slate-400 text-[13px] font-medium mb-7 leading-5 max-w-[85%]">
-                                MEB müfredatına uygun 50 soruluk deneme. Ücretsiz planda günde 1 hak.
+                                MEB müfredatına uygun 50 soruluk deneme. Premium ile sınırsız, ücretsiz planda krediyle erişim.
                             </Text>
 
                             <View className="self-start p-1.5 pl-5 pr-1.5 rounded-full flex-row items-center shadow-lg bg-blue-600 shadow-blue-600/30">

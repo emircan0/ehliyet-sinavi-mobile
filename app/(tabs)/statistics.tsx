@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, ScrollView, ActivityIndicator, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, RefreshControl, TouchableOpacity, Alert } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import {
     TrendingUp, Clock, Target,
@@ -13,6 +13,8 @@ import { purchaseService } from '../../src/services/purchaseService';
 import * as Haptics from 'expo-haptics';
 import { useThemeMode } from '../../src/hooks/useThemeMode';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { usePremiumAccess } from '../../src/hooks/usePremiumAccess';
+import { adService } from '../../src/services/adService';
 
 const CATEGORY_NAMES: Record<string, string> = {
     trafik: 'TRAFİK VE ÇEVRE',
@@ -21,10 +23,15 @@ const CATEGORY_NAMES: Record<string, string> = {
     adap: 'TRAFİK ADABI'
 };
 
+const GENERAL_EVALUATION_ACCESS_KEY = '@general_evaluation_access_date';
+const GENERAL_EVALUATION_CREDIT_COST = 3;
+
 export default function StatisticsScreen() {
     const router = useRouter();
     const isPremium = useSubscriptionStore(state => state.isPremium);
     const checkSubscriptionStatus = useSubscriptionStore(state => state.checkSubscriptionStatus);
+    const addCredits = useSubscriptionStore(state => state.addCredits);
+    const { checkAccess } = usePremiumAccess();
     const { isDarkMode, colorScheme } = useThemeMode();
 
     const [isLoading, setIsLoading] = useState(true);
@@ -32,6 +39,34 @@ export default function StatisticsScreen() {
     const [error, setError] = useState<string | null>(null);
     const [stats, setStats] = useState<any>(null);
     const [isGuest, setIsGuest] = useState(false);
+    const [isGeneralEvaluationUnlocked, setIsGeneralEvaluationUnlocked] = useState(false);
+
+    const getTodayKey = () => new Date().toISOString().slice(0, 10);
+
+    const triggerRewardedCreditAd = () => {
+        const adShown = adService.showRewarded(() => {
+            addCredits(3);
+            Alert.alert("Tebrikler!", "3 Kredi kazandınız.");
+        });
+
+        if (!adShown) {
+            Alert.alert("Bilgi", "Video reklam henüz yüklenmedi, lütfen birkaç saniye sonra tekrar deneyin.");
+        }
+    };
+
+    const unlockGeneralEvaluation = async () => {
+        await AsyncStorage.setItem(GENERAL_EVALUATION_ACCESS_KEY, getTodayKey());
+        setIsGeneralEvaluationUnlocked(true);
+    };
+
+    const openGeneralEvaluation = () => {
+        checkAccess({
+            onSuccess: unlockGeneralEvaluation,
+            featureName: 'Genel Değerlendirme',
+            onAdRequired: triggerRewardedCreditAd,
+            creditCost: GENERAL_EVALUATION_CREDIT_COST
+        });
+    };
 
     const openPaywall = async () => {
         const success = await purchaseService.presentPaywall();
@@ -63,6 +98,9 @@ export default function StatisticsScreen() {
             const data = await fetchUserStats(user.id);
             setStats(data);
 
+            const generalEvaluationAccessDate = await AsyncStorage.getItem(GENERAL_EVALUATION_ACCESS_KEY);
+            setIsGeneralEvaluationUnlocked(generalEvaluationAccessDate === getTodayKey());
+
         } catch (err: any) {
             console.error("İstatistikler yüklenirken hata:", err);
             setError("Verilere ulaşırken bir sorun oluştu. İnternet bağlantınızı kontrol edin.");
@@ -93,6 +131,8 @@ export default function StatisticsScreen() {
 
         return { totalQuestions, correctAnswers, successRate, totalExams, categories };
     }, [stats]);
+
+    const canViewGeneralEvaluation = isPremium || isGeneralEvaluationUnlocked;
 
     // --- DURUM 1: YÜKLENİYOR EKRANI ---
     if (isLoading) return <StatisticsSkeleton />;
@@ -183,11 +223,58 @@ export default function StatisticsScreen() {
                 ) : (
                     /* DURUM 3B: DOLU DURUM (İstatistikler) */
                     <>
-                        <View className="px-6 mt-6 flex-row flex-wrap justify-between gap-y-4">
-                            <StatCard icon={Target} label="Toplam Soru" value={performanceData.totalQuestions.toString()} color="#3b82f6" bgColor="bg-blue-50" />
-                            <StatCard icon={TrendingUp} label="Genel Başarı" value={`%${performanceData.successRate}`} color="#10b981" bgColor="bg-emerald-50" />
-                            <StatCard icon={Clock} label="Çözülen Sınav" value={performanceData.totalExams.toString()} color="#f59e0b" bgColor="bg-amber-50" />
-                            <StatCard icon={Zap} label="Doğru Sayısı" value={performanceData.correctAnswers.toString()} color="#8b5cf6" bgColor="bg-purple-50" />
+                        <View className="px-6 mt-6">
+                            <View className="flex-row items-center justify-between mb-4">
+                                <Text className="text-lg font-bold text-slate-900 dark:text-slate-50">Genel Değerlendirme</Text>
+                                {!canViewGeneralEvaluation && (
+                                    <View className="bg-amber-50 dark:bg-amber-900/20 px-3 py-1.5 rounded-full border border-amber-100 dark:border-amber-900/40 flex-row items-center">
+                                        <Lock size={12} color="#d97706" />
+                                        <Text className="text-amber-800 dark:text-amber-300 text-[10px] font-black ml-1">
+                                            {GENERAL_EVALUATION_CREDIT_COST} KREDİ
+                                        </Text>
+                                    </View>
+                                )}
+                            </View>
+
+                            {canViewGeneralEvaluation ? (
+                                <View className="flex-row flex-wrap justify-between gap-y-4">
+                                    <StatCard icon={Target} label="Toplam Soru" value={performanceData.totalQuestions.toString()} color="#3b82f6" bgColor="bg-blue-50" />
+                                    <StatCard icon={TrendingUp} label="Genel Başarı" value={`%${performanceData.successRate}`} color="#10b981" bgColor="bg-emerald-50" />
+                                    <StatCard icon={Clock} label="Çözülen Sınav" value={performanceData.totalExams.toString()} color="#f59e0b" bgColor="bg-amber-50" />
+                                    <StatCard icon={Zap} label="Doğru Sayısı" value={performanceData.correctAnswers.toString()} color="#8b5cf6" bgColor="bg-purple-50" />
+                                </View>
+                            ) : (
+                                <TouchableOpacity
+                                    onPress={openGeneralEvaluation}
+                                    activeOpacity={0.9}
+                                    className="bg-slate-900 dark:bg-slate-950 rounded-3xl p-5 border border-slate-800 overflow-hidden"
+                                >
+                                    <View className="absolute -right-8 -top-10 w-32 h-32 bg-blue-500/20 rounded-full" />
+                                    <View className="absolute right-12 -bottom-12 w-24 h-24 bg-amber-400/20 rounded-full" />
+
+                                    <View className="flex-row items-start justify-between">
+                                        <View className="flex-1 pr-5">
+                                            <View className="bg-white/10 self-start px-3 py-1.5 rounded-xl border border-white/10 mb-4 flex-row items-center">
+                                                <TrendingUp size={12} color="#fbbf24" />
+                                                <Text className="text-amber-300 text-[10px] font-black ml-1.5 uppercase tracking-widest">Kilitli Analiz</Text>
+                                            </View>
+                                            <Text className="text-white text-xl font-black tracking-tight mb-2">
+                                                Genel Değerlendirmeyi Aç
+                                            </Text>
+                                            <Text className="text-slate-300 text-xs leading-5 font-medium">
+                                                Toplam soru, genel başarı, çözülen sınav ve doğru sayını günlük olarak görüntüle.
+                                            </Text>
+                                        </View>
+                                        <View className="w-12 h-12 bg-white/10 rounded-2xl items-center justify-center border border-white/10">
+                                            <Lock size={22} color="#fbbf24" />
+                                        </View>
+                                    </View>
+
+                                    <View className="self-start mt-5 bg-amber-500 px-5 py-3 rounded-2xl shadow-lg shadow-amber-500/20">
+                                        <Text className="text-amber-950 font-black text-xs">{GENERAL_EVALUATION_CREDIT_COST} Krediyle Aç</Text>
+                                    </View>
+                                </TouchableOpacity>
+                            )}
                         </View>
 
                         <View className="px-6 mt-8">

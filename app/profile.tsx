@@ -459,7 +459,7 @@ export default function ProfileScreen() {
                         <Text className="text-slate-400 dark:text-slate-500 font-bold text-[13px] underline">Cihaz Verilerini Sıfırla</Text>
                     </TouchableOpacity>
 
-                    <Text className="text-slate-400 text-center text-[11px] mt-2">Sürüm 1.2.2 • Ehliyet Hocam – AI Destekli Eğitim</Text>
+                    <Text className="text-slate-400 text-center text-[11px] mt-2">Sürüm 1.2.4 • Ehliyet Hocam – AI Destekli Eğitim</Text>
                 </View>
             </ScrollView>
 

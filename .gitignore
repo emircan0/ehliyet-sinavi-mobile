@@ -36,6 +36,10 @@ yarn-error.*
 .expo/
 *.tsbuildinfo
 
+# local question import payloads
+data/import/*.json
+!data/import/sample-exam.json
+
 # generated native folders
 /ios
 /android

@@ -1,0 +1,23 @@
+{
+  "exam": {
+    "title": "2026 Ehliyet Deneme Sinavi 1",
+    "category": "Genel Deneme",
+    "duration_minutes": 45,
+    "is_active": true
+  },
+  "questions": [
+    {
+      "content": "Asagidakilerden hangisi trafik kazasi sonrasinda ilk yapilmasi gereken islemlerden biridir?",
+      "options": [
+        "Yaraliyi hemen aracindan cikarmak",
+        "Olay yerinde guvenligi saglamak",
+        "Araci calistirip kenara almak",
+        "Kalabaligi olay yerine toplamak"
+      ],
+      "correct_option": 1,
+      "category": "ilkyardim",
+      "difficulty": "easy",
+      "explanation": "Ilk adim olay yerinde can guvenligini saglamak ve yeni kazalari onlemektir."
+    }
+  ]
+}

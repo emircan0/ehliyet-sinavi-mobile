@@ -321,14 +321,30 @@ export default function AITutorScreen() {
                 <View className="px-6 mb-4">
                     <Text className="text-slate-900 dark:text-slate-100 font-black text-xl tracking-tight mb-5 px-1">Gelişim Araçları</Text>
                     <View className="flex-row gap-x-4">
-                        <TouchableOpacity className="flex-1 bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-slate-100 dark:border-slate-800 shadow-sm shadow-slate-200/40 dark:shadow-none items-center">
+                        <TouchableOpacity 
+                            onPress={() => {
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                router.push('/notes');
+                            }}
+                            className="flex-1 bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-slate-100 dark:border-slate-800 shadow-sm shadow-slate-200/40 dark:shadow-none items-center"
+                        >
                             <View className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-2xl mb-4 border border-amber-100/50 dark:border-amber-900/50">
                                 <BookOpen size={24} color="#d97706" />
                             </View>
                             <Text className="text-slate-900 dark:text-slate-200 font-black text-sm text-center tracking-tight">Özet Notlar</Text>
                         </TouchableOpacity>
 
-                        <TouchableOpacity className="flex-1 bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-slate-100 dark:border-slate-800 shadow-sm shadow-slate-200/40 dark:shadow-none items-center">
+                        <TouchableOpacity 
+                            onPress={() => {
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                if (masteryData && masteryData.length > 0) {
+                                    router.push(`/quiz/${masteryData[0].name}` as any);
+                                } else {
+                                    router.push('/quiz/quick' as any);
+                                }
+                            }}
+                            className="flex-1 bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-slate-100 dark:border-slate-800 shadow-sm shadow-slate-200/40 dark:shadow-none items-center"
+                        >
                             <View className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl mb-4 border border-blue-100/50 dark:border-blue-900/50">
                                 <Target size={24} color="#2563eb" />
                             </View>

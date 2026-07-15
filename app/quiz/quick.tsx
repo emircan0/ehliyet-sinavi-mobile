@@ -196,23 +196,23 @@ export default function QuickPracticeScreen() {
 
                         let bgColor = "bg-white dark:bg-slate-900";
                         let borderColor = "border-slate-200 dark:border-slate-800";
-                        let textColor = "text-slate-700";
+                        let textColor = "text-slate-700 dark:text-slate-200";
                         let opacityClass = "";
 
                         if (isAnswered) {
                             if (isCorrect) {
-                                bgColor = "bg-emerald-50";
-                                borderColor = "border-emerald-500";
-                                textColor = "text-emerald-800";
+                                bgColor = "bg-emerald-50 dark:bg-emerald-900/30";
+                                borderColor = "border-emerald-500 dark:border-emerald-500";
+                                textColor = "text-emerald-800 dark:text-emerald-400";
                             } else if (isSelected) {
-                                bgColor = "bg-red-50";
-                                borderColor = "border-red-500";
-                                textColor = "text-red-800";
+                                bgColor = "bg-red-50 dark:bg-red-900/30";
+                                borderColor = "border-red-500 dark:border-red-500";
+                                textColor = "text-red-800 dark:text-red-400";
                             } else {
                                 opacityClass = "opacity-50";
                             }
                         } else if (isSelected) {
-                            borderColor = "border-emerald-500";
+                            borderColor = "border-emerald-500 dark:border-emerald-500";
                         }
 
                         return (
@@ -243,9 +243,9 @@ export default function QuickPracticeScreen() {
                 </View>
 
                 {isAnswered && currentQuestion?.explanation ? (
-                    <View className="mt-6 bg-blue-50 border border-blue-100 p-4 rounded-2xl">
-                        <Text className="text-blue-800 font-bold mb-1 text-xs uppercase tracking-widest">Hoca Notu</Text>
-                        <Text className="text-blue-900 text-[14px] leading-5 font-medium">
+                    <View className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/50 p-4 rounded-2xl">
+                        <Text className="text-blue-800 dark:text-blue-400 font-bold mb-1 text-xs uppercase tracking-widest">Hoca Notu</Text>
+                        <Text className="text-blue-900 dark:text-blue-300 text-[14px] leading-5 font-medium">
                             {currentQuestion.explanation}
                         </Text>
                     </View>
@@ -267,15 +267,15 @@ export default function QuickPracticeScreen() {
                 {/* PAS GEÇ / SONRAKİ BUTONU */}
                 <TouchableOpacity
                     onPress={handleNext}
-                    className={`flex-1 h-14 rounded-2xl flex-row justify-center items-center shadow-lg ${isAnswered ? 'bg-emerald-500 shadow-emerald-500/30' : 'bg-slate-900 shadow-slate-900/20'}`}
+                    className={`flex-1 h-14 rounded-2xl flex-row justify-center items-center shadow-lg ${isAnswered ? 'bg-emerald-500 shadow-emerald-500/30' : 'bg-slate-900 dark:bg-slate-50 shadow-slate-900/20'}`}
                 >
-                    <Text className="text-white font-bold text-lg mr-2">
+                    <Text className={`font-bold text-lg mr-2 ${isAnswered ? 'text-white' : 'text-white dark:text-slate-900'}`}>
                         {isAnswered 
                             ? (currentIndex < questions.length - 1 ? "Sıradaki Soru" : "Sonuçları Gör")
                             : "Pas Geç"
                         }
                     </Text>
-                    <ArrowRight size={20} color="white" />
+                    <ArrowRight size={20} color={isAnswered ? "white" : (isDarkMode ? "#0f172a" : "white")} />
                 </TouchableOpacity>
             </View>
         </ScreenLayout>

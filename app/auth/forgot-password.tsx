@@ -13,6 +13,7 @@ import {
     StyleSheet
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import * as Linking from 'expo-linking';
 import { Mail, ArrowLeft, KeyRound } from 'lucide-react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
@@ -58,8 +59,11 @@ export default function ForgotPasswordScreen() {
 
         setIsLoading(true);
         try {
+            const redirectUrl = Linking.createURL('/auth/reset-password');
+            console.log("Supabase'e eklenecek Redirect URL:", redirectUrl);
+            
             const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-                redirectTo: 'ehliyet-sinavi:///auth/reset-password',
+                redirectTo: redirectUrl,
             });
 
             if (error) {

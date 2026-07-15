@@ -1,12 +1,14 @@
 {
   "name": "ehliyet-hocam",
-  "version": "1.2.2",
+  "version": "1.2.4",
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "import:exam": "node scripts/import-exam.js",
+    "import:exam:dry": "node scripts/import-exam.js --dry-run"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
