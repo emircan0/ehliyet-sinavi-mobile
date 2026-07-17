@@ -10,7 +10,7 @@ import {
     StyleSheet,
     Animated,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../src/api/supabase';
@@ -70,6 +70,22 @@ const STROKE = 11;
 const R = (RING - STROKE) / 2;
 const CIRC = 2 * Math.PI * R;
 
+interface QuizResult {
+    score: number;
+    correct_count: number;
+    wrong_count: number;
+    empty_count?: number;
+    total_questions?: number;
+}
+
+const parseNumericParam = (value: string | string[] | undefined) => {
+    const rawValue = Array.isArray(value) ? value[0] : value;
+    if (rawValue === undefined || rawValue.trim() === '') return null;
+
+    const parsed = Number(rawValue);
+    return Number.isFinite(parsed) ? parsed : null;
+};
+
 function ScoreRing({ score, colors }: { score: number; colors: readonly [string, string] }) {
     const dash = CIRC * (1 - score / 100);
     return (
@@ -101,9 +117,16 @@ function ScoreRing({ score, colors }: { score: number; colors: readonly [string,
 
 export default function QuizResultScreen() {
     const router = useRouter();
+    const params = useLocalSearchParams<{
+        score?: string | string[];
+        correct?: string | string[];
+        wrong?: string | string[];
+        empty?: string | string[];
+        total?: string | string[];
+    }>();
     const isPremium = useSubscriptionStore(state => state.isPremium);
     const [isLoading, setIsLoading] = useState(true);
-    const [result, setResult] = useState<any>(null);
+    const [result, setResult] = useState<QuizResult | null>(null);
     const [displayScore, setDisplayScore] = useState(0);
 
     const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -116,6 +139,24 @@ export default function QuizResultScreen() {
 
     useEffect(() => {
         const fetch = async () => {
+            const routeResult: QuizResult = {
+                score: parseNumericParam(params.score) ?? NaN,
+                correct_count: parseNumericParam(params.correct) ?? NaN,
+                wrong_count: parseNumericParam(params.wrong) ?? NaN,
+                empty_count: parseNumericParam(params.empty) ?? undefined,
+                total_questions: parseNumericParam(params.total) ?? undefined,
+            };
+
+            if (
+                Number.isFinite(routeResult.score) &&
+                Number.isFinite(routeResult.correct_count) &&
+                Number.isFinite(routeResult.wrong_count)
+            ) {
+                setResult(routeResult);
+                setIsLoading(false);
+                return;
+            }
+
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
                 const { data, error } = await supabase
@@ -172,7 +213,7 @@ export default function QuizResultScreen() {
     const correct = result?.correct_count ?? 0;
     const wrong = result?.wrong_count ?? 0;
     const total = correct + wrong;
-    const unanswered = Math.max(0, 50 - total); // varsayılan 50 soruluk sınav
+    const unanswered = result?.empty_count ?? Math.max(0, (result?.total_questions ?? 50) - total);
     const hitRate = total > 0 ? Math.round((correct / total) * 100) : 0;
     const T = getTheme(score);
 

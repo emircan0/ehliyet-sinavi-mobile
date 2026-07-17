@@ -18,6 +18,7 @@ import {
 import { scheduleDailyReminder, cancelAllReminders, registerForPushNotificationsAsync } from '../../src/api/notifications';
 import { useAuth } from '../../src/hooks/useAuth';
 import { Modal } from 'react-native';
+import { profileSync } from '../../src/services/profile-sync';
 
 const SectionHeader = ({ title }: { title: string }) => (
     <View className="px-5 mt-8 mb-2">
@@ -126,18 +127,45 @@ export default function SettingsScreen() {
 
     const handleNotificationChange = async (newValue: boolean) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        setNotificationsEnabled(newValue);
 
         if (newValue) {
             // Push bildirimleri için kayıt ol
             const token = await registerForPushNotificationsAsync(user?.id);
 
+            if (!token) {
+                setNotificationsEnabled(false);
+                Toast.show({
+                    type: 'error',
+                    text1: 'Bildirimler Açılamadı',
+                    text2: 'Bildirim iznini cihaz ayarlarından kontrol edin.',
+                });
+                return;
+            }
+
+            setNotificationsEnabled(true);
+            if (user) {
+                await profileSync.syncProfilePreferences({
+                    notification_enabled: true,
+                    expo_push_token: token
+                });
+            }
+
             Toast.show({
                 type: 'success',
                 text1: 'Bildirimler Aktif',
-                text2: token ? 'Duyuru ve hatırlatıcıları alabileceksiniz.' : 'Bildirimler açıldı.',
+                text2: 'Duyuru ve hatırlatıcıları alabileceksiniz.',
             });
         } else {
+            setNotificationsEnabled(false);
+            setReminderEnabled(false);
+            await cancelAllReminders();
+            if (user) {
+                await profileSync.syncProfilePreferences({
+                    notification_enabled: false,
+                    expo_push_token: null
+                });
+            }
+
             Toast.show({
                 type: 'info',
                 text1: 'Bildirimler Kapatıldı',

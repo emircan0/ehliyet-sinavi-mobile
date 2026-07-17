@@ -123,7 +123,7 @@ export default function RegisterScreen() {
 
                         if (!existingProfile) {
                             const fullNameToUse = trimmedFullName || data.session.user.user_metadata?.full_name || data.session.user.email || 'Sürücü Adayı';
-                            await supabase.from('profiles').insert([{ id: userId, full_name: fullNameToUse, has_completed_onboarding: false }]);
+                            await supabase.from('profiles').insert([{ id: userId, full_name: fullNameToUse, onboarding_completed: false }]);
                         }
                     } catch (e) {
                         console.warn('Profile upsert after signUp failed', e);
@@ -131,6 +131,7 @@ export default function RegisterScreen() {
 
                     router.replace('/');
                 } else {
+                    await AsyncStorage.setItem('@pending_onboarding_email', trimmedEmail.toLowerCase());
                     Alert.alert(
                         'Hesap Oluşturuldu!',
                         'Lütfen e-posta adresinize gelen onay bağlantısına tıklayın.',
@@ -189,7 +190,7 @@ export default function RegisterScreen() {
 
                             if (!existingProfile) {
                                 const fullNameToUse = session.user.user_metadata?.full_name || session.user.email || 'Sürücü Adayı';
-                                await supabase.from('profiles').insert([{ id: userId, full_name: fullNameToUse, has_completed_onboarding: false }]);
+                                await supabase.from('profiles').insert([{ id: userId, full_name: fullNameToUse, onboarding_completed: false }]);
                             }
                         }
                     } catch (e) {
@@ -258,7 +259,7 @@ export default function RegisterScreen() {
 
                         if (!existingProfile) {
                             const fullNameToUse = session.user.user_metadata?.full_name || session.user.email || 'Sürücü Adayı';
-                            await supabase.from('profiles').insert([{ id: userId, full_name: fullNameToUse, has_completed_onboarding: false }]);
+                            await supabase.from('profiles').insert([{ id: userId, full_name: fullNameToUse, onboarding_completed: false }]);
                         }
                     }
                 } catch (e) {

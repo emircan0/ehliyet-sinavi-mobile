@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../api/supabase';
 
 export const PROFILE_SYNC_QUEUE_KEY = '@profile_sync_queue';
+export const getProfileSyncQueueKey = (userId: string) => `${PROFILE_SYNC_QUEUE_KEY}:${userId}`;
 
 class OfflineSyncService {
     private isSyncing = false;
@@ -14,23 +15,21 @@ class OfflineSyncService {
 
         try {
             this.isSyncing = true;
-            
-            const queueStr = await AsyncStorage.getItem(PROFILE_SYNC_QUEUE_KEY);
+
+            const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+            if (sessionError) throw sessionError;
+            if (!session?.user?.id) return;
+
+            const queueKey = getProfileSyncQueueKey(session.user.id);
+            const queueStr = await AsyncStorage.getItem(queueKey);
             if (!queueStr) {
-                this.isSyncing = false;
                 return; // Kuyruk boş
             }
 
-            const queue = JSON.parse(queueStr);
+            const queue = JSON.parse(queueStr) as Record<string, unknown>;
             if (Object.keys(queue).length === 0) {
-                this.isSyncing = false;
+                await AsyncStorage.removeItem(queueKey);
                 return;
-            }
-
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session?.user?.id) {
-                this.isSyncing = false;
-                return; // Kullanıcı giriş yapmamış
             }
 
             const { error } = await supabase
@@ -42,8 +41,11 @@ class OfflineSyncService {
                 throw error;
             }
 
-            // Başarılı! Kuyruğu temizle.
-            await AsyncStorage.removeItem(PROFILE_SYNC_QUEUE_KEY);
+            // İstek sürerken yeni bir tercih kuyruğa eklendiyse onu silme.
+            const latestQueueStr = await AsyncStorage.getItem(queueKey);
+            if (latestQueueStr === queueStr) {
+                await AsyncStorage.removeItem(queueKey);
+            }
             console.log('OfflineSyncService: Profil güncellemeleri başarıyla senkronize edildi.');
 
         } catch (error) {

@@ -49,25 +49,30 @@ export function useQuiz() {
 
         try {
             // Updated to match saveQuizResults signature in queries.ts
-            await saveQuizResults(
+            const wasSaved = await saveQuizResults(
                 userId,
                 category,
                 score,
                 correct,
                 wrong,
                 total,
-                selectedAnswers,
+                selectedAnswers.filter(answer => answer != null),
                 durationSeconds,
                 emptyCount,
                 startedAt,
                 'quick',
                 sessionId.current
             );
+
+            if (!wasSaved) {
+                throw new Error('Quiz result could not be saved');
+            }
+
+            return { score, correct, wrong };
         } catch (err) {
             console.error(err);
-            setError('Sorular yüklenirken bir hata oluştu.');
-        } finally {
-            return { score, correct, wrong };
+            setError('Sınav sonuçları kaydedilemedi. Lütfen tekrar deneyin.');
+            return null;
         }
     }, [questions, selectedAnswers]);
 

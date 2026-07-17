@@ -10,6 +10,7 @@ import {
 } from 'lucide-react-native';
 import { analytics } from '../src/services/analytics';
 import { profileSync } from '../src/services/profile-sync';
+import { signOutAndClearUserData } from '../src/services/auth-session';
 import { Linking } from 'react-native';
 import { scheduleDailyReminder, cancelAllReminders } from '../src/api/notifications';
 import { useThemeMode } from '../src/hooks/useThemeMode';
@@ -478,8 +479,7 @@ export default function ProfileScreen() {
                                 { text: "Vazgeç", style: "cancel" },
                                 {
                                     text: "Çıkış Yap", style: "destructive", onPress: async () => {
-                                        await supabase.auth.signOut();
-                                        await AsyncStorage.removeItem('is_guest');
+                                        await signOutAndClearUserData();
                                         if (router.canDismiss()) {
                                             router.dismissAll();
                                         }

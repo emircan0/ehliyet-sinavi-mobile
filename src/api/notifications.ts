@@ -35,25 +35,23 @@ export const registerForPushNotificationsAsync = async (userId?: string) => {
     if (isRegistering) return null;
     isRegistering = true;
 
-    let token;
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
-
-    if (existingStatus !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
-    }
-
-    if (finalStatus !== 'granted') {
-        return null;
-    }
-
-    // Expo EAS Project ID'sini otomatik al (Mağazaya çıkarken zorunludur)
     const projectId =
         Constants?.expoConfig?.extra?.eas?.projectId ??
         Constants?.easConfig?.projectId;
 
     try {
+        const { status: existingStatus } = await Notifications.getPermissionsAsync();
+        let finalStatus = existingStatus;
+
+        if (existingStatus !== 'granted') {
+            const { status } = await Notifications.requestPermissionsAsync();
+            finalStatus = status;
+        }
+
+        if (finalStatus !== 'granted') {
+            return null;
+        }
+
         if (Platform.OS === 'android') {
             await Notifications.setNotificationChannelAsync('default', {
                 name: 'default',
@@ -72,12 +70,14 @@ export const registerForPushNotificationsAsync = async (userId?: string) => {
         }
 
         const pushTokenData = await Notifications.getExpoPushTokenAsync({ projectId });
-        token = pushTokenData.data;
+        const token = pushTokenData.data;
 
         // Supabase'e kaydet (Kullanıcı giriş yapmışsa)
         if (userId && token) {
             await savePushToken(userId, token);
         }
+
+        return token;
 
     } catch (e: unknown) {
         if ((e as any)?.message?.includes('EXPERIENCE_NOT_FOUND')) {
@@ -91,8 +91,6 @@ export const registerForPushNotificationsAsync = async (userId?: string) => {
     } finally {
         isRegistering = false;
     }
-
-    return token;
 }
 
 /**
@@ -106,6 +104,19 @@ export async function savePushToken(userId: string, token: string) {
 
     if (error) {
         console.error('Push Token Supabase kayıt hatası:', error);
+        return false;
+    }
+    return true;
+}
+
+export async function clearPushToken(userId: string) {
+    const { error } = await supabase
+        .from('profiles')
+        .update({ expo_push_token: null })
+        .eq('id', userId);
+
+    if (error) {
+        console.error('Push Token temizleme hatası:', error);
         return false;
     }
     return true;

@@ -5,7 +5,7 @@
     "version": "1.2.4",
     "orientation": "portrait",
     "icon": "./assets/images/logo.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "scheme": "ehliyet-sinavi",
     "splash": {

@@ -151,7 +151,11 @@ export default function QuizScreen() {
                         const savedState = await AsyncStorage.getItem(`@quiz_state_${idString}`);
                         if (savedState) {
                             const parsed = JSON.parse(savedState);
-                            restoreQuizState(parsed.answers || [], parsed.index || 0);
+                            restoreQuizState(
+                                parsed.answers || [],
+                                parsed.index || 0,
+                                parsed.currentQuestionId
+                            );
                         }
                     } catch (error) {
                         console.error("Kritik Hata Oluştu:", error);
@@ -264,7 +268,7 @@ export default function QuizScreen() {
                 else if (typeof id === 'string' && (/^\d+$/.test(id) || /^[0-9a-f]{8}-/i.test(id))) quizType = 'exam';
                 else quizType = 'category';
 
-                await saveQuizResults(
+                const wasSaved = await saveQuizResults(
                     user.id, 
                     id as string, 
                     score, 
@@ -278,6 +282,16 @@ export default function QuizScreen() {
                     quizType,
                     sessionId.current
                 );
+
+                if (!wasSaved) {
+                    await AsyncStorage.setItem(`@quiz_state_${id}`, JSON.stringify({
+                        answers: selectedAnswers,
+                        index: currentIndex,
+                        currentQuestionId: questions[currentIndex]?.id
+                    }));
+                    throw new Error('Quiz result could not be saved');
+                }
+
                 await AsyncStorage.removeItem(`@quiz_state_${id}`);
             }
 
@@ -288,7 +302,16 @@ export default function QuizScreen() {
             );
 
             adService.showInterstitialAfterQuiz(isPremium);
-            router.replace('/quiz/result');
+            router.replace({
+                pathname: '/quiz/result',
+                params: {
+                    score: String(score),
+                    correct: String(correctCount),
+                    wrong: String(wrongCount),
+                    empty: String(emptyCount),
+                    total: String(questions.length)
+                }
+            });
         } catch (error) {
             Alert.alert('Hata', 'Sonuçlar kaydedilemedi/işlenemedi.');
         } finally {
@@ -298,42 +321,17 @@ export default function QuizScreen() {
 
     const pauseQuiz = async () => {
         setIsSubmitting(true);
+        let shouldExit = false;
         try {
             const durationSeconds = Math.floor((Date.now() - startTime.current) / 1000);
-            const startedAt = new Date(startTime.current).toISOString();
             const { data: { user } } = await supabase.auth.getUser();
-            const { correctCount, wrongCount, emptyCount, score } = calculateScore();
             const validAnswers = selectedAnswers.filter(a => a != null);
 
             if (user) {
-
-                let quizType = 'practice';
-                if (id === 'quick') quizType = 'quick';
-                else if (id === 'mistakes') quizType = 'mistakes';
-                else if (id === 'favorites') quizType = 'favorites';
-                else if (typeof id === 'string' && (/^\d+$/.test(id) || /^[0-9a-f]{8}-/i.test(id))) quizType = 'exam';
-                else quizType = 'category';
-
-                if (validAnswers.length > 0) {
-                    await saveQuizResults(
-                        user.id, 
-                        id as string, 
-                        score, 
-                        correctCount, 
-                        wrongCount, 
-                        questions.length, 
-                        validAnswers, 
-                        durationSeconds, 
-                        emptyCount, 
-                        startedAt, 
-                        quizType,
-                        sessionId.current
-                    );
-                }
-
                 await AsyncStorage.setItem(`@quiz_state_${id}`, JSON.stringify({
                     answers: selectedAnswers,
-                    index: currentIndex
+                    index: currentIndex,
+                    currentQuestionId: questions[currentIndex]?.id
                 }));
             }
 
@@ -348,11 +346,14 @@ export default function QuizScreen() {
                 text1: user ? 'İlerleme Kaydedildi' : 'Sınav Duraklatıldı',
                 text2: user ? 'Kaldığın yerden devam edebilirsin.' : 'Misafir kayıtlarında ilerleme kaydedilemez.',
             });
+            shouldExit = true;
         } catch (error) {
             Alert.alert('Hata', 'Sınav durumu kaydedilemedi.');
         } finally {
             setIsSubmitting(false);
-            router.back();
+            if (shouldExit) {
+                router.back();
+            }
         }
     };
 
@@ -376,7 +377,12 @@ export default function QuizScreen() {
 
         const { data: { user } } = await supabase.auth.getUser();
         if (user && currentQuestion) {
-            await reportQuestion(user.id, currentQuestion.id, reportReason);
+            const wasReported = await reportQuestion(user.id, currentQuestion.id, reportReason);
+            if (!wasReported) {
+                Alert.alert('Hata', 'Bildiriminiz gönderilemedi. Lütfen tekrar deneyin.');
+                return;
+            }
+
             setReportModalVisible(false);
             setReportReason('');
             Toast.show({
@@ -384,6 +390,8 @@ export default function QuizScreen() {
                 text1: 'Teşekkürler! 🛡️',
                 text2: 'Bildiriminiz incelenmek üzere bize ulaştı.',
             });
+        } else {
+            Alert.alert('Giriş Gerekli', 'Soru bildirmek için hesabınıza giriş yapmalısınız.');
         }
     };
 

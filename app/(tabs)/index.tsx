@@ -1,13 +1,7 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StatusBar, RefreshControl, Modal, Alert, TextInput } from 'react-native';
 import { useRouter, router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Constants from 'expo-constants';
-// import * as Notifications from 'expo-notifications'; // Expo Go'da çökmeyi önlemek için kaldırıldı
-import type { EventSubscription, Notification, NotificationResponse } from 'expo-notifications';
-
-const isExpoGo = Constants.appOwnership === 'expo';
-const Notifications = !isExpoGo ? require('expo-notifications') : null;
 import {
     Play, Car, Heart, ShieldAlert, GraduationCap,
     Bell, ChevronRight, Sparkles, Zap,
@@ -20,10 +14,10 @@ import { useSubscriptionStore } from '../../src/store/useSubscriptionStore';
 import { useAuth } from '../../src/hooks/useAuth';
 import { usePremiumAccess } from '../../src/hooks/usePremiumAccess';
 import { useNotificationStore, NotificationType } from '../../src/store/useNotificationStore';
-import { registerForPushNotificationsAsync } from '../../src/api/notifications';
 import { useThemeMode } from '../../src/hooks/useThemeMode';
 import { adService } from '../../src/services/adService';
 import { purchaseService } from '../../src/services/purchaseService';
+import { supabase } from '../../src/api/supabase';
 
 
 
@@ -71,12 +65,12 @@ export default function Home() {
     const [newName, setNewName] = useState('');
     const [isSavingName, setIsSavingName] = useState(false);
 
-    const notificationListener = useRef<EventSubscription | null>(null);
-    const responseListener = useRef<EventSubscription | null>(null);
-
     // PREMIUM PROMOSYON ZAMANLAYICISI
     useEffect(() => {
         if (isPremium) return;
+
+        let interval: ReturnType<typeof setInterval> | null = null;
+        let isMounted = true;
 
         const initTimer = async () => {
             try {
@@ -108,64 +102,22 @@ export default function Home() {
                     setTimeLeft({ hours, minutes, seconds });
                 };
 
+                if (!isMounted) return;
                 updateTimer();
-                const interval = setInterval(updateTimer, 1000);
-                return () => clearInterval(interval);
+                interval = setInterval(updateTimer, 1000);
             } catch (e) {
                 console.error("Timer init error:", e);
             }
         };
 
-        const timerCleanup = initTimer();
+        initTimer();
         return () => {
-            // initTimer is async, so we handle cleanup via interval if it were returned
+            isMounted = false;
+            if (interval) {
+                clearInterval(interval);
+            }
         };
     }, [isPremium]);
-
-    // BİLDİRİM DİNLEYİCİLERİ VE KAYIT
-    useEffect(() => {
-        // İzin iste ve Token'ı Supabase'e kaydet
-        if (user?.id) {
-            registerForPushNotificationsAsync(user.id);
-        }
-
-        // 1. Uygulama Açıkken (Foreground) Bildirim Geldiğinde
-        if (!isExpoGo && Notifications) {
-            notificationListener.current = Notifications.addNotificationReceivedListener((notification: Notification) => {
-                const title = notification.request.content.title || 'Yeni Bildirim';
-                const message = notification.request.content.body || '';
-                const data = notification.request.content.data;
-
-                // Store'a ekle
-                addNotification({
-                    title,
-                    message,
-                    type: (data?.type as NotificationType) || 'info',
-                    data: data
-                });
-            });
-
-            // 2. Kullanıcı Bildirime Tıkladığında (Arka plan / Kapalıyken)
-            responseListener.current = Notifications.addNotificationResponseReceivedListener((response: NotificationResponse) => {
-                const data = response.notification.request.content.data;
-                // Bildirime tıklanıp uygulamaya girildiyse, route bilgisi varsa oraya yönlendir
-                if (data?.route) {
-                    router.push(data.route as any);
-                } else {
-                    setShowNotifications(true);
-                }
-            });
-        }
-
-        return () => {
-            if (notificationListener.current) {
-                notificationListener.current.remove();
-            }
-            if (responseListener.current) {
-                responseListener.current.remove();
-            }
-        };
-    }, [user]);
 
     const performDataLoad = async () => {
         try {

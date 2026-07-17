@@ -16,7 +16,7 @@ import { useThemeMode } from "../src/hooks/useThemeMode";
 import { useSettingsStore } from "../src/store/useSettingsStore";
 import { useSubscriptionStore } from "../src/store/useSubscriptionStore";
 import { useAuth } from "../src/hooks/useAuth";
-import { registerForPushNotificationsAsync, scheduleDailyReminder } from "../src/api/notifications";
+import { cancelAllReminders, registerForPushNotificationsAsync, scheduleDailyReminder } from "../src/api/notifications";
 import mobileAds from 'react-native-google-mobile-ads';
 import { adService } from '../src/services/adService';
 import { purchaseService } from '../src/services/purchaseService';
@@ -31,6 +31,10 @@ export default function RootLayout() {
     const addNotification = useNotificationStore(state => state.addNotification);
     const { isDarkMode, setColorScheme } = useThemeMode();
     const theme = useSettingsStore(state => state.theme);
+    const hasSettingsHydrated = useSettingsStore(state => state.hasHydrated);
+    const notificationsEnabled = useSettingsStore(state => state.notificationsEnabled);
+    const isReminderEnabled = useSettingsStore(state => state.isReminderEnabled);
+    const reminderTime = useSettingsStore(state => state.reminderTime);
     const { user, loading: authLoading } = useAuth();
     const pathname = usePathname();
     const segments = useSegments();
@@ -100,10 +104,10 @@ export default function RootLayout() {
 
     // 2. Push Notification Registration
     useEffect(() => {
-        if (user?.id) {
+        if (hasSettingsHydrated && notificationsEnabled && user?.id) {
             registerForPushNotificationsAsync(user.id);
         }
-    }, [user?.id]);
+    }, [hasSettingsHydrated, notificationsEnabled, user?.id]);
 
     // 2. RevenueCat User Sync
     useEffect(() => {
@@ -134,15 +138,26 @@ export default function RootLayout() {
         };
     }, [authLoading, user?.id]);
 
-    // 2. Auto-refresh the 14-day dynamic notification schedule and send Telemetry
+    // 2. Auto-refresh the 14-day dynamic notification schedule
     useEffect(() => {
-        const { isReminderEnabled, reminderTime } = useSettingsStore.getState();
-        if (isReminderEnabled) {
-            scheduleDailyReminder(reminderTime.hour, reminderTime.minute);
-        }
+        if (!hasSettingsHydrated) return;
 
+        if (notificationsEnabled && isReminderEnabled) {
+            scheduleDailyReminder(reminderTime.hour, reminderTime.minute);
+        } else {
+            cancelAllReminders();
+        }
+    }, [
+        hasSettingsHydrated,
+        notificationsEnabled,
+        isReminderEnabled,
+        reminderTime.hour,
+        reminderTime.minute
+    ]);
+
+    // Telemetri: Son görülme ve Tema bilgisini güncelle (5 dakika throttle)
+    useEffect(() => {
         // Telemetri: Son görülme ve Tema bilgisini güncelle
-        // Telemetri: Son görülme ve Tema bilgisini güncelle (5 dakika throttle)
         const updateTelemetry = async () => {
             await activityTracker.updateLastActive(isDarkMode);
         };
@@ -210,7 +225,6 @@ export default function RootLayout() {
     // 4. Deep Link Handling for Auth (Password Reset & Confirmation)
     useEffect(() => {
         const handleDeepLink = async (url: string) => {
-            console.log('Incoming Deep Link:', url);
             const { path, queryParams } = Linking.parse(url);
             const normalizedPath = path || '';
 

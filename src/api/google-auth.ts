@@ -9,12 +9,18 @@ export const GoogleAuth = {
     configure: (webClientId: string, iosClientId?: string) => {
         if (!isExpoGo) {
             try {
+                const normalizedWebClientId = webClientId.trim();
+                const normalizedIosClientId = iosClientId?.trim();
+                if (!normalizedWebClientId) {
+                    console.warn('Google Sign-In configuration skipped: Web client ID is missing.');
+                    return;
+                }
+
                 const { GoogleSignin } = require('@react-native-google-signin/google-signin');
                 GoogleSignin.configure({
                     scopes: ['email', 'profile', 'openid'],
-                    // Doğrudan ID'leri buraya yazıyoruz ki hata payı kalmasın
-                    webClientId: '247538031791-bueg0qbqglbo7p9od98lg7glgnfd47m1.apps.googleusercontent.com',
-                    iosClientId: '247538031791-tl9ub933k1qp5q351ls1c3ubcru7uufe.apps.googleusercontent.com',
+                    webClientId: normalizedWebClientId,
+                    ...(normalizedIosClientId ? { iosClientId: normalizedIosClientId } : {}),
                     offlineAccess: true,
                 });
             } catch (error) {

@@ -175,14 +175,36 @@ export const saveQuizResults = async (
     startedAt?: string,
     quizType: string = 'practice',
     sessionId?: string
-) => {
+): Promise<boolean> => {
     try {
         await ensureUserProfile(userId);
-        
+
         // completed_at her halükarda şu anki zamandır
         const completedAt = new Date().toISOString();
 
-        // 1. Özet sonuçları kaydet (exam_results)
+        // 1. Detaylı cevapları önce kaydet. Böylece özet kaydı başarılı olup
+        // cevapların eksik kalması ve istemcinin ilerlemeyi silmesi engellenir.
+        const answersToInsert = answers
+            .filter(ans => ans != null)
+            .map(ans => ({
+                user_id: userId,
+                question_id: ans.questionId,
+                selected_option: ans.selectedOption,
+                is_correct: ans.isCorrect,
+                solved_at: completedAt
+            }));
+
+        if (answersToInsert.length > 0) {
+            // NOT: Bunun çalışması için Supabase'de `user_answers` tablosunda
+            // (user_id, question_id) ikilisinin UNIQUE olması gerekir.
+            const { error: answersError } = await supabase
+                .from('user_answers')
+                .upsert(answersToInsert, { onConflict: 'user_id,question_id' });
+
+            if (answersError) throw answersError;
+        }
+
+        // 2. Cevaplar kaydedildikten sonra özet sonucu kaydet.
         const { error: resultError } = await supabase
             .from('exam_results')
             .insert([{
@@ -202,43 +224,25 @@ export const saveQuizResults = async (
 
         if (resultError) {
             // 23505: unique_violation (Aynı oturum daha önce kaydedilmiş)
-            if (resultError.code === '23505') {
+            if (resultError.code === '23505' && sessionId) {
                 console.log("Idempotency: Bu sınav sonucu zaten kaydedilmiş (session_id çakışması). İşlem atlanıyor.");
-                return; // Sessizce çık, başarılı sayılır.
+                return true;
             }
             throw resultError;
         }
 
-        // 1.5 Telemetri: Kullanıcı istatistiklerini güncelle (RPC ile)
+        // 3. Telemetri: Ana kayıt başarılı olduktan sonra istatistikleri güncelle.
         try {
-            await supabase.rpc('increment_user_stats', {
+            const { error: statsError } = await supabase.rpc('increment_user_stats', {
                 p_user_id: userId,
                 p_quizzes_to_add: 1,
                 p_questions_to_add: answers.length
             });
+
+            if (statsError) throw statsError;
         } catch (e) {
             console.warn("Telemetri güncellenemedi (RPC eksik olabilir):", e);
         }
-
-        // 2. Detaylı cevapları kaydet (UPSERT KULLANIYORUZ!)
-        // Upsert: Eğer bu soruyu daha önce çözdüyse üzerine yazar, çözmediyse yeni ekler.
-        const answersToInsert = answers
-            .filter(ans => ans != null) // SAVUNMACI: null gelenleri ayıkla
-            .map(ans => ({
-                user_id: userId,
-                question_id: ans.questionId,
-                selected_option: ans.selectedOption,
-                is_correct: ans.isCorrect,
-                solved_at: new Date().toISOString()
-            }));
-
-        // NOT: Bunun çalışması için Supabase'de `user_answers` tablosunda (user_id, question_id) 
-        // ikilisinin UNIQUE (Benzersiz) anahtar olarak ayarlanmış olması gerekir.
-        const { error: answersError } = await supabase
-            .from('user_answers')
-            .upsert(answersToInsert, { onConflict: 'user_id,question_id' });
-
-        if (answersError) throw answersError;
 
         return true;
     } catch (error) {

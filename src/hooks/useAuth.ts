@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../api/supabase';
+import { signOutAndClearUserData } from '../services/auth-session';
 
 export function useAuth() {
     const [session, setSession] = useState<Session | null>(null);
@@ -13,8 +13,7 @@ export function useAuth() {
         supabase.auth.getSession()
             .then(async ({ data: { session }, error }) => {
                 if (error) {
-                    await supabase.auth.signOut();
-                    await AsyncStorage.removeItem('is_guest');
+                    await signOutAndClearUserData();
                     setSession(null);
                     setUser(null);
                     return;
@@ -24,8 +23,7 @@ export function useAuth() {
                 setUser(session?.user ?? null);
             })
             .catch(async () => {
-                await supabase.auth.signOut();
-                await AsyncStorage.removeItem('is_guest');
+                await signOutAndClearUserData();
                 setSession(null);
                 setUser(null);
             })
@@ -44,7 +42,7 @@ export function useAuth() {
     }, []);
 
     const signOut = async () => {
-        await supabase.auth.signOut();
+        await signOutAndClearUserData();
     };
 
     return { session, user, loading, signOut };

@@ -11,7 +11,7 @@ export interface SelectedAnswer {
 interface QuizState {
     questions: Question[];
     currentIndex: number;
-    selectedAnswers: SelectedAnswer[];
+    selectedAnswers: Array<SelectedAnswer | undefined>;
     isFinished: boolean;
 
     // AI Tutor State
@@ -26,7 +26,11 @@ interface QuizState {
     setAnswer: (questionIndex: number, answerIndex: number, isCorrect: boolean) => void;
     finishQuiz: () => void;
     resetQuiz: () => void;
-    restoreQuizState: (answers: SelectedAnswer[], index: number) => void;
+    restoreQuizState: (
+        answers: Array<SelectedAnswer | null | undefined>,
+        index: number,
+        currentQuestionId?: string
+    ) => void;
 
     // AI Actions
     fetchAiExplanation: (question: Question, wrongAnswerIndex: number) => Promise<void>;
@@ -104,9 +108,31 @@ export const useQuizStore = create<QuizState>((set, get) => ({
         activeQuestionId: null
     }),
 
-    restoreQuizState: (answers, index) => set({
-        selectedAnswers: answers,
-        currentIndex: index
+    restoreQuizState: (answers, index, currentQuestionId) => set((state) => {
+        const answersByQuestionId = new Map<string, SelectedAnswer>();
+        answers.forEach((answer) => {
+            if (answer?.questionId) {
+                answersByQuestionId.set(answer.questionId, answer);
+            }
+        });
+
+        const selectedAnswers = state.questions.map((question) =>
+            answersByQuestionId.get(question.id)
+        );
+
+        // Yeni kayıtlar doğrudan soru kimliğini taşır. Eski kayıtlarda mevcut
+        // indeks cevaplanmışsa onun questionId değeriyle de doğru soru bulunabilir.
+        const indexedAnswer = answers[index];
+        const resumeQuestionId = currentQuestionId || indexedAnswer?.questionId;
+        const matchedIndex = resumeQuestionId
+            ? state.questions.findIndex((question) => question.id === resumeQuestionId)
+            : -1;
+        const fallbackIndex = Math.max(0, Math.min(index, Math.max(state.questions.length - 1, 0)));
+
+        return {
+            selectedAnswers,
+            currentIndex: matchedIndex >= 0 ? matchedIndex : fallbackIndex
+        };
     }),
 
     fetchAiExplanation: async (question, wrongAnswerIndex) => {

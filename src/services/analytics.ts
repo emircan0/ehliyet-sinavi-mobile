@@ -162,10 +162,8 @@ class AnalyticsService {
                 .insert(eventsToFlush);
 
             if (error) {
-                // Ignore 23505 (Unique violation) for some rows, but Supabase insert might fail entirely
-                // A better approach would be to ignore errors or handle them gracefully,
-                // but since these are analytics, we can clear the queue to prevent blocking if it's a hard error
                 console.warn("Analytics Flush Error:", error);
+                return;
             }
 
             // Remove flushed items from the active queue
@@ -180,6 +178,12 @@ class AnalyticsService {
         } finally {
             this.isFlushing = false;
         }
+    }
+
+    public async clearQueue() {
+        this.queue = [];
+        this.lastScreenViewed = null;
+        await AsyncStorage.removeItem(ANALYTICS_QUEUE_KEY);
     }
 
     public trackAppOpen() {

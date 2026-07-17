@@ -67,6 +67,7 @@ export class PurchaseService {
      * Initialize RevenueCat SDK
      */
     private static isInitialized = false;
+    private static initializationPromise: Promise<void> | null = null;
     private static isExpoGo = Constants.appOwnership === 'expo';
     private static listenerRegistered = false;
     private static customerInfoListener: ((customerInfo: CustomerInfo) => void) | null = null;
@@ -81,36 +82,47 @@ export class PurchaseService {
         }
 
         if (PurchaseService.isInitialized) return;
+        if (PurchaseService.initializationPromise) {
+            return PurchaseService.initializationPromise;
+        }
 
         if (!REVENUECAT_API_KEY) {
             console.warn("RevenueCat: API key is missing for this platform.");
             return;
         }
 
-        try {
-            const { data: { session } } = await supabase.auth.getSession();
+        PurchaseService.initializationPromise = (async () => {
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
 
-            Purchases.setLogLevel(LOG_LEVEL.VERBOSE);
-            await Purchases.configure({
-                apiKey: REVENUECAT_API_KEY,
-                appUserID: session?.user?.id,
-            });
-            PurchaseService.isInitialized = true;
-            console.log("RevenueCat initialized successfully");
-
-            if (!PurchaseService.listenerRegistered) {
-                // Set up real-time listener for purchase and subscription updates
-                Purchases.addCustomerInfoUpdateListener((customerInfo) => {
-                    console.log("RevenueCat: Real-time customerInfo update received");
-                    if (PurchaseService.customerInfoListener) {
-                        PurchaseService.customerInfoListener(customerInfo);
-                    }
+                Purchases.setLogLevel(LOG_LEVEL.VERBOSE);
+                await Purchases.configure({
+                    apiKey: REVENUECAT_API_KEY,
+                    appUserID: session?.user?.id,
                 });
-                PurchaseService.listenerRegistered = true;
+                PurchaseService.isInitialized = true;
+                console.log("RevenueCat initialized successfully");
+
+                if (!PurchaseService.listenerRegistered) {
+                    // Set up real-time listener for purchase and subscription updates
+                    Purchases.addCustomerInfoUpdateListener((customerInfo) => {
+                        console.log("RevenueCat: Real-time customerInfo update received");
+                        if (PurchaseService.customerInfoListener) {
+                            PurchaseService.customerInfoListener(customerInfo);
+                        }
+                    });
+                    PurchaseService.listenerRegistered = true;
+                }
+            } catch (error) {
+                console.error("RevenueCat initialization error:", error);
+                PurchaseService.isInitialized = false;
             }
-        } catch (error) {
-            console.error("RevenueCat initialization error:", error);
-            PurchaseService.isInitialized = false;
+        })();
+
+        try {
+            await PurchaseService.initializationPromise;
+        } finally {
+            PurchaseService.initializationPromise = null;
         }
     }
 

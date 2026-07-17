@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   supabase, 
   isUsingServiceRole, 
@@ -27,7 +27,20 @@ import {
   BarChart2,
   Upload,
   Download,
-  Shuffle
+  Shuffle,
+  Activity,
+  Users,
+  Target,
+  Clock3,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  CalendarRange,
+  Gauge,
+  Award,
+  UserCheck,
+  MousePointerClick,
+  RefreshCw
 } from 'lucide-react';
 
 interface Exam {
@@ -74,8 +87,121 @@ interface ReportedQuestion {
   exams: { id: string; title: string }[];
 }
 
+type AnalyticsRange = 7 | 30 | 90;
+
+interface DashboardKpis {
+  totalUsers: number;
+  newUsers: number;
+  activeUsers: number;
+  activeToday: number;
+  totalSolved: number;
+  avgAccuracy: number;
+  completedQuizzes: number;
+  avgScore: number;
+  passRate: number;
+  abandonmentRate: number;
+  avgDuration: number;
+  userGrowth: number;
+  activeGrowth: number;
+  quizGrowth: number;
+  scoreDelta: number;
+}
+
+interface ActivityPoint {
+  key: string;
+  label: string;
+  activeUsers: number;
+  quizzes: number;
+  answers: number;
+}
+
+interface CategoryPerformance {
+  category: string;
+  attempts: number;
+  avgScore: number;
+  passRate: number;
+  avgDuration: number;
+}
+
+interface FunnelStep {
+  label: string;
+  value: number;
+  conversion: number;
+}
+
+const numberFormatter = new Intl.NumberFormat('tr-TR');
+
+const formatCompactNumber = (value: number) => numberFormatter.format(Math.round(value));
+
+const percentageChange = (current: number, previous: number) => {
+  if (previous === 0) return current > 0 ? 100 : 0;
+  return Math.round(((current - previous) / previous) * 100);
+};
+
+const formatDuration = (seconds: number) => {
+  if (!seconds) return '0 sn';
+  if (seconds < 60) return `${seconds} sn`;
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return remainingSeconds > 0 ? `${minutes} dk ${remainingSeconds} sn` : `${minutes} dk`;
+};
+
+const getCategoryLabel = (category: string) => {
+  const labels: Record<string, string> = {
+    trafik: 'Trafik ve Çevre',
+    motor: 'Motor ve Araç Tekniği',
+    ilkyardim: 'İlk Yardım',
+    adap: 'Trafik Adabı',
+    general: 'Genel Deneme',
+    quick: 'Hızlı Pratik',
+    mistakes: 'Hata Tekrarı',
+    favorites: 'Favoriler'
+  };
+  return labels[category] || category || 'Diğer';
+};
+
+function TrendBadge({ value, suffix = '%' }: { value: number; suffix?: string }) {
+  const isPositive = value > 0;
+  const isNegative = value < 0;
+  const Icon = isPositive ? TrendingUp : isNegative ? TrendingDown : Minus;
+
+  return (
+    <span className={`trend-badge ${isPositive ? 'trend-positive' : isNegative ? 'trend-negative' : 'trend-neutral'}`}>
+      <Icon size={13} /> {Math.abs(value)}{suffix}
+    </span>
+  );
+}
+
+function MetricCard({
+  label,
+  value,
+  detail,
+  trend,
+  icon: Icon,
+  tone
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  trend?: number;
+  icon: React.ComponentType<{ size?: number; color?: string }>;
+  tone: 'violet' | 'cyan' | 'green' | 'amber' | 'rose' | 'blue';
+}) {
+  return (
+    <article className={`metric-card metric-${tone}`}>
+      <div className="metric-card-topline">
+        <span className="metric-icon"><Icon size={19} /></span>
+        {trend !== undefined && <TrendBadge value={trend} />}
+      </div>
+      <p className="metric-label">{label}</p>
+      <p className="metric-value">{value}</p>
+      <p className="metric-detail">{detail}</p>
+    </article>
+  );
+}
+
 function App() {
-  const [activeTab, setActiveTab] = useState<'exams' | 'pool' | 'analytics' | 'reported' | 'settings'>('exams');
+  const [activeTab, setActiveTab] = useState<'exams' | 'pool' | 'analytics' | 'reported' | 'settings'>('analytics');
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [exams, setExams] = useState<Exam[]>([]);
@@ -83,7 +209,30 @@ function App() {
 
   // Analytics States
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
-  const [kpis, setKpis] = useState({ totalUsers: 0, totalSolved: 0, avgAccuracy: 0, activeToday: 0 });
+  const [analyticsRange, setAnalyticsRange] = useState<AnalyticsRange>(30);
+  const [analyticsLastUpdated, setAnalyticsLastUpdated] = useState<Date | null>(null);
+  const [analyticsWarnings, setAnalyticsWarnings] = useState<string[]>([]);
+  const [kpis, setKpis] = useState<DashboardKpis>({
+    totalUsers: 0,
+    newUsers: 0,
+    activeUsers: 0,
+    activeToday: 0,
+    totalSolved: 0,
+    avgAccuracy: 0,
+    completedQuizzes: 0,
+    avgScore: 0,
+    passRate: 0,
+    abandonmentRate: 0,
+    avgDuration: 0,
+    userGrowth: 0,
+    activeGrowth: 0,
+    quizGrowth: 0,
+    scoreDelta: 0
+  });
+  const [activitySeries, setActivitySeries] = useState<ActivityPoint[]>([]);
+  const [categoryPerformance, setCategoryPerformance] = useState<CategoryPerformance[]>([]);
+  const [quizTypeStats, setQuizTypeStats] = useState<{ type: string; count: number; share: number }[]>([]);
+  const [funnelStats, setFunnelStats] = useState<FunnelStep[]>([]);
   const [userStatsList, setUserStatsList] = useState<any[]>([]);
   const [recentSolvedFeed, setRecentSolvedFeed] = useState<any[]>([]);
   const [hardestQuestionsList, setHardestQuestionsList] = useState<any[]>([]);
@@ -131,10 +280,10 @@ function App() {
   // Error/Success Message
   const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  const triggerAlert = (type: 'success' | 'error', message: string) => {
+  const triggerAlert = useCallback((type: 'success' | 'error', message: string) => {
     setAlert({ type, message });
     setTimeout(() => setAlert(null), 5000);
-  };
+  }, []);
 
   const getTimeAgo = (dateString: string | null) => {
     if (!dateString) return 'Hiç aktif olmadı';
@@ -162,19 +311,6 @@ function App() {
       minute: '2-digit'
     });
   };
-
-  useEffect(() => {
-    loadExams();
-    loadPoolQuestions();
-  }, []);
-
-  useEffect(() => {
-    if (activeTab === 'analytics') {
-      loadAnalyticsData();
-    } else if (activeTab === 'reported') {
-      loadReportedQuestions();
-    }
-  }, [activeTab]);
 
   const handleImportJson = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -460,35 +596,108 @@ function App() {
     }
   };
 
-  const loadAnalyticsData = async () => {
+  const loadAnalyticsData = useCallback(async () => {
     setAnalyticsLoading(true);
     try {
-      const { data: profiles, error: pError } = await supabase.from('profiles').select('*');
-      if (pError) throw pError;
-      
-      const { data: answers, error: aError } = await supabase.from('user_answers').select('*');
-      if (aError) throw aError;
-      
-      const { data: qs, error: qError } = await supabase.from('questions').select('id, content, category, difficulty');
-      if (qError) throw qError;
+      const now = Date.now();
+      const rangeMs = analyticsRange * 24 * 60 * 60 * 1000;
+      const periodStart = now - rangeMs;
+      const previousStart = periodStart - rangeMs;
+      const pageSize = 1000;
 
-      const profileList = profiles || [];
-      const answersList = answers || [];
-      const questionsList = qs || [];
+      const fetchAllRows = async <T,>(
+        table: string,
+        columns: string,
+        orderColumn: string,
+        since?: { column: string; value: string }
+      ): Promise<T[]> => {
+        const rows: T[] = [];
+
+        for (let page = 0; page < 100; page += 1) {
+          let query: any = supabase.from(table).select(columns);
+          if (since) query = query.gte(since.column, since.value);
+
+          const { data, error } = await query
+            .order(orderColumn, { ascending: true })
+            .range(page * pageSize, (page + 1) * pageSize - 1);
+
+          if (error) throw error;
+          const pageRows = (data || []) as T[];
+          rows.push(...pageRows);
+          if (pageRows.length < pageSize) break;
+        }
+
+        return rows;
+      };
+
+      const sourceWarnings: string[] = [];
+      const fetchOptionalRows = async <T,>(
+        sourceLabel: string,
+        table: string,
+        columns: string,
+        orderColumn: string,
+        since?: { column: string; value: string }
+      ) => {
+        try {
+          return await fetchAllRows<T>(table, columns, orderColumn, since);
+        } catch (error: any) {
+          const message = error.message || 'veri kaynağı okunamadı';
+          const isMissingTelemetryTable = table === 'analytics_events'
+            && (error.code === 'PGRST205' || message.includes("public.analytics_events"));
+
+          sourceWarnings.push(
+            isMissingTelemetryTable
+              ? 'Telemetry altyapısı henüz kurulmamış. analytics_events migration dosyasını Supabase projesine uygulayın.'
+              : `${sourceLabel}: ${message}`
+          );
+          return [] as T[];
+        }
+      };
+
+      const [profileList, answersList, questionsList, examResults, events] = await Promise.all([
+        fetchOptionalRows<any>('Kullanıcı profilleri', 'profiles', '*', 'id'),
+        fetchOptionalRows<any>('Cevap geçmişi', 'user_answers', 'user_id, question_id, selected_option, is_correct, solved_at', 'solved_at'),
+        fetchOptionalRows<any>('Soru bilgileri', 'questions', 'id, content, category, difficulty', 'id'),
+        fetchOptionalRows<any>(
+          'Quiz sonuçları',
+          'exam_results',
+          '*',
+          'created_at',
+          { column: 'created_at', value: new Date(previousStart).toISOString() }
+        ),
+        fetchOptionalRows<any>(
+          'Telemetry eventleri',
+          'analytics_events',
+          'id, user_id, event_name, screen_name, quiz_id, category, duration_seconds, created_at, metadata',
+          'created_at',
+          { column: 'created_at', value: new Date(previousStart).toISOString() }
+        )
+      ]);
+      setAnalyticsWarnings(sourceWarnings);
 
       let authUsers: any[] = [];
       if (isUsingServiceRole) {
         try {
-          const { data: authResult, error: authError } = await supabase.auth.admin.listUsers();
-          if (!authError && authResult) {
-            authUsers = authResult.users || [];
+          for (let page = 1; page <= 100; page += 1) {
+            const { data: authResult, error: authError } = await supabase.auth.admin.listUsers({ page, perPage: 1000 });
+            if (authError) throw authError;
+            const pageUsers = authResult?.users || [];
+            authUsers.push(...pageUsers);
+            if (pageUsers.length < 1000) break;
           }
         } catch (authErr) {
-          console.warn('Failed to load auth users (even with service role key):', authErr);
+          console.warn('Auth kullanıcıları yüklenemedi:', authErr);
         }
       }
 
-      const userMap: Record<string, { id: string; name: string; email: string; created_at: string; last_sign_in_at: string | null }> = {};
+      const userMap: Record<string, {
+        id: string;
+        name: string;
+        email: string;
+        created_at: string;
+        last_sign_in_at: string | null;
+        last_active_at: string | null;
+      }> = {};
       
       profileList.forEach(p => {
         userMap[p.id] = {
@@ -496,7 +705,8 @@ function App() {
           name: p.full_name || 'İsimsiz Sürücü',
           email: 'Bilinmiyor',
           created_at: p.created_at || '',
-          last_sign_in_at: null
+          last_sign_in_at: null,
+          last_active_at: p.last_active_at || null
         };
       });
 
@@ -512,32 +722,64 @@ function App() {
             name: u.user_metadata?.full_name || u.email?.split('@')[0] || 'İsimsiz Sürücü',
             email: u.email || 'Bilinmiyor',
             created_at: u.created_at || '',
-            last_sign_in_at: u.last_sign_in_at || null
+            last_sign_in_at: u.last_sign_in_at || null,
+            last_active_at: null
           };
         }
       });
 
+      const timestamp = (value: string | null | undefined) => {
+        if (!value) return 0;
+        const parsed = new Date(value).getTime();
+        return Number.isFinite(parsed) ? parsed : 0;
+      };
+      const inWindow = (value: string | null | undefined, start: number, end: number) => {
+        const valueTime = timestamp(value);
+        return valueTime >= start && valueTime < end;
+      };
+      const getResultDate = (result: any) => result.completed_at || result.created_at;
+
+      const answerStatsByUser: Record<string, { solved: number; correct: number; lastActivity: number }> = {};
+      answersList.forEach(answer => {
+        const current = answerStatsByUser[answer.user_id] || { solved: 0, correct: 0, lastActivity: 0 };
+        current.solved += 1;
+        if (answer.is_correct) current.correct += 1;
+        current.lastActivity = Math.max(current.lastActivity, timestamp(answer.solved_at));
+        answerStatsByUser[answer.user_id] = current;
+      });
+
+      const resultLastActivityByUser: Record<string, number> = {};
+      examResults.forEach(result => {
+        resultLastActivityByUser[result.user_id] = Math.max(
+          resultLastActivityByUser[result.user_id] || 0,
+          timestamp(getResultDate(result))
+        );
+      });
+
+      const eventLastActivityByUser: Record<string, number> = {};
+      events.forEach(event => {
+        if (!event.user_id) return;
+        eventLastActivityByUser[event.user_id] = Math.max(
+          eventLastActivityByUser[event.user_id] || 0,
+          timestamp(event.created_at)
+        );
+      });
+
       const stats = Object.values(userMap).map(user => {
-        const userAnswers = answersList.filter(a => a.user_id === user.id);
-        const solvedCount = userAnswers.length;
-        const correctCount = userAnswers.filter(a => a.is_correct).length;
+        const answerStats = answerStatsByUser[user.id] || { solved: 0, correct: 0, lastActivity: 0 };
+        const solvedCount = answerStats.solved;
+        const correctCount = answerStats.correct;
         const wrongCount = solvedCount - correctCount;
         const accuracy = solvedCount > 0 ? Math.round((correctCount / solvedCount) * 100) : 0;
-
-        let lastActivity: string | null = user.last_sign_in_at;
-        if (userAnswers.length > 0) {
-          const solvedDates = userAnswers.map(a => new Date(a.solved_at).getTime());
-          const maxSolvedTime = Math.max(...solvedDates);
-          const solvedDateStr = new Date(maxSolvedTime).toISOString();
-          
-          if (!lastActivity || new Date(solvedDateStr).getTime() > new Date(lastActivity).getTime()) {
-            lastActivity = solvedDateStr;
-          }
-        }
-
-        const isOnline = lastActivity 
-          ? (new Date().getTime() - new Date(lastActivity).getTime()) < (5 * 60 * 1000)
-          : false;
+        const lastActivityTime = Math.max(
+          timestamp(user.last_sign_in_at),
+          timestamp(user.last_active_at),
+          answerStats.lastActivity,
+          resultLastActivityByUser[user.id] || 0,
+          eventLastActivityByUser[user.id] || 0
+        );
+        const lastActivity = lastActivityTime > 0 ? new Date(lastActivityTime).toISOString() : null;
+        const isOnline = lastActivityTime > 0 && now - lastActivityTime < 5 * 60 * 1000;
 
         return {
           ...user,
@@ -559,20 +801,80 @@ function App() {
       setUserStatsList(stats);
 
       const totalUsers = Object.keys(userMap).length;
-      const totalSolved = answersList.length;
-      const correctAnswers = answersList.filter(a => a.is_correct).length;
+      const currentAnswers = answersList.filter(answer => inWindow(answer.solved_at, periodStart, now + 1));
+      const currentResults = examResults.filter(result => inWindow(getResultDate(result), periodStart, now + 1));
+      const previousResults = examResults.filter(result => inWindow(getResultDate(result), previousStart, periodStart));
+      const currentEvents = events.filter(event => inWindow(event.created_at, periodStart, now + 1));
+
+      const totalSolved = currentAnswers.length;
+      const correctAnswers = currentAnswers.filter(a => a.is_correct).length;
       const avgAccuracy = totalSolved > 0 ? Math.round((correctAnswers / totalSolved) * 100) : 0;
 
-      const activeTodayCount = stats.filter(u => {
-        if (!u.lastActivity) return false;
-        return (new Date().getTime() - new Date(u.lastActivity).getTime()) < (24 * 60 * 60 * 1000);
-      }).length;
+      const getActiveUsers = (start: number, end: number) => {
+        const activeIds = new Set<string>();
+        profileList.forEach(profile => {
+          if (inWindow(profile.last_active_at, start, end)) activeIds.add(profile.id);
+        });
+        answersList.forEach(answer => {
+          if (inWindow(answer.solved_at, start, end)) activeIds.add(answer.user_id);
+        });
+        examResults.forEach(result => {
+          if (inWindow(getResultDate(result), start, end)) activeIds.add(result.user_id);
+        });
+        events.forEach(event => {
+          if (event.user_id && inWindow(event.created_at, start, end)) activeIds.add(event.user_id);
+        });
+        return activeIds;
+      };
+
+      const activeUsers = getActiveUsers(periodStart, now + 1).size;
+      const previousActiveUsers = getActiveUsers(previousStart, periodStart).size;
+      const activeTodayCount = getActiveUsers(now - 24 * 60 * 60 * 1000, now + 1).size;
+      const newUsers = Object.values(userMap).filter(user => inWindow(user.created_at, periodStart, now + 1)).length;
+      const previousNewUsers = Object.values(userMap).filter(user => inWindow(user.created_at, previousStart, periodStart)).length;
+      const avgScore = currentResults.length > 0
+        ? Math.round(currentResults.reduce((sum, result) => sum + Number(result.score || 0), 0) / currentResults.length)
+        : 0;
+      const previousAvgScore = previousResults.length > 0
+        ? Math.round(previousResults.reduce((sum, result) => sum + Number(result.score || 0), 0) / previousResults.length)
+        : 0;
+      const passRate = currentResults.length > 0
+        ? Math.round((currentResults.filter(result => Number(result.score || 0) >= 70).length / currentResults.length) * 100)
+        : 0;
+      const completedDurations = currentResults
+        .map(result => Number(result.duration_seconds || 0))
+        .filter(duration => duration > 0);
+      const completedEventDurations = currentEvents
+        .filter(event => event.event_name === 'quiz_completed')
+        .map(event => Number(event.duration_seconds || 0))
+        .filter(duration => duration > 0);
+      const durationSource = completedDurations.length > 0 ? completedDurations : completedEventDurations;
+      const avgDuration = durationSource.length > 0
+        ? Math.round(durationSource.reduce((sum, duration) => sum + duration, 0) / durationSource.length)
+        : 0;
+      const startedQuizzes = currentEvents.filter(event => event.event_name === 'quiz_started').length;
+      const abandonedQuizzes = currentEvents.filter(event => event.event_name === 'quiz_abandoned').length;
+      const abandonmentDenominator = startedQuizzes || currentResults.length + abandonedQuizzes;
+      const abandonmentRate = abandonmentDenominator > 0
+        ? Math.round((abandonedQuizzes / abandonmentDenominator) * 100)
+        : 0;
 
       setKpis({
         totalUsers,
+        newUsers,
+        activeUsers,
+        activeToday: activeTodayCount,
         totalSolved,
         avgAccuracy,
-        activeToday: activeTodayCount
+        completedQuizzes: currentResults.length,
+        avgScore,
+        passRate,
+        abandonmentRate,
+        avgDuration,
+        userGrowth: percentageChange(newUsers, previousNewUsers),
+        activeGrowth: percentageChange(activeUsers, previousActiveUsers),
+        quizGrowth: percentageChange(currentResults.length, previousResults.length),
+        scoreDelta: avgScore - previousAvgScore
       });
 
       const recentAttempts = [...answersList]
@@ -625,84 +927,157 @@ function App() {
 
       setHardestQuestionsList(hardest);
 
-      // --- FETCH TELEMETRY DATA ---
-      const { data: events, error: eError } = await supabase
-        .from('analytics_events')
-        .select('*')
-        .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()); // last 30 days
+      const bucketDays = analyticsRange === 90 ? 7 : 1;
+      const bucketMs = bucketDays * 24 * 60 * 60 * 1000;
+      const bucketCount = Math.ceil(analyticsRange / bucketDays);
+      const series: ActivityPoint[] = [];
 
-      if (!eError && events) {
-        // DAU: Unique users with 'app_opened' in last 24h
-        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-        const dauUsers = new Set(
-          events
-            .filter(e => e.event_name === 'app_opened' && e.created_at >= oneDayAgo && e.user_id)
-            .map(e => e.user_id)
-        );
-        
-        // Merge with legacy active today count to prevent visual inconsistency
-        let combinedDau = activeTodayCount;
-        if (dauUsers.size > activeTodayCount) {
-          combinedDau = dauUsers.size;
-        }
+      for (let index = 0; index < bucketCount; index += 1) {
+        const bucketStart = periodStart + index * bucketMs;
+        const bucketEnd = Math.min(bucketStart + bucketMs, now + 1);
+        const bucketActiveUsers = new Set<string>();
 
-        // Avg Quiz Duration
-        const completedQuizzes = events.filter(e => e.event_name === 'quiz_completed' && e.duration_seconds != null);
-        const avgDuration = completedQuizzes.length > 0 
-          ? Math.round(completedQuizzes.reduce((acc, e) => acc + (e.duration_seconds || 0), 0) / completedQuizzes.length)
-          : 0;
-
-        // Abandoned Quizzes by Category
-        const abandons = events.filter(e => e.event_name === 'quiz_abandoned' && e.category);
-        const abandonMap: Record<string, number> = {};
-        abandons.forEach(e => {
-          if (e.category) {
-            abandonMap[e.category] = (abandonMap[e.category] || 0) + 1;
-          }
+        profileList.forEach(profile => {
+          if (inWindow(profile.last_active_at, bucketStart, bucketEnd)) bucketActiveUsers.add(profile.id);
         });
-        const abandonStats = Object.entries(abandonMap)
-          .map(([category, count]) => ({ category, count }))
-          .sort((a, b) => b.count - a.count);
-
-        // Top Screens
-        const screens = events.filter(e => e.event_name === 'screen_viewed' && e.screen_name);
-        const screenMap: Record<string, number> = {};
-        screens.forEach(e => {
-          if (e.screen_name) {
-            screenMap[e.screen_name] = (screenMap[e.screen_name] || 0) + 1;
-          }
+        currentAnswers.forEach(answer => {
+          if (inWindow(answer.solved_at, bucketStart, bucketEnd)) bucketActiveUsers.add(answer.user_id);
         });
-        const topScreens = Object.entries(screenMap)
-          .map(([screen, count]) => ({ screen, count }))
-          .sort((a, b) => b.count - a.count)
-          .slice(0, 5);
-
-        // License Types from Profiles
-        const licenseMap: Record<string, number> = {};
-        profileList.forEach(p => {
-          if (p.license_type) {
-            licenseMap[p.license_type] = (licenseMap[p.license_type] || 0) + 1;
-          }
+        currentResults.forEach(result => {
+          if (inWindow(getResultDate(result), bucketStart, bucketEnd)) bucketActiveUsers.add(result.user_id);
         });
-        const licenseStats = Object.entries(licenseMap)
-          .map(([license, count]) => ({ license, count }))
-          .sort((a, b) => b.count - a.count);
+        currentEvents.forEach(event => {
+          if (event.user_id && inWindow(event.created_at, bucketStart, bucketEnd)) bucketActiveUsers.add(event.user_id);
+        });
 
-        setTelemetry({
-          dau: combinedDau,
-          avgDuration,
-          licenseStats,
-          abandonStats,
-          topScreens
+        const startDate = new Date(bucketStart);
+        const label = startDate.toLocaleDateString('tr-TR', {
+          day: '2-digit',
+          month: bucketDays > 1 ? 'short' : '2-digit'
+        });
+        series.push({
+          key: new Date(bucketStart).toISOString(),
+          label,
+          activeUsers: bucketActiveUsers.size,
+          quizzes: currentResults.filter(result => inWindow(getResultDate(result), bucketStart, bucketEnd)).length,
+          answers: currentAnswers.filter(answer => inWindow(answer.solved_at, bucketStart, bucketEnd)).length
         });
       }
+      setActivitySeries(series);
+
+      const categoryMap: Record<string, { attempts: number; score: number; passed: number; duration: number; timed: number }> = {};
+      currentResults.forEach(result => {
+        const category = result.category || 'other';
+        const current = categoryMap[category] || { attempts: 0, score: 0, passed: 0, duration: 0, timed: 0 };
+        const score = Number(result.score || 0);
+        const duration = Number(result.duration_seconds || 0);
+        current.attempts += 1;
+        current.score += score;
+        if (score >= 70) current.passed += 1;
+        if (duration > 0) {
+          current.duration += duration;
+          current.timed += 1;
+        }
+        categoryMap[category] = current;
+      });
+      setCategoryPerformance(
+        Object.entries(categoryMap)
+          .map(([category, values]) => ({
+            category,
+            attempts: values.attempts,
+            avgScore: Math.round(values.score / values.attempts),
+            passRate: Math.round((values.passed / values.attempts) * 100),
+            avgDuration: values.timed > 0 ? Math.round(values.duration / values.timed) : 0
+          }))
+          .sort((a, b) => b.attempts - a.attempts)
+      );
+
+      const quizTypeMap: Record<string, number> = {};
+      currentResults.forEach(result => {
+        const type = result.quiz_type || 'other';
+        quizTypeMap[type] = (quizTypeMap[type] || 0) + 1;
+      });
+      setQuizTypeStats(
+        Object.entries(quizTypeMap)
+          .map(([type, count]) => ({
+            type,
+            count,
+            share: currentResults.length > 0 ? Math.round((count / currentResults.length) * 100) : 0
+          }))
+          .sort((a, b) => b.count - a.count)
+      );
+
+      const uniqueAudience = (eventName: string) => {
+        const matchingEvents = currentEvents.filter(event => event.event_name === eventName);
+        const audience = new Set(matchingEvents.map(event => event.user_id || `anon-${event.id}`));
+        return audience.size;
+      };
+      const funnelValues = [
+        { label: 'Uygulamayı Açan', value: uniqueAudience('app_opened') },
+        { label: 'Quiz Başlatan', value: uniqueAudience('quiz_started') },
+        { label: 'Quiz Tamamlayan', value: uniqueAudience('quiz_completed') },
+        { label: 'Premium Ekranı', value: uniqueAudience('premium_screen_viewed') },
+        { label: 'Satın Alma', value: uniqueAudience('purchase_completed') }
+      ];
+      const funnelBase = Math.max(funnelValues[0].value, funnelValues[1].value, 1);
+      setFunnelStats(funnelValues.map(step => ({
+        ...step,
+        conversion: Math.min(100, Math.round((step.value / funnelBase) * 100))
+      })));
+
+      const abandonMap: Record<string, number> = {};
+      currentEvents
+        .filter(event => event.event_name === 'quiz_abandoned')
+        .forEach(event => {
+          const category = event.category || event.quiz_id || 'other';
+          abandonMap[category] = (abandonMap[category] || 0) + 1;
+        });
+      const abandonStats = Object.entries(abandonMap)
+        .map(([category, count]) => ({ category, count }))
+        .sort((a, b) => b.count - a.count);
+
+      const screenMap: Record<string, number> = {};
+      currentEvents
+        .filter(event => event.event_name === 'screen_viewed' && event.screen_name)
+        .forEach(event => {
+          screenMap[event.screen_name] = (screenMap[event.screen_name] || 0) + 1;
+        });
+      const topScreens = Object.entries(screenMap)
+        .map(([screen, count]) => ({ screen, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 8);
+
+      const licenseMap: Record<string, number> = {};
+      profileList.forEach(profile => {
+        if (profile.license_type) {
+          licenseMap[profile.license_type] = (licenseMap[profile.license_type] || 0) + 1;
+        }
+      });
+      const licenseStats = Object.entries(licenseMap)
+        .map(([license, count]) => ({ license, count }))
+        .sort((a, b) => b.count - a.count);
+
+      setTelemetry({
+        dau: activeTodayCount,
+        avgDuration,
+        licenseStats,
+        abandonStats,
+        topScreens
+      });
+      setAnalyticsLastUpdated(new Date());
 
     } catch (err: any) {
       triggerAlert('error', `Analiz verileri yüklenirken hata: ${err.message}`);
     } finally {
       setAnalyticsLoading(false);
     }
-  };
+  }, [analyticsRange, triggerAlert]);
+
+  useEffect(() => {
+    if (activeTab === 'analytics') {
+      loadAnalyticsData();
+    }
+  }, [activeTab, loadAnalyticsData]);
 
   // Fetch all exams
   const loadExams = async () => {
@@ -1456,33 +1831,33 @@ function App() {
         </div>
 
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
+          <button
+            onClick={() => setActiveTab('analytics')}
+            className={`btn ${activeTab === 'analytics' ? 'btn-primary' : 'btn-ghost'}`}
+            style={{ justifyContent: 'flex-start', width: '100%' }}
+          >
+            <Activity size={18} /> Dashboard
+          </button>
           <button 
-            onClick={() => { setActiveTab('exams'); handleBackToExams(); }}
+            onClick={() => { setActiveTab('exams'); handleBackToExams(); loadExams(); }}
             className={`btn ${activeTab === 'exams' ? 'btn-primary' : 'btn-ghost'}`}
             style={{ justifyContent: 'flex-start', width: '100%' }}
           >
             <Database size={18} /> Sınavlar
           </button>
           <button 
-            onClick={() => setActiveTab('pool')}
+            onClick={() => { setActiveTab('pool'); loadPoolQuestions(); }}
             className={`btn ${activeTab === 'pool' ? 'btn-primary' : 'btn-ghost'}`}
             style={{ justifyContent: 'flex-start', width: '100%' }}
           >
             <HelpCircle size={18} /> Soru Havuzu
           </button>
           <button 
-            onClick={() => setActiveTab('reported')}
+            onClick={() => { setActiveTab('reported'); loadReportedQuestions(); }}
             className={`btn ${activeTab === 'reported' ? 'btn-primary' : 'btn-ghost'}`}
             style={{ justifyContent: 'flex-start', width: '100%' }}
           >
             <AlertCircle size={18} /> Raporlananlar
-          </button>
-          <button 
-            onClick={() => setActiveTab('analytics')}
-            className={`btn ${activeTab === 'analytics' ? 'btn-primary' : 'btn-ghost'}`}
-            style={{ justifyContent: 'flex-start', width: '100%' }}
-          >
-            <BarChart2 size={18} /> Analizler
           </button>
           <button 
             onClick={() => setActiveTab('settings')}
@@ -1997,154 +2372,371 @@ function App() {
         )}
 
         {activeTab === 'analytics' && (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+          <section className="dashboard-page">
+            <header className="dashboard-header">
               <div>
-                <h2 style={{ fontSize: '1.75rem', fontWeight: 700 }}>Detaylı Kullanıcı ve Soru Analizleri</h2>
-                <p style={{ color: 'var(--text-secondary)' }}>Uygulama kullanım istatistiklerini, çözülen soru analizlerini ve aktif kullanıcı durumlarını takip edin.</p>
+                <div className="dashboard-eyebrow"><Activity size={15} /> Canlı operasyon görünümü</div>
+                <h2>Ürün ve Kullanıcı Dashboard'u</h2>
+                <p>Kullanıcı aktivitesi, öğrenme performansı ve dönüşüm sinyallerini tek ekrandan izleyin.</p>
+                {analyticsLastUpdated && (
+                  <span className="last-updated">
+                    Son güncelleme: {analyticsLastUpdated.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                )}
               </div>
-              <button 
-                onClick={loadAnalyticsData}
-                disabled={analyticsLoading}
-                className="btn btn-secondary"
-                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-              >
-                {analyticsLoading ? <Loader2 className="spinner" style={{ width: '16px', height: '16px' }} /> : 'Verileri Yenile'}
-              </button>
-            </div>
+              <div className="dashboard-actions">
+                <div className="range-selector" aria-label="Analiz zaman aralığı">
+                  {([7, 30, 90] as AnalyticsRange[]).map(range => (
+                    <button
+                      key={range}
+                      onClick={() => setAnalyticsRange(range)}
+                      className={'range-button ' + (analyticsRange === range ? 'range-button-active' : '')}
+                    >
+                      {range} gün
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={loadAnalyticsData}
+                  disabled={analyticsLoading}
+                  className="btn btn-secondary refresh-button"
+                >
+                  {analyticsLoading
+                    ? <Loader2 className="spinner" style={{ width: '16px', height: '16px' }} />
+                    : <RefreshCw size={16} />}
+                  Yenile
+                </button>
+              </div>
+            </header>
 
-            {/* Warning if no service role key */}
             {!isUsingServiceRole && (
-              <div className="glass-panel" style={{ padding: '1rem', display: 'flex', alignItems: 'center', gap: '1rem', borderLeft: '4px solid var(--color-warning)', marginBottom: '1.5rem', background: 'rgba(245, 158, 11, 0.05)' }}>
-                <ShieldAlert size={20} color="var(--color-warning)" />
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                  <strong>Kısıtlı Görünüm (Anon Key):</strong> Son Giriş zamanı (last login) ve kullanıcı e-postaları gibi gizli bilgileri görebilmek için 
-                  <strong> Ayarlar</strong> sekmesinden <strong>Service Role Key</strong> tanımlamanız gerekmektedir. Şu anki veriler profil kayıtlarından çekilmektedir.
-                </p>
+              <div className="analytics-warning">
+                <ShieldAlert size={20} />
+                <div>
+                  <strong>Kısıtlı görünüm</strong>
+                  <p>Anon anahtar RLS nedeniyle kullanıcı ve aktivite verilerini boş gösterebilir. Tam dashboard için Ayarlar bölümünde yönetici yetkisi gerekir.</p>
+                </div>
+              </div>
+            )}
+
+            {analyticsWarnings.length > 0 && (
+              <div className="data-source-warning">
+                <AlertCircle size={19} />
+                <div>
+                  <strong>Bazı analiz kaynakları kullanılamıyor</strong>
+                  <p>{analyticsWarnings.join(' · ')}</p>
+                </div>
               </div>
             )}
 
             {analyticsLoading ? (
-              <div style={{ display: 'flex', justifyContent: 'center', padding: '6rem' }}>
+              <div className="dashboard-loading">
                 <Loader2 className="spinner" />
+                <p>Dashboard verileri hazırlanıyor...</p>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
-                {/* KPI Grid */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: '1.5rem' }}>
-                  <div className="glass-panel" style={{ padding: '1.5rem', textAlign: 'center' }}>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase', marginBottom: '0.5rem' }}>Toplam Kullanıcı</p>
-                    <p style={{ fontSize: '2.25rem', fontWeight: 700, color: 'var(--color-primary-light)' }}>{kpis.totalUsers}</p>
-                  </div>
-                  <div className="glass-panel" style={{ padding: '1.5rem', textAlign: 'center' }}>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase', marginBottom: '0.5rem' }}>DAU (Günlük Aktif)</p>
-                    <p style={{ fontSize: '2.25rem', fontWeight: 700, color: 'var(--color-secondary)' }}>{telemetry.dau}</p>
-                  </div>
-                  <div className="glass-panel" style={{ padding: '1.5rem', textAlign: 'center' }}>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase', marginBottom: '0.5rem' }}>Çözülen Soru</p>
-                    <p style={{ fontSize: '2.25rem', fontWeight: 700, color: 'var(--color-success)' }}>{kpis.totalSolved}</p>
-                  </div>
-                  <div className="glass-panel" style={{ padding: '1.5rem', textAlign: 'center' }}>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase', marginBottom: '0.5rem' }}>Ort. Sınav Süresi</p>
-                    <p style={{ fontSize: '2.25rem', fontWeight: 700, color: 'var(--color-warning)' }}>{telemetry.avgDuration} sn</p>
-                  </div>
+              <>
+                <div className="metric-grid">
+                  <MetricCard
+                    label="Toplam kullanıcı"
+                    value={formatCompactNumber(kpis.totalUsers)}
+                    detail={'Bu dönemde +' + formatCompactNumber(kpis.newUsers) + ' yeni kayıt'}
+                    trend={kpis.userGrowth}
+                    icon={Users}
+                    tone="violet"
+                  />
+                  <MetricCard
+                    label="Aktif kullanıcı"
+                    value={formatCompactNumber(kpis.activeUsers)}
+                    detail={'Son 24 saatte ' + formatCompactNumber(kpis.activeToday) + ' kullanıcı'}
+                    trend={kpis.activeGrowth}
+                    icon={Activity}
+                    tone="cyan"
+                  />
+                  <MetricCard
+                    label="Tamamlanan quiz"
+                    value={formatCompactNumber(kpis.completedQuizzes)}
+                    detail={'Seçili ' + analyticsRange + ' günlük dönem'}
+                    trend={kpis.quizGrowth}
+                    icon={Target}
+                    tone="green"
+                  />
+                  <MetricCard
+                    label="Ortalama skor"
+                    value={'%' + kpis.avgScore}
+                    detail={'Geçme oranı %' + kpis.passRate}
+                    trend={kpis.scoreDelta}
+                    icon={Award}
+                    tone="amber"
+                  />
+                  <MetricCard
+                    label="Cevap doğruluğu"
+                    value={'%' + kpis.avgAccuracy}
+                    detail={formatCompactNumber(kpis.totalSolved) + ' güncel cevap kaydı'}
+                    icon={Gauge}
+                    tone="blue"
+                  />
+                  <MetricCard
+                    label="Terk oranı"
+                    value={'%' + kpis.abandonmentRate}
+                    detail={'Ort. süre ' + formatDuration(kpis.avgDuration)}
+                    icon={Clock3}
+                    tone="rose"
+                  />
                 </div>
 
-                {/* Telemetry Extra Metrics Grid */}
-                <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
-                  
-                  {/* License Target Distribution */}
-                  <div className="glass-panel" style={{ flex: 1, minWidth: '300px', padding: '1.5rem' }}>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '1rem', borderBottom: '1px solid var(--border-primary)', paddingBottom: '0.5rem' }}>Ehliyet Hedefi Dağılımı</h3>
-                    {telemetry.licenseStats.length > 0 ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                        {telemetry.licenseStats.map((l, i) => (
-                          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Sınıf {l.license}</span>
-                            <span className="badge badge-primary">{l.count} Kullanıcı</span>
-                          </div>
-                        ))}
+                <div className="dashboard-grid dashboard-grid-activity">
+                  <article className="dashboard-panel activity-panel">
+                    <div className="panel-header">
+                      <div>
+                        <span className="panel-kicker">Zaman serisi</span>
+                        <h3>Aktivite ve quiz hacmi</h3>
                       </div>
+                      <div className="chart-legend">
+                        <span><i className="legend-active"></i> Aktif kullanıcı</span>
+                        <span><i className="legend-quiz"></i> Quiz</span>
+                      </div>
+                    </div>
+                    {activitySeries.length === 0 ? (
+                      <div className="dashboard-empty">Bu dönem için aktivite verisi bulunamadı.</div>
                     ) : (
-                      <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Veri bulunmuyor</p>
+                      <div className="activity-chart" role="img" aria-label="Aktif kullanıcı ve quiz zaman serisi">
+                        {activitySeries.map(point => {
+                          const maxValue = Math.max(
+                            1,
+                            ...activitySeries.flatMap(item => [item.activeUsers, item.quizzes])
+                          );
+                          return (
+                            <div
+                              className="activity-column"
+                              key={point.key}
+                              title={point.label + ': ' + point.activeUsers + ' aktif, ' + point.quizzes + ' quiz, ' + point.answers + ' cevap'}
+                            >
+                              <div className="activity-bars">
+                                <span
+                                  className="activity-bar activity-bar-users"
+                                  style={{ height: Math.max(4, Math.round((point.activeUsers / maxValue) * 100)) + '%' }}
+                                ></span>
+                                <span
+                                  className="activity-bar activity-bar-quizzes"
+                                  style={{ height: Math.max(4, Math.round((point.quizzes / maxValue) * 100)) + '%' }}
+                                ></span>
+                              </div>
+                              <span className="activity-label">{point.label}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
                     )}
-                  </div>
+                  </article>
 
-                  {/* Abandoned Categories */}
-                  <div className="glass-panel" style={{ flex: 1, minWidth: '300px', padding: '1.5rem' }}>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '1rem', borderBottom: '1px solid var(--border-primary)', paddingBottom: '0.5rem', color: 'var(--color-danger)' }}>En Çok Terk Edilen Sınavlar</h3>
-                    {telemetry.abandonStats.length > 0 ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                        {telemetry.abandonStats.map((a, i) => (
-                          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{a.category}</span>
-                            <span className="badge badge-danger">{a.count} Terk</span>
-                          </div>
-                        ))}
+                  <article className="dashboard-panel health-panel">
+                    <div className="panel-header">
+                      <div>
+                        <span className="panel-kicker">Dönem özeti</span>
+                        <h3>Ürün sağlığı</h3>
                       </div>
-                    ) : (
-                      <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Terk edilen sınav yok</p>
-                    )}
-                  </div>
-
-                  {/* Top Screens */}
-                  <div className="glass-panel" style={{ flex: 1, minWidth: '300px', padding: '1.5rem' }}>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '1rem', borderBottom: '1px solid var(--border-primary)', paddingBottom: '0.5rem' }}>En Çok Ziyaret Edilen Ekranlar</h3>
-                    {telemetry.topScreens.length > 0 ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                        {telemetry.topScreens.map((s, i) => (
-                          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{s.screen}</span>
-                            <span className="badge badge-secondary">{s.count} Görüntülenme</span>
-                          </div>
-                        ))}
+                      <Gauge size={20} color="var(--color-secondary)" />
+                    </div>
+                    <div className="health-score">
+                      <div className="health-ring" style={{ '--health-value': Math.max(0, Math.min(100, kpis.avgScore)) } as React.CSSProperties}>
+                        <span>{kpis.avgScore}</span>
+                        <small>/100</small>
                       </div>
-                    ) : (
-                      <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Ekran verisi bulunmuyor</p>
-                    )}
-                  </div>
+                      <div>
+                        <strong>{kpis.avgScore >= 70 ? 'Sağlıklı performans' : kpis.avgScore > 0 ? 'Gelişim alanı var' : 'Veri bekleniyor'}</strong>
+                        <p>Quiz sonuçlarının ağırlıksız ortalama skoru.</p>
+                      </div>
+                    </div>
+                    <div className="health-list">
+                      <div><span>Geçme oranı</span><strong className="text-success">%{kpis.passRate}</strong></div>
+                      <div><span>Terk oranı</span><strong className="text-danger">%{kpis.abandonmentRate}</strong></div>
+                      <div><span>Ort. tamamlama</span><strong>{formatDuration(kpis.avgDuration)}</strong></div>
+                      <div><span>Günlük aktif</span><strong>{formatCompactNumber(kpis.activeToday)}</strong></div>
+                    </div>
+                  </article>
                 </div>
 
-                {/* Split Dashboard */}
-                <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                  {/* Left: User list directory */}
-                  <div className="glass-panel" style={{ flex: 2, minWidth: '350px', padding: '1.5rem' }}>
-                    <h3 style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: '1rem', borderBottom: '1px solid var(--border-primary)', paddingBottom: '0.5rem' }}>Kullanıcı Durumları</h3>
-                    <div style={{ overflowX: 'auto' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem', textAlign: 'left' }}>
+                <div className="dashboard-grid dashboard-grid-equal">
+                  <article className="dashboard-panel">
+                    <div className="panel-header">
+                      <div>
+                        <span className="panel-kicker">Öğrenme kalitesi</span>
+                        <h3>Kategori performansı</h3>
+                      </div>
+                      <Target size={20} color="var(--color-success)" />
+                    </div>
+                    {categoryPerformance.length === 0 ? (
+                      <div className="dashboard-empty">Bu dönemde tamamlanan quiz bulunamadı.</div>
+                    ) : (
+                      <div className="category-table">
+                        <div className="category-row category-row-head">
+                          <span>Kategori</span><span>Quiz</span><span>Ort. skor</span><span>Geçme</span>
+                        </div>
+                        {categoryPerformance.map(category => (
+                          <div className="category-row" key={category.category}>
+                            <div>
+                              <strong>{getCategoryLabel(category.category)}</strong>
+                              <small>{formatDuration(category.avgDuration)} ortalama</small>
+                            </div>
+                            <span>{formatCompactNumber(category.attempts)}</span>
+                            <span className="score-cell">
+                              <i style={{ width: Math.min(100, category.avgScore) + '%' }}></i>
+                              %{category.avgScore}
+                            </span>
+                            <span className={category.passRate >= 70 ? 'text-success' : 'text-warning'}>%{category.passRate}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </article>
+
+                  <article className="dashboard-panel">
+                    <div className="panel-header">
+                      <div>
+                        <span className="panel-kicker">Kullanıcı yolculuğu</span>
+                        <h3>Etkileşim hunisi</h3>
+                      </div>
+                      <MousePointerClick size={20} color="var(--color-primary-light)" />
+                    </div>
+                    {funnelStats.every(step => step.value === 0) ? (
+                      <div className="dashboard-empty">Bu dönem için funnel eventi bulunamadı.</div>
+                    ) : (
+                      <div className="funnel-list">
+                        {funnelStats.map((step, index) => (
+                          <div className="funnel-step" key={step.label}>
+                            <div className="funnel-copy">
+                              <span><b>{index + 1}</b>{step.label}</span>
+                              <strong>{formatCompactNumber(step.value)} <small>%{step.conversion}</small></strong>
+                            </div>
+                            <div className="funnel-track">
+                              <i style={{ width: Math.max(3, step.conversion) + '%' }}></i>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </article>
+                </div>
+
+                <div className="dashboard-grid dashboard-grid-three">
+                  <article className="dashboard-panel compact-panel">
+                    <div className="panel-header">
+                      <div>
+                        <span className="panel-kicker">İçerik keşfi</span>
+                        <h3>En çok ziyaret edilen ekranlar</h3>
+                      </div>
+                      <BarChart2 size={19} />
+                    </div>
+                    {telemetry.topScreens.length === 0 ? (
+                      <div className="dashboard-empty">Ekran görüntüleme verisi yok.</div>
+                    ) : (
+                      <div className="rank-list">
+                        {telemetry.topScreens.map((screen, index) => {
+                          const maxViews = Math.max(1, ...telemetry.topScreens.map(item => item.count));
+                          return (
+                            <div className="rank-item" key={screen.screen}>
+                              <span className="rank-number">{index + 1}</span>
+                              <div>
+                                <div><strong>{screen.screen}</strong><span>{formatCompactNumber(screen.count)}</span></div>
+                                <i><b style={{ width: Math.round((screen.count / maxViews) * 100) + '%' }}></b></i>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </article>
+
+                  <article className="dashboard-panel compact-panel">
+                    <div className="panel-header">
+                      <div>
+                        <span className="panel-kicker">Quiz davranışı</span>
+                        <h3>Quiz türü dağılımı</h3>
+                      </div>
+                      <CalendarRange size={19} />
+                    </div>
+                    {quizTypeStats.length === 0 ? (
+                      <div className="dashboard-empty">Quiz türü verisi yok.</div>
+                    ) : (
+                      <div className="distribution-list">
+                        {quizTypeStats.map(item => (
+                          <div key={item.type}>
+                            <div><strong>{getCategoryLabel(item.type)}</strong><span>{item.count} · %{item.share}</span></div>
+                            <i><b style={{ width: item.share + '%' }}></b></i>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </article>
+
+                  <article className="dashboard-panel compact-panel">
+                    <div className="panel-header">
+                      <div>
+                        <span className="panel-kicker">Kullanıcı profili</span>
+                        <h3>Ehliyet hedefi</h3>
+                      </div>
+                      <UserCheck size={19} />
+                    </div>
+                    {telemetry.licenseStats.length === 0 ? (
+                      <div className="dashboard-empty">Profil hedefi verisi yok.</div>
+                    ) : (
+                      <div className="distribution-list">
+                        {telemetry.licenseStats.map(item => {
+                          const maxLicense = Math.max(1, ...telemetry.licenseStats.map(entry => entry.count));
+                          return (
+                            <div key={item.license}>
+                              <div><strong>Sınıf {item.license}</strong><span>{item.count} kullanıcı</span></div>
+                              <i><b style={{ width: Math.round((item.count / maxLicense) * 100) + '%' }}></b></i>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </article>
+                </div>
+
+                <div className="dashboard-grid dashboard-grid-users">
+                  <article className="dashboard-panel user-directory">
+                    <div className="panel-header">
+                      <div>
+                        <span className="panel-kicker">Kullanıcı dizini</span>
+                        <h3>Aktivite ve başarı durumu</h3>
+                      </div>
+                      <span className="panel-count">{userStatsList.length} kullanıcı</span>
+                    </div>
+                    <div className="table-scroll">
+                      <table className="analytics-table">
                         <thead>
-                          <tr style={{ borderBottom: '1px solid var(--border-primary)', color: 'var(--text-muted)' }}>
-                            <th style={{ padding: '0.75rem 0.5rem' }}>Kullanıcı</th>
-                            <th style={{ padding: '0.75rem 0.5rem' }}>Durum</th>
-                            <th style={{ padding: '0.75rem 0.5rem' }}>Son Aktivite</th>
-                            <th style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>Çözülen</th>
-                            <th style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>Başarı</th>
+                          <tr>
+                            <th>Kullanıcı</th>
+                            <th>Durum</th>
+                            <th>Son aktivite</th>
+                            <th className="align-center">Cevap</th>
+                            <th className="align-center">Doğruluk</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {userStatsList.map(u => (
-                            <tr key={u.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                              <td style={{ padding: '0.75rem 0.5rem' }}>
-                                <div style={{ fontWeight: 600 }}>{u.name}</div>
-                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{u.email}</div>
+                          {userStatsList.length === 0 ? (
+                            <tr><td colSpan={5}><div className="dashboard-empty">Kullanıcı verisi bulunamadı.</div></td></tr>
+                          ) : userStatsList.slice(0, 100).map(user => (
+                            <tr key={user.id}>
+                              <td>
+                                <div className="user-cell">
+                                  <span className="user-avatar">{user.name.slice(0, 1).toUpperCase()}</span>
+                                  <div><strong>{user.name}</strong><small>{user.email}</small></div>
+                                </div>
                               </td>
-                              <td style={{ padding: '0.75rem 0.5rem' }}>
-                                {u.isOnline ? (
-                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--color-success)', fontWeight: 600, fontSize: '0.8rem' }}>
-                                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--color-success)', display: 'inline-block', boxShadow: '0 0 8px var(--color-success)' }}></span>
-                                    Çevrimiçi
-                                  </span>
-                                ) : (
-                                  <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Çevrimdışı</span>
-                                )}
+                              <td>
+                                <span className={'presence ' + (user.isOnline ? 'presence-online' : '')}>
+                                  <i></i>{user.isOnline ? 'Çevrimiçi' : 'Çevrimdışı'}
+                                </span>
                               </td>
-                              <td style={{ padding: '0.75rem 0.5rem', fontSize: '0.8rem' }}>
-                                {getTimeAgo(u.lastActivity)}
-                              </td>
-                              <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center', fontWeight: 600 }}>{u.solvedCount}</td>
-                              <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>
-                                <span className={`badge ${u.accuracy >= 70 ? 'badge-success' : u.accuracy >= 40 ? 'badge-warning' : 'badge-danger'}`}>
-                                  %{u.accuracy}
+                              <td>{getTimeAgo(user.lastActivity)}</td>
+                              <td className="align-center"><strong>{formatCompactNumber(user.solvedCount)}</strong></td>
+                              <td className="align-center">
+                                <span className={'badge ' + (user.accuracy >= 70 ? 'badge-success' : user.accuracy >= 40 ? 'badge-warning' : 'badge-danger')}>
+                                  %{user.accuracy}
                                 </span>
                               </td>
                             </tr>
@@ -2152,65 +2744,63 @@ function App() {
                         </tbody>
                       </table>
                     </div>
-                  </div>
+                    {userStatsList.length > 100 && (
+                      <p className="table-note">Performans için ilk 100 kullanıcı gösteriliyor; KPI hesapları tüm kullanıcıları kapsar.</p>
+                    )}
+                  </article>
 
-                  {/* Right Column: Hard questions & feed */}
-                  <div style={{ flex: 1, minWidth: '300px', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                    {/* Hard Questions Card */}
-                    <div className="glass-panel" style={{ padding: '1.5rem' }}>
-                      <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '1rem', borderBottom: '1px solid var(--border-primary)', paddingBottom: '0.5rem', color: 'var(--color-danger)' }}>
-                        En Çok Yanlış Yapılan Sorular
-                      </h3>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <div className="dashboard-side-stack">
+                    <article className="dashboard-panel compact-panel">
+                      <div className="panel-header">
+                        <div>
+                          <span className="panel-kicker">İçerik sinyali</span>
+                          <h3>En çok yanlış yapılanlar</h3>
+                        </div>
+                        <AlertCircle size={19} color="var(--color-danger)" />
+                      </div>
+                      <div className="insight-list">
                         {hardestQuestionsList.length === 0 ? (
-                          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Yeterli veri yok.</p>
-                        ) : (
-                          hardestQuestionsList.map(q => (
-                            <div key={q.id} style={{ display: 'flex', flexDirection: 'column', padding: '0.5rem 0.75rem', border: '1px solid var(--border-primary)', borderRadius: '6px', background: 'rgba(0,0,0,0.1)' }}>
-                              <p style={{ fontSize: '0.8rem', fontWeight: 500, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '0.4rem' }}>{q.content}</p>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.7rem' }}>
-                                <span className="badge badge-cyan" style={{ padding: '0.1rem 0.3rem' }}>{q.category}</span>
-                                <span style={{ color: 'var(--text-secondary)' }}>
-                                  Hata Oranı: <strong style={{ color: 'var(--color-danger)' }}>%{q.errorRate}</strong> ({q.totalAttempts} çözüm)
-                                </span>
-                              </div>
+                          <div className="dashboard-empty">Yeterli cevap verisi yok.</div>
+                        ) : hardestQuestionsList.slice(0, 6).map(question => (
+                          <div className="insight-item" key={question.id}>
+                            <p>{question.content}</p>
+                            <div>
+                              <span className="badge badge-cyan">{getCategoryLabel(question.category)}</span>
+                              <strong>%{question.errorRate} hata · {question.totalAttempts} cevap</strong>
                             </div>
-                          ))
-                        )}
+                          </div>
+                        ))}
                       </div>
-                    </div>
+                    </article>
 
-                    {/* RecentSolved Feed */}
-                    <div className="glass-panel" style={{ padding: '1.5rem' }}>
-                      <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '1rem', borderBottom: '1px solid var(--border-primary)', paddingBottom: '0.5rem' }}>
-                        Son Çözülen Sorular
-                      </h3>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '350px', overflowY: 'auto' }}>
-                        {recentSolvedFeed.length === 0 ? (
-                          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Henüz aktivite yok.</p>
-                        ) : (
-                          recentSolvedFeed.map(feed => (
-                            <div key={feed.id} style={{ fontSize: '0.8rem', borderBottom: '1px solid rgba(255,255,255,0.03)', paddingBottom: '0.5rem' }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.2rem' }}>
-                                <strong style={{ color: 'var(--color-primary-light)' }}>{feed.userName}</strong>
-                                <span className={`badge ${feed.isCorrect ? 'badge-success' : 'badge-danger'}`} style={{ padding: '0.1rem 0.3rem', fontSize: '0.65rem' }}>
-                                  {feed.isCorrect ? 'Doğru' : 'Yanlış'}
-                                </span>
-                              </div>
-                              <p style={{ color: 'var(--text-secondary)', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' }}>{feed.questionContent}</p>
-                              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{getTimeAgo(feed.solvedAt)}</span>
-                            </div>
-                          ))
-                        )}
+                    <article className="dashboard-panel compact-panel">
+                      <div className="panel-header">
+                        <div>
+                          <span className="panel-kicker">Canlı akış</span>
+                          <h3>Son cevaplar</h3>
+                        </div>
+                        <Activity size={19} color="var(--color-success)" />
                       </div>
-                    </div>
+                      <div className="live-feed">
+                        {recentSolvedFeed.length === 0 ? (
+                          <div className="dashboard-empty">Henüz aktivite yok.</div>
+                        ) : recentSolvedFeed.slice(0, 10).map(feed => (
+                          <div className="feed-item" key={feed.id}>
+                            <i className={feed.isCorrect ? 'feed-success' : 'feed-danger'}></i>
+                            <div>
+                              <div><strong>{feed.userName}</strong><span>{getTimeAgo(feed.solvedAt)}</span></div>
+                              <p>{feed.questionContent}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </article>
                   </div>
                 </div>
-              </div>
+              </>
             )}
-          </div>
+          </section>
         )}
-
         {activeTab === 'reported' && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>

@@ -3,6 +3,8 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface SettingsState {
+    hasHydrated: boolean;
+    setHasHydrated: (hasHydrated: boolean) => void;
     notificationsEnabled: boolean;
     setNotificationsEnabled: (enabled: boolean) => void;
     isReminderEnabled: boolean;
@@ -18,6 +20,8 @@ interface SettingsState {
 export const useSettingsStore = create<SettingsState>()(
     persist(
         (set) => ({
+            hasHydrated: false,
+            setHasHydrated: (hasHydrated: boolean) => set({ hasHydrated }),
             notificationsEnabled: true,
             setNotificationsEnabled: (enabled: boolean) => set({ notificationsEnabled: enabled }),
             isReminderEnabled: false,
@@ -32,6 +36,9 @@ export const useSettingsStore = create<SettingsState>()(
         {
             name: 'settings-storage',
             storage: createJSONStorage(() => AsyncStorage),
+            onRehydrateStorage: () => (state) => {
+                state?.setHasHydrated(true);
+            },
         }
     )
 );
