@@ -27,6 +27,7 @@ import { QuestionImage } from '../../src/components/quiz/QuestionImage';
 import { useSubscriptionStore } from '../../src/store/useSubscriptionStore';
 import { purchaseService } from '../../src/services/purchaseService';
 import { adService } from '../../src/services/adService';
+import { analytics } from '../../src/services/analytics';
 
 const EXTRA_GENERAL_EXAM_CREDIT_COST = 6;
 
@@ -157,6 +158,8 @@ export default function QuizScreen() {
                         setIsLoading(false);
                     }
 
+                    analytics.trackQuizStarted(idString, data.length);
+
                 }
             } catch (error) {
                 Alert.alert('Hata', 'Sorular yüklenirken bir sorun oluştu.');
@@ -170,6 +173,8 @@ export default function QuizScreen() {
 
     const currentQuestion = questions[currentIndex];
 
+    const questionStartTime = useRef(Date.now()); // Soru bazlı süre ölçümü için
+
     const handleSelectOption = (optionIndex: number) => {
         if (!currentQuestion) return;
         const isCorrect = optionIndex === currentQuestion.correct_option;
@@ -179,6 +184,19 @@ export default function QuizScreen() {
         } else {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         }
+
+        const durationSeconds = Math.floor((Date.now() - questionStartTime.current) / 1000);
+        const answer_changed = selectedAnswers[currentIndex] !== undefined && selectedAnswers[currentIndex] !== null;
+
+        analytics.trackQuestionAnswered(
+            typeof id === 'string' ? id : 'unknown',
+            currentQuestion.id,
+            currentQuestion.category,
+            isCorrect,
+            optionIndex,
+            durationSeconds,
+            answer_changed
+        );
 
         setAnswer(currentIndex, optionIndex, isCorrect);
     };
@@ -198,17 +216,20 @@ export default function QuizScreen() {
             const adShown = adService.showInterstitial(() => {
                 setIsCheckpointAdShowing(false);
                 nextQuestion();
+                questionStartTime.current = Date.now();
             });
 
             if (!adShown) {
                 setIsCheckpointAdShowing(false);
                 nextQuestion();
+                questionStartTime.current = Date.now();
             }
             return;
         }
 
         if (currentIndex < questions.length - 1) {
             nextQuestion();
+            questionStartTime.current = Date.now();
         } else {
             finishQuiz();
         }
@@ -218,20 +239,53 @@ export default function QuizScreen() {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         if (currentIndex > 0) {
             prevQuestion();
+            questionStartTime.current = Date.now();
         }
     };
+
+    const startTime = useRef(Date.now()); // Sınav başlangıç zamanı
+    const sessionId = useRef(Math.random().toString(36).substring(2, 15) + Date.now().toString(36)); // Benzersiz session_id
 
     const finishQuiz = async () => {
         setIsSubmitting(true);
         try {
+            const durationSeconds = Math.floor((Date.now() - startTime.current) / 1000);
+            const startedAt = new Date(startTime.current).toISOString();
             const { data: { user } } = await supabase.auth.getUser();
+            const { correctCount, wrongCount, emptyCount, score } = calculateScore();
+            const validAnswers = selectedAnswers.filter(a => a != null);
+            
             if (user) {
-                const { correctCount, wrongCount, score } = calculateScore();
-                const validAnswers = selectedAnswers.filter(a => a != null);
 
-                await saveQuizResults(user.id, id as string, score, correctCount, wrongCount, questions.length, validAnswers);
+                let quizType = 'practice';
+                if (id === 'quick') quizType = 'quick';
+                else if (id === 'mistakes') quizType = 'mistakes';
+                else if (id === 'favorites') quizType = 'favorites';
+                else if (typeof id === 'string' && (/^\d+$/.test(id) || /^[0-9a-f]{8}-/i.test(id))) quizType = 'exam';
+                else quizType = 'category';
+
+                await saveQuizResults(
+                    user.id, 
+                    id as string, 
+                    score, 
+                    correctCount, 
+                    wrongCount, 
+                    questions.length, 
+                    validAnswers, 
+                    durationSeconds, 
+                    emptyCount, 
+                    startedAt, 
+                    quizType,
+                    sessionId.current
+                );
                 await AsyncStorage.removeItem(`@quiz_state_${id}`);
             }
+
+            analytics.trackQuizCompleted(
+                typeof id === 'string' ? id : 'unknown',
+                score,
+                durationSeconds
+            );
 
             adService.showInterstitialAfterQuiz(isPremium);
             router.replace('/quiz/result');
@@ -245,13 +299,36 @@ export default function QuizScreen() {
     const pauseQuiz = async () => {
         setIsSubmitting(true);
         try {
+            const durationSeconds = Math.floor((Date.now() - startTime.current) / 1000);
+            const startedAt = new Date(startTime.current).toISOString();
             const { data: { user } } = await supabase.auth.getUser();
+            const { correctCount, wrongCount, emptyCount, score } = calculateScore();
+            const validAnswers = selectedAnswers.filter(a => a != null);
+
             if (user) {
-                const { correctCount, wrongCount, score } = calculateScore();
-                const validAnswers = selectedAnswers.filter(a => a != null);
+
+                let quizType = 'practice';
+                if (id === 'quick') quizType = 'quick';
+                else if (id === 'mistakes') quizType = 'mistakes';
+                else if (id === 'favorites') quizType = 'favorites';
+                else if (typeof id === 'string' && (/^\d+$/.test(id) || /^[0-9a-f]{8}-/i.test(id))) quizType = 'exam';
+                else quizType = 'category';
 
                 if (validAnswers.length > 0) {
-                    await saveQuizResults(user.id, id as string, score, correctCount, wrongCount, questions.length, validAnswers);
+                    await saveQuizResults(
+                        user.id, 
+                        id as string, 
+                        score, 
+                        correctCount, 
+                        wrongCount, 
+                        questions.length, 
+                        validAnswers, 
+                        durationSeconds, 
+                        emptyCount, 
+                        startedAt, 
+                        quizType,
+                        sessionId.current
+                    );
                 }
 
                 await AsyncStorage.setItem(`@quiz_state_${id}`, JSON.stringify({
@@ -260,11 +337,19 @@ export default function QuizScreen() {
                 }));
             }
 
+            analytics.trackQuizAbandoned(
+                typeof id === 'string' ? id : 'unknown',
+                durationSeconds,
+                validAnswers.length
+            );
+
             Toast.show({
                 type: user ? 'success' : 'info',
                 text1: user ? 'İlerleme Kaydedildi' : 'Sınav Duraklatıldı',
                 text2: user ? 'Kaldığın yerden devam edebilirsin.' : 'Misafir kayıtlarında ilerleme kaydedilemez.',
             });
+        } catch (error) {
+            Alert.alert('Hata', 'Sınav durumu kaydedilemedi.');
         } finally {
             setIsSubmitting(false);
             router.back();

@@ -8,9 +8,12 @@ import {
     User, Bell, Car, Calendar, Clock, ChevronRight,
     LogOut, ShieldCheck, X, CheckCircle2, Mail, Trash2, KeyRound, ExternalLink, ShieldAlert
 } from 'lucide-react-native';
+import { analytics } from '../src/services/analytics';
+import { profileSync } from '../src/services/profile-sync';
 import { Linking } from 'react-native';
-import { scheduleDailyReminder } from '../src/api/notifications';
+import { scheduleDailyReminder, cancelAllReminders } from '../src/api/notifications';
 import { useThemeMode } from '../src/hooks/useThemeMode';
+import { useSettingsStore } from '../src/store/useSettingsStore';
 
 // Ayar Seçenekleri
 const SETTING_OPTIONS = {
@@ -40,6 +43,10 @@ const SETTING_OPTIONS = {
 export default function ProfileScreen() {
     const router = useRouter();
     const { isDarkMode, colorScheme } = useThemeMode();
+
+    // Ayarlar Store
+    const isReminderEnabled = useSettingsStore(state => state.isReminderEnabled);
+    const reminderTime = useSettingsStore(state => state.reminderTime);
 
     // Kullanıcı Bilgileri State'leri
     const [userName, setUserName] = useState('Yükleniyor...');
@@ -92,15 +99,54 @@ export default function ProfileScreen() {
         // AsyncStorage'a yerel olarak kaydet
         await AsyncStorage.setItem('user_preferences', JSON.stringify(newPrefs));
 
+        // Supabase'e güncel veriyi gönder (Telemetri / Analiz için)
+        // Çevrimdışı desteği için SyncService kullanıyoruz
+        try {
+            const updates: any = {};
+            
+            if (key === 'license_type') {
+                updates.license_type = value;
+            } else if (key === 'daily_goal') {
+                const mins = parseInt(value, 10);
+                updates.daily_goal_minutes = mins;
+                updates.daily_question_goal = mins * 2;
+            } else if (key === 'exam_date') {
+                const d = new Date();
+                if (value === 'urgent') d.setMonth(d.getMonth() + 1);
+                else if (value === 'normal') d.setMonth(d.getMonth() + 2);
+                else if (value === 'relaxed') d.setMonth(d.getMonth() + 6);
+                updates.exam_date = d.toISOString().split('T')[0];
+            } else if (key === 'notification_time') {
+                updates.notification_time = value;
+                updates.notification_enabled = value !== 'off';
+            }
+
+            if (Object.keys(updates).length > 0) {
+                await profileSync.syncProfilePreferences(updates);
+            }
+        } catch (e) {
+            console.warn("Profil güncellenirken hata:", e);
+        }
+
         // Bildirim saati değiştiyse alarmı güncelle
         if (key === 'notification_time') {
+            analytics.trackEvent({ eventName: 'notification_preference_changed', metadata: { newValue: value } });
+            const settingsStore = useSettingsStore.getState();
             if (value === 'off') {
+                settingsStore.setReminderEnabled(false);
+                await cancelAllReminders();
                 Alert.alert("Bilgi", "Günlük hatırlatıcılar kapatıldı.");
             } else {
                 const timeParts = value.split(':');
-                await scheduleDailyReminder(parseInt(timeParts[0]), parseInt(timeParts[1]));
+                const hour = parseInt(timeParts[0], 10);
+                const minute = parseInt(timeParts[1], 10);
+                settingsStore.setReminderEnabled(true);
+                settingsStore.setReminderTime(hour, minute);
+                await scheduleDailyReminder(hour, minute);
                 Alert.alert("Başarılı", `Hatırlatıcı saati ${value} olarak güncellendi.`);
             }
+        } else if (key === 'daily_goal') {
+            analytics.trackEvent({ eventName: 'daily_goal_changed', metadata: { newValue: value } });
         }
     };
 
@@ -257,6 +303,13 @@ export default function ProfileScreen() {
     };
 
     const getLabel = (key: keyof typeof SETTING_OPTIONS, value: string) => {
+        if (key === 'notification_time') {
+            if (!isReminderEnabled) return 'Bildirim İstemiyorum';
+            const formattedTime = `${reminderTime.hour.toString().padStart(2, '0')}:${reminderTime.minute.toString().padStart(2, '0')}`;
+            const option = SETTING_OPTIONS.notification_time.find(o => o.value === formattedTime);
+            return option ? option.label : `Özel (${formattedTime})`;
+        }
+        
         if (!value) return 'Seçilmedi';
         const option = SETTING_OPTIONS[key].find(o => o.value === value);
         return option ? option.label : 'Seçilmedi';
@@ -475,7 +528,18 @@ export default function ProfileScreen() {
                         </View>
 
                         {currentSettingKey && SETTING_OPTIONS[currentSettingKey].map((option, index) => {
-                            const isSelected = preferences[currentSettingKey] === option.value;
+                            let isSelected = false;
+                            if (currentSettingKey === 'notification_time') {
+                                if (option.value === 'off') {
+                                    isSelected = !isReminderEnabled;
+                                } else {
+                                    const formattedTime = `${reminderTime.hour.toString().padStart(2, '0')}:${reminderTime.minute.toString().padStart(2, '0')}`;
+                                    isSelected = isReminderEnabled && option.value === formattedTime;
+                                }
+                            } else {
+                                isSelected = preferences[currentSettingKey] === option.value;
+                            }
+                            
                             return (
                                 <TouchableOpacity
                                     key={index}

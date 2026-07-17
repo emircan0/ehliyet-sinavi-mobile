@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Stack, router } from "expo-router";
+import { Stack, router, usePathname, useSegments } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -16,29 +16,54 @@ import { useThemeMode } from "../src/hooks/useThemeMode";
 import { useSettingsStore } from "../src/store/useSettingsStore";
 import { useSubscriptionStore } from "../src/store/useSubscriptionStore";
 import { useAuth } from "../src/hooks/useAuth";
-import { registerForPushNotificationsAsync } from "../src/api/notifications";
+import { registerForPushNotificationsAsync, scheduleDailyReminder } from "../src/api/notifications";
 import mobileAds from 'react-native-google-mobile-ads';
 import { adService } from '../src/services/adService';
 import { purchaseService } from '../src/services/purchaseService';
 import { supabase } from '../src/api/supabase';
 
+import { AppState, AppStateStatus } from "react-native";
 import GlobalErrorBoundary from "../src/components/GlobalErrorBoundary";
-
+import { analytics } from "../src/services/analytics";
+import { activityTracker } from "../src/services/activity-tracker";
 export default function RootLayout() {
     // 1. Global Hooks & Store Access
     const addNotification = useNotificationStore(state => state.addNotification);
     const { isDarkMode, setColorScheme } = useThemeMode();
     const theme = useSettingsStore(state => state.theme);
     const { user, loading: authLoading } = useAuth();
+    const pathname = usePathname();
+    const segments = useSegments();
 
     // Network status listener
     useNetworkStatus();
+
+    // Analytics: Track App State (Opened/Backgrounded)
+    useEffect(() => {
+        analytics.trackAppOpen();
+        const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+            if (nextAppState === 'background') {
+                analytics.trackAppBackgrounded();
+            } else if (nextAppState === 'active') {
+                analytics.trackAppOpen();
+            }
+        });
+        return () => {
+            subscription.remove();
+        };
+    }, []);
+
+    // Analytics: Track Screen Views
+    useEffect(() => {
+        if (pathname) {
+            analytics.trackScreenView(pathname);
+        }
+    }, [pathname]);
 
     // Purchase and Ads initialization
     const initializePurchases = useSubscriptionStore(state => state.initializePurchases);
     const checkSubscriptionStatus = useSubscriptionStore(state => state.checkSubscriptionStatus);
     const resetSubscription = useSubscriptionStore(state => state.resetSubscription);
-    const isPremium = useSubscriptionStore(state => state.isPremium);
 
     useEffect(() => {
         initializePurchases();
@@ -51,12 +76,27 @@ export default function RootLayout() {
             });
     }, []);
 
+    // Use subscribe to avoid re-rendering RootLayout when isPremium changes
     useEffect(() => {
-        if (!isPremium) {
-            adService.loadRewarded();
-            adService.loadInterstitial();
-        }
-    }, [isPremium]);
+        const checkAds = (premiumStatus: boolean) => {
+            if (!premiumStatus) {
+                adService.loadRewarded();
+                adService.loadInterstitial();
+            }
+        };
+
+        // Initial check
+        checkAds(useSubscriptionStore.getState().isPremium);
+
+        // Subscribe to changes
+        const unsubscribe = useSubscriptionStore.subscribe((state, prevState) => {
+            if (state.isPremium !== prevState.isPremium) {
+                checkAds(state.isPremium);
+            }
+        });
+
+        return unsubscribe;
+    }, []);
 
     // 2. Push Notification Registration
     useEffect(() => {
@@ -93,6 +133,21 @@ export default function RootLayout() {
             isMounted = false;
         };
     }, [authLoading, user?.id]);
+
+    // 2. Auto-refresh the 14-day dynamic notification schedule and send Telemetry
+    useEffect(() => {
+        const { isReminderEnabled, reminderTime } = useSettingsStore.getState();
+        if (isReminderEnabled) {
+            scheduleDailyReminder(reminderTime.hour, reminderTime.minute);
+        }
+
+        // Telemetri: Son görülme ve Tema bilgisini güncelle
+        // Telemetri: Son görülme ve Tema bilgisini güncelle (5 dakika throttle)
+        const updateTelemetry = async () => {
+            await activityTracker.updateLastActive(isDarkMode);
+        };
+        updateTelemetry();
+    }, [isDarkMode]);
 
     // 2. Theme Management logic
     useEffect(() => {

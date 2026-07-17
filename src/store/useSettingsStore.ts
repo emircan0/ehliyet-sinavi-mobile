@@ -11,6 +11,8 @@ interface SettingsState {
     setReminderTime: (hour: number, minute: number) => void;
     theme: 'light' | 'dark' | 'system';
     setTheme: (theme: 'light' | 'dark' | 'system') => void;
+    analyticsEnabled: boolean;
+    setAnalyticsEnabled: (enabled: boolean) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -24,6 +26,8 @@ export const useSettingsStore = create<SettingsState>()(
             setReminderTime: (hour, minute) => set({ reminderTime: { hour, minute } }),
             theme: 'system',
             setTheme: (theme) => set({ theme }),
+            analyticsEnabled: true,
+            setAnalyticsEnabled: (enabled) => set({ analyticsEnabled: enabled }),
         }),
         {
             name: 'settings-storage',

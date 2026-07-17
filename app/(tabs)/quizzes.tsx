@@ -187,7 +187,13 @@ export default function QuizzesScreen() {
                                 icon={AlertTriangle}
                                 color={isDarkMode ? "#FF453A" : "#ef4444"}
                                 bg="bg-red-50 dark:bg-[#FF453A]/10"
-                                onPress={() => router.push('/quiz/mistakes')}
+                                onPress={() => {
+                                    if ((counts?.wrongCount || 0) > 0) {
+                                        router.push('/quiz/mistakes');
+                                    } else {
+                                        Alert.alert("Bilgi", "Henüz hata yaptığınız soru bulunmuyor.");
+                                    }
+                                }}
                             />
                             <QuickActionCard
                                 title="Favoriler"
@@ -195,7 +201,13 @@ export default function QuizzesScreen() {
                                 icon={Star}
                                 color={isDarkMode ? "#FF9F0A" : "#f59e0b"}
                                 bg="bg-amber-50 dark:bg-[#FF9F0A]/10"
-                                onPress={() => router.push('/quiz/favorites')}
+                                onPress={() => {
+                                    if ((counts?.favoriteCount || 0) > 0) {
+                                        router.push('/quiz/favorites');
+                                    } else {
+                                        Alert.alert("Bilgi", "Favorilere eklediğiniz soru bulunmuyor.");
+                                    }
+                                }}
                             />
                         </View>
                     </View>

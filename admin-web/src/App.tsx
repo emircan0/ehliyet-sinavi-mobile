@@ -87,8 +87,16 @@ function App() {
   const [userStatsList, setUserStatsList] = useState<any[]>([]);
   const [recentSolvedFeed, setRecentSolvedFeed] = useState<any[]>([]);
   const [hardestQuestionsList, setHardestQuestionsList] = useState<any[]>([]);
+
+  // Telemetry States
+  const [telemetry, setTelemetry] = useState({
+    dau: 0,
+    avgDuration: 0,
+    licenseStats: [] as { license: string; count: number }[],
+    abandonStats: [] as { category: string; count: number }[],
+    topScreens: [] as { screen: string; count: number }[]
+  });
   
-  // Selected Exam (for managing its questions)
   const [selectedExam, setSelectedExam] = useState<Exam | null>(null);
   const [selectedExamQuestions, setSelectedExamQuestions] = useState<Question[]>([]);
   const [selectedExamJoins, setSelectedExamJoins] = useState<ExamQuestionJoin[]>([]);
@@ -117,8 +125,8 @@ function App() {
   const [reportFilterStatus, setReportFilterStatus] = useState<'all' | 'pending' | 'resolved' | 'dismissed'>('all');
   
   // Settings Inputs
-  const [settingsUrl, setSettingsUrl] = useState(getCustomSupabaseUrl());
-  const [settingsKey, setSettingsKey] = useState(getServiceRoleKey());
+  const [settingsUrl, setSettingsUrl] = useState(getCustomSupabaseUrl() || import.meta.env.EXPO_PUBLIC_SUPABASE_URL || '');
+  const [settingsKey, setSettingsKey] = useState(getServiceRoleKey() || '');
 
   // Error/Success Message
   const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -616,6 +624,78 @@ function App() {
         .slice(0, 8);
 
       setHardestQuestionsList(hardest);
+
+      // --- FETCH TELEMETRY DATA ---
+      const { data: events, error: eError } = await supabase
+        .from('analytics_events')
+        .select('*')
+        .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()); // last 30 days
+
+      if (!eError && events) {
+        // DAU: Unique users with 'app_opened' in last 24h
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        const dauUsers = new Set(
+          events
+            .filter(e => e.event_name === 'app_opened' && e.created_at >= oneDayAgo && e.user_id)
+            .map(e => e.user_id)
+        );
+        
+        // Merge with legacy active today count to prevent visual inconsistency
+        let combinedDau = activeTodayCount;
+        if (dauUsers.size > activeTodayCount) {
+          combinedDau = dauUsers.size;
+        }
+
+        // Avg Quiz Duration
+        const completedQuizzes = events.filter(e => e.event_name === 'quiz_completed' && e.duration_seconds != null);
+        const avgDuration = completedQuizzes.length > 0 
+          ? Math.round(completedQuizzes.reduce((acc, e) => acc + (e.duration_seconds || 0), 0) / completedQuizzes.length)
+          : 0;
+
+        // Abandoned Quizzes by Category
+        const abandons = events.filter(e => e.event_name === 'quiz_abandoned' && e.category);
+        const abandonMap: Record<string, number> = {};
+        abandons.forEach(e => {
+          if (e.category) {
+            abandonMap[e.category] = (abandonMap[e.category] || 0) + 1;
+          }
+        });
+        const abandonStats = Object.entries(abandonMap)
+          .map(([category, count]) => ({ category, count }))
+          .sort((a, b) => b.count - a.count);
+
+        // Top Screens
+        const screens = events.filter(e => e.event_name === 'screen_viewed' && e.screen_name);
+        const screenMap: Record<string, number> = {};
+        screens.forEach(e => {
+          if (e.screen_name) {
+            screenMap[e.screen_name] = (screenMap[e.screen_name] || 0) + 1;
+          }
+        });
+        const topScreens = Object.entries(screenMap)
+          .map(([screen, count]) => ({ screen, count }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 5);
+
+        // License Types from Profiles
+        const licenseMap: Record<string, number> = {};
+        profileList.forEach(p => {
+          if (p.license_type) {
+            licenseMap[p.license_type] = (licenseMap[p.license_type] || 0) + 1;
+          }
+        });
+        const licenseStats = Object.entries(licenseMap)
+          .map(([license, count]) => ({ license, count }))
+          .sort((a, b) => b.count - a.count);
+
+        setTelemetry({
+          dau: combinedDau,
+          avgDuration,
+          licenseStats,
+          abandonStats,
+          topScreens
+        });
+      }
 
     } catch (err: any) {
       triggerAlert('error', `Analiz verileri yüklenirken hata: ${err.message}`);
@@ -1957,16 +2037,71 @@ function App() {
                     <p style={{ fontSize: '2.25rem', fontWeight: 700, color: 'var(--color-primary-light)' }}>{kpis.totalUsers}</p>
                   </div>
                   <div className="glass-panel" style={{ padding: '1.5rem', textAlign: 'center' }}>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase', marginBottom: '0.5rem' }}>Bugün Aktif</p>
-                    <p style={{ fontSize: '2.25rem', fontWeight: 700, color: 'var(--color-secondary)' }}>{kpis.activeToday}</p>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase', marginBottom: '0.5rem' }}>DAU (Günlük Aktif)</p>
+                    <p style={{ fontSize: '2.25rem', fontWeight: 700, color: 'var(--color-secondary)' }}>{telemetry.dau}</p>
                   </div>
                   <div className="glass-panel" style={{ padding: '1.5rem', textAlign: 'center' }}>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase', marginBottom: '0.5rem' }}>Çözülen Soru Sayısı</p>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase', marginBottom: '0.5rem' }}>Çözülen Soru</p>
                     <p style={{ fontSize: '2.25rem', fontWeight: 700, color: 'var(--color-success)' }}>{kpis.totalSolved}</p>
                   </div>
                   <div className="glass-panel" style={{ padding: '1.5rem', textAlign: 'center' }}>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase', marginBottom: '0.5rem' }}>Genel Doğruluk Oranı</p>
-                    <p style={{ fontSize: '2.25rem', fontWeight: 700, color: 'var(--color-warning)' }}>%{kpis.avgAccuracy}</p>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase', marginBottom: '0.5rem' }}>Ort. Sınav Süresi</p>
+                    <p style={{ fontSize: '2.25rem', fontWeight: 700, color: 'var(--color-warning)' }}>{telemetry.avgDuration} sn</p>
+                  </div>
+                </div>
+
+                {/* Telemetry Extra Metrics Grid */}
+                <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+                  
+                  {/* License Target Distribution */}
+                  <div className="glass-panel" style={{ flex: 1, minWidth: '300px', padding: '1.5rem' }}>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '1rem', borderBottom: '1px solid var(--border-primary)', paddingBottom: '0.5rem' }}>Ehliyet Hedefi Dağılımı</h3>
+                    {telemetry.licenseStats.length > 0 ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        {telemetry.licenseStats.map((l, i) => (
+                          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Sınıf {l.license}</span>
+                            <span className="badge badge-primary">{l.count} Kullanıcı</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Veri bulunmuyor</p>
+                    )}
+                  </div>
+
+                  {/* Abandoned Categories */}
+                  <div className="glass-panel" style={{ flex: 1, minWidth: '300px', padding: '1.5rem' }}>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '1rem', borderBottom: '1px solid var(--border-primary)', paddingBottom: '0.5rem', color: 'var(--color-danger)' }}>En Çok Terk Edilen Sınavlar</h3>
+                    {telemetry.abandonStats.length > 0 ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        {telemetry.abandonStats.map((a, i) => (
+                          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{a.category}</span>
+                            <span className="badge badge-danger">{a.count} Terk</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Terk edilen sınav yok</p>
+                    )}
+                  </div>
+
+                  {/* Top Screens */}
+                  <div className="glass-panel" style={{ flex: 1, minWidth: '300px', padding: '1.5rem' }}>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '1rem', borderBottom: '1px solid var(--border-primary)', paddingBottom: '0.5rem' }}>En Çok Ziyaret Edilen Ekranlar</h3>
+                    {telemetry.topScreens.length > 0 ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        {telemetry.topScreens.map((s, i) => (
+                          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{s.screen}</span>
+                            <span className="badge badge-secondary">{s.count} Görüntülenme</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Ekran verisi bulunmuyor</p>
+                    )}
                   </div>
                 </div>
 

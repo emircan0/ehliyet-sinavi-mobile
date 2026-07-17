@@ -6,7 +6,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../src/api/supabase';
 import { Car, Bike, Truck, Calendar, Clock, Bell, ChevronRight, CheckCircle2 } from 'lucide-react-native';
 import { useThemeMode } from '../src/hooks/useThemeMode';
-import { scheduleDailyReminder } from '../src/api/notifications';
+import { useSettingsStore } from '../src/store/useSettingsStore';
+import { scheduleDailyReminder, cancelAllReminders } from '../src/api/notifications';
+import { analytics } from '../src/services/analytics';
 
 const { width } = Dimensions.get('window');
 
@@ -45,7 +47,7 @@ const ONBOARDING_STEPS = [
     {
         id: 'notification_time',
         title: 'Sana ne zaman hatırlatalım?',
-        subtitle: 'Seçtiğin saatte sana çalışma bildirimi göndereceğiz.',
+        subtitle: 'Düzenli çalışmak için bildirimler çok faydalıdır.',
         options: [
             { label: 'Sabah (09:00)', value: '09:00', icon: Bell },
             { label: 'Öğle Arası (12:30)', value: '12:30', icon: Bell },
@@ -58,6 +60,10 @@ export default function OnboardingScreen() {
     const { isDarkMode } = useThemeMode();
     const [currentStep, setCurrentStep] = useState(0);
     const [preferences, setPreferences] = useState<Record<string, string>>({});
+
+    React.useEffect(() => {
+        analytics.trackEvent({ eventName: 'onboarding_started' });
+    }, []);
 
     const handleSelect = (value: string) => {
         const stepId = ONBOARDING_STEPS[currentStep].id;
@@ -72,38 +78,69 @@ export default function OnboardingScreen() {
             await AsyncStorage.setItem('user_preferences', JSON.stringify(preferences));
             await AsyncStorage.setItem('has_completed_onboarding', 'true');
 
-            // Sunucu tarafında profil varsa flag'i güncelle
+            // Sunucu tarafında profil varsa güncelliyoruz
             try {
                 const { data: { session } } = await supabase.auth.getSession();
                 if (session) {
+                    let calculatedExamDate = null;
+                    const examPref = preferences['exam_date'];
+                    if (examPref) {
+                        const d = new Date();
+                        if (examPref === 'urgent') d.setMonth(d.getMonth() + 1);
+                        else if (examPref === 'normal') d.setMonth(d.getMonth() + 2);
+                        else if (examPref === 'relaxed') d.setMonth(d.getMonth() + 6);
+                        calculatedExamDate = d.toISOString().split('T')[0];
+                    }
+
+                    const dailyGoalMins = parseInt(preferences['daily_goal'] || '20', 10);
+                    const notifEnabled = preferences['notification_time'] !== 'off';
+                    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
                     await supabase
                         .from('profiles')
-                        .update({ has_completed_onboarding: true })
+                        .update({ 
+                            onboarding_completed: true,
+                            license_type: preferences['license_type'],
+                            exam_date: calculatedExamDate,
+                            daily_goal_minutes: dailyGoalMins,
+                            daily_question_goal: dailyGoalMins * 2,
+                            notification_time: preferences['notification_time'],
+                            notification_enabled: notifEnabled,
+                            timezone: tz,
+                            last_active_at: new Date().toISOString()
+                        })
                         .eq('id', session.user.id);
                 }
             } catch (e) {
                 console.warn('Onboarding: could not update server flag', e);
             }
 
-            // Bildirim saatini ayarla (güvenlik: boş/hatalıysa atla)
+            // Bildirim saatini ayarla
             try {
                 const notif = preferences['notification_time'];
-                if (notif && typeof notif === 'string' && notif.includes(':')) {
+                const settingsStore = useSettingsStore.getState();
+
+                if (notif === 'off') {
+                    settingsStore.setReminderEnabled(false);
+                    await cancelAllReminders();
+                } else if (notif && typeof notif === 'string' && notif.includes(':')) {
                     const timeParts = notif.split(':');
                     const hour = parseInt(timeParts[0], 10);
                     const minute = parseInt(timeParts[1], 10);
+                    
                     if (!Number.isNaN(hour) && !Number.isNaN(minute)) {
+                        settingsStore.setReminderEnabled(true);
+                        settingsStore.setReminderTime(hour, minute);
                         await scheduleDailyReminder(hour, minute);
                     } else {
-                        console.warn('Onboarding: notification_time parsed to NaN, skipping scheduleDailyReminder');
+                        console.warn('Onboarding: notification_time parsed to NaN');
                     }
-                } else {
-                    console.warn('Onboarding: notification_time missing or invalid, skipping scheduleDailyReminder');
                 }
             } catch (e) {
                 console.warn('scheduleDailyReminder failed:', e);
             }
 
+            analytics.trackEvent({ eventName: 'onboarding_completed', metadata: preferences });
             // Ana sayfaya yönlendir
             router.replace('/(tabs)/'); 
         }

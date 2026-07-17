@@ -169,10 +169,19 @@ export const saveQuizResults = async (
     correctCount: number,
     wrongCount: number,
     totalQuestions: number,
-    answers: { questionId: string; selectedOption: number; isCorrect: boolean }[]
+    answers: { questionId: string; selectedOption: number; isCorrect: boolean }[],
+    durationSeconds: number = 0,
+    emptyCount: number = 0,
+    startedAt?: string,
+    quizType: string = 'practice',
+    sessionId?: string
 ) => {
     try {
         await ensureUserProfile(userId);
+        
+        // completed_at her halükarda şu anki zamandır
+        const completedAt = new Date().toISOString();
+
         // 1. Özet sonuçları kaydet (exam_results)
         const { error: resultError } = await supabase
             .from('exam_results')
@@ -181,11 +190,35 @@ export const saveQuizResults = async (
                 category,
                 score,
                 correct_count: correctCount,
-                wrong_count: wrongCount
-                // total_questions: totalQuestions satırını sildik çünkü veritabanında yok!
+                wrong_count: wrongCount,
+                empty_count: emptyCount,
+                total_questions: totalQuestions,
+                duration_seconds: durationSeconds,
+                started_at: startedAt || completedAt,
+                completed_at: completedAt,
+                quiz_type: quizType,
+                session_id: sessionId
             }]);
 
-        if (resultError) throw resultError;
+        if (resultError) {
+            // 23505: unique_violation (Aynı oturum daha önce kaydedilmiş)
+            if (resultError.code === '23505') {
+                console.log("Idempotency: Bu sınav sonucu zaten kaydedilmiş (session_id çakışması). İşlem atlanıyor.");
+                return; // Sessizce çık, başarılı sayılır.
+            }
+            throw resultError;
+        }
+
+        // 1.5 Telemetri: Kullanıcı istatistiklerini güncelle (RPC ile)
+        try {
+            await supabase.rpc('increment_user_stats', {
+                p_user_id: userId,
+                p_quizzes_to_add: 1,
+                p_questions_to_add: answers.length
+            });
+        } catch (e) {
+            console.warn("Telemetri güncellenemedi (RPC eksik olabilir):", e);
+        }
 
         // 2. Detaylı cevapları kaydet (UPSERT KULLANIYORUZ!)
         // Upsert: Eğer bu soruyu daha önce çözdüyse üzerine yazar, çözmediyse yeni ekler.

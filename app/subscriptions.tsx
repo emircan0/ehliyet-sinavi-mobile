@@ -109,12 +109,15 @@ export default function SubscriptionsScreen() {
 
             if (error) throw error;
 
-            if (data.success) {
-                Alert.alert("Başarılı", data.message);
+            const isSuccess = data?.success === true || data === true;
+            const message = data?.message || (isSuccess ? "Promosyon kodu başarıyla uygulandı." : "Bu promosyon kodu geçersiz veya kullanılamaz.");
+
+            if (isSuccess) {
+                Alert.alert("Başarılı", message);
                 setPromoCode('');
                 await checkSubscriptionStatus();
             } else {
-                Alert.alert("Bilgi", data.message);
+                Alert.alert("Bilgi", message);
             }
         } catch (error) {
             console.error('Redeem error:', error);

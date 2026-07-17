@@ -124,8 +124,19 @@ export async function sendImmediateNotification(title: string, body: string, dat
     }
 }
 
-// 3. Günlük Hatırlatıcı Planla
-export async function scheduleDailyReminder(hour: number, minute: number) {
+const NOTIFICATION_MESSAGES = [
+    { title: "Sağa dönüşlerde kural neydi? 🤔", body: "Sınavda en çok karıştırılan trafik kurallarından birini 2 dakikada tekrar etmeye ne dersin?" },
+    { title: "Trafik levhaları testi seni bekliyor 🚦", body: "Günün hap bilgisi hazır! Sınavda çıkabilecek 10 soruyla hafızanı tazele." },
+    { title: "Direksiyona bir adım daha yakınsın 🚗", body: "Ehliyetine kavuşmak için bugünkü kısa antrenmanını tamamla, formunu koru." },
+    { title: "Bugün nasılsın? 🌟", body: "Sınav hedefine ulaşmak için günde sadece 5 dakika pratik yapmak çok şeyi değiştirir." },
+    { title: "Çalışma serin bozulmasın! 🔥", body: "Bugünkü antrenmanını tamamlayıp dünkü başarını devam ettirmek ister misin?" },
+    { title: "Motor soğumadan biraz pratik? 🏍️", body: "Senin için hazırladığımız özel sorular seni bekliyor, üstelik çok vaktini almayacak." },
+    { title: "Geçiş üstünlüğü kimde? 🚑", body: "Kavşak soruları bazen kafa karıştırır. Hemen bir mini test çözerek kendini sına!" },
+    { title: "Hedefine odaklan 🎯", body: "Sınavı ilk seferde geçmek tesadüf değildir. Hadi günlük egzersizini aradan çıkaralım." }
+];
+
+// 3. Dinamik ve Rastgele Hatırlatıcı Planla (İleri dönük 14 gün)
+export async function scheduleDailyReminder(fixedHour: number, fixedMinute: number) {
     if (isExpoGo || !Notifications) return false;
     try {
         // Önce eskileri temizle
@@ -138,20 +149,74 @@ export async function scheduleDailyReminder(hour: number, minute: number) {
             if (newStatus !== 'granted') return false;
         }
 
-        await Notifications.scheduleNotificationAsync({
-            content: {
-                title: "Direksiyon başına! 🚗",
-                body: "Bugünkü ehliyet hazırlık testini hala çözmedin. Hadi 5 dakikanı ayır!",
-                data: { route: '/quiz/quick' }, // Tıklayınca hızlı antrenmana yönlendirecek veri
-                sound: true,
-            },
-            trigger: {
-                hour,
-                minute,
-                repeats: true,
-                type: 'calendar',
-            } as NotificationTriggerInput,
-        });
+        const now = new Date();
+        const daysToSchedule = 14;
+
+        for (let i = 0; i < daysToSchedule; i++) {
+            const currentDay = new Date(now);
+            currentDay.setDate(currentDay.getDate() + i);
+            
+            // 1. Sabit Hatırlatıcı (Kullanıcının Seçtiği Saat)
+            const fixedDate = new Date(currentDay);
+            fixedDate.setHours(fixedHour, fixedMinute, 0, 0);
+            
+            if (fixedDate > now) {
+                const randomMsg = NOTIFICATION_MESSAGES[Math.floor(Math.random() * NOTIFICATION_MESSAGES.length)];
+                await Notifications.scheduleNotificationAsync({
+                    content: {
+                        title: randomMsg.title,
+                        body: randomMsg.body,
+                        data: { route: '/quiz/quick' },
+                        sound: true,
+                    },
+                    trigger: { date: fixedDate } as any,
+                });
+            }
+
+            // 2. Rastgele Hatırlatıcılar (Günde 0-2 kere, 10:00 - 22:00 arası)
+            const isWeekend = currentDay.getDay() === 0 || currentDay.getDay() === 6;
+            let shouldScheduleRandom = false;
+
+            if (isWeekend) {
+                // Hafta sonları %70 ihtimalle atsın
+                shouldScheduleRandom = Math.random() > 0.3;
+            } else {
+                // Hafta içi: %40 ihtimalle SESSİZ gün olsun (kullanıcıyı bunaltmamak için)
+                const isSilentDay = Math.random() < 0.4;
+                shouldScheduleRandom = !isSilentDay;
+            }
+
+            if (shouldScheduleRandom) {
+                const randomCount = Math.random() > 0.5 ? 1 : 2;
+                for (let r = 0; r < randomCount; r++) {
+                    const randHour = Math.floor(Math.random() * (22 - 10 + 1)) + 10; // 10 ile 22 arası
+                    const randMinute = Math.floor(Math.random() * 60);
+                    
+                    const randomDate = new Date(currentDay);
+                    randomDate.setHours(randHour, randMinute, 0, 0);
+
+                    if (randomDate <= now) continue;
+
+                    // Sabit saat ile rastgele saat çakışmasın (+- 1 saat boşluk)
+                    const diffMs = Math.abs(randomDate.getTime() - fixedDate.getTime());
+                    if (diffMs < 60 * 60 * 1000) {
+                        continue;
+                    }
+
+                    const randMsg = NOTIFICATION_MESSAGES[Math.floor(Math.random() * NOTIFICATION_MESSAGES.length)];
+                    await Notifications.scheduleNotificationAsync({
+                        content: {
+                            title: randMsg.title,
+                            body: randMsg.body,
+                            data: { route: '/quiz/quick' },
+                            sound: true,
+                        },
+                        trigger: { date: randomDate } as any,
+                    });
+                }
+            }
+        }
+
         return true;
     } catch (e) {
         console.error("Hatırlatıcı planlanırken hata:", e);

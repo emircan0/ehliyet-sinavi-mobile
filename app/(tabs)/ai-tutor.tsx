@@ -324,12 +324,21 @@ export default function AITutorScreen() {
                         <TouchableOpacity 
                             onPress={() => {
                                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                router.push('/notes');
+                                if (isPremium) {
+                                    router.push('/notes');
+                                } else {
+                                    openPaywall();
+                                }
                             }}
                             className="flex-1 bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-slate-100 dark:border-slate-800 shadow-sm shadow-slate-200/40 dark:shadow-none items-center"
                         >
-                            <View className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-2xl mb-4 border border-amber-100/50 dark:border-amber-900/50">
+                            <View className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-2xl mb-4 border border-amber-100/50 dark:border-amber-900/50 relative">
                                 <BookOpen size={24} color="#d97706" />
+                                {!isPremium && (
+                                    <View className="absolute -top-2 -right-2 bg-amber-100 dark:bg-amber-900 p-1 rounded-full border border-white dark:border-slate-900">
+                                        <Lock size={12} color="#d97706" />
+                                    </View>
+                                )}
                             </View>
                             <Text className="text-slate-900 dark:text-slate-200 font-black text-sm text-center tracking-tight">Özet Notlar</Text>
                         </TouchableOpacity>
@@ -337,16 +346,25 @@ export default function AITutorScreen() {
                         <TouchableOpacity 
                             onPress={() => {
                                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                if (masteryData && masteryData.length > 0) {
-                                    router.push(`/quiz/${masteryData[0].name}` as any);
+                                if (isPremium) {
+                                    if (masteryData && masteryData.length > 0) {
+                                        router.push(`/quiz/${masteryData[0].name}` as any);
+                                    } else {
+                                        router.push('/quiz/quick' as any);
+                                    }
                                 } else {
-                                    router.push('/quiz/quick' as any);
+                                    openPaywall();
                                 }
                             }}
                             className="flex-1 bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-slate-100 dark:border-slate-800 shadow-sm shadow-slate-200/40 dark:shadow-none items-center"
                         >
-                            <View className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl mb-4 border border-blue-100/50 dark:border-blue-900/50">
+                            <View className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl mb-4 border border-blue-100/50 dark:border-blue-900/50 relative">
                                 <Target size={24} color="#2563eb" />
+                                {!isPremium && (
+                                    <View className="absolute -top-2 -right-2 bg-blue-100 dark:bg-blue-900 p-1 rounded-full border border-white dark:border-slate-900">
+                                        <Lock size={12} color="#2563eb" />
+                                    </View>
+                                )}
                             </View>
                             <Text className="text-slate-900 dark:text-slate-200 font-black text-sm text-center tracking-tight">Nokta Atışı</Text>
                         </TouchableOpacity>

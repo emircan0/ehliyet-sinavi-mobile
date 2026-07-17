@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StatusBar, RefreshControl, Modal, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StatusBar, RefreshControl, Modal, Alert, TextInput } from 'react-native';
 import { useRouter, router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
@@ -65,6 +65,11 @@ export default function Home() {
     const [showNotifications, setShowNotifications] = useState(false);
     const [userName, setUserName] = useState('Yükleniyor...');
     const [questionCounts, setQuestionCounts] = useState({ trafik: 0, ilkyardim: 0, motor: 0, adap: 0 });
+
+    // Isim Toplama Modalı State'leri
+    const [showNamePrompt, setShowNamePrompt] = useState(false);
+    const [newName, setNewName] = useState('');
+    const [isSavingName, setIsSavingName] = useState(false);
 
     const notificationListener = useRef<EventSubscription | null>(null);
     const responseListener = useRef<EventSubscription | null>(null);
@@ -180,6 +185,11 @@ export default function Home() {
                 setUserName(data.fullName);
                 setQuestionCounts(data.counts);
                 setIsLoading(false);
+
+                // Eğer isimsiz ise isim sorma ekranını çıkar
+                if (data.fullName === 'İsimsiz Sürücü' || data.fullName === 'Sürücü Adayı' || !data.fullName) {
+                    setShowNamePrompt(true);
+                }
             }
         };
         initList();
@@ -234,6 +244,34 @@ export default function Home() {
             onAdRequired: triggerRandomAd,
             creditCost: 6
         });
+    };
+
+    const handleSaveName = async () => {
+        const trimmed = newName.trim();
+        if (!trimmed || trimmed.length < 2) {
+            Alert.alert('Hata', 'Lütfen geçerli bir isim giriniz.');
+            return;
+        }
+        setIsSavingName(true);
+        try {
+            // Update auth profile
+            await supabase.auth.updateUser({
+                data: { full_name: trimmed }
+            });
+            // Update profiles table
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                await supabase.from('profiles').update({ full_name: trimmed }).eq('id', user.id);
+            }
+            setUserName(trimmed);
+            setShowNamePrompt(false);
+            Alert.alert('Teşekkürler!', 'Profil adınız başarıyla güncellendi.');
+        } catch (error) {
+            console.error('İsim kaydedilirken hata:', error);
+            Alert.alert('Hata', 'İsminiz kaydedilemedi, lütfen tekrar deneyin.');
+        } finally {
+            setIsSavingName(false);
+        }
     };
 
     const { isDarkMode, colorScheme } = useThemeMode();
@@ -479,6 +517,51 @@ export default function Home() {
                 </View>
             </Modal>
 
+            {/* İSİM TOPLAMA MODALI */}
+            <Modal
+                visible={showNamePrompt}
+                transparent
+                animationType="fade"
+                statusBarTranslucent
+            >
+                <View className="flex-1 bg-black/60 items-center justify-center px-6">
+                    <View className="w-full bg-white dark:bg-slate-900 rounded-[32px] p-6 shadow-2xl border border-slate-100 dark:border-slate-800">
+                        <View className="items-center mb-6">
+                            <View className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-500/20 items-center justify-center mb-4">
+                                <Sparkles size={32} color="#2563eb" />
+                            </View>
+                            <Text className="text-xl font-black text-slate-900 dark:text-white text-center mb-2">
+                                Sana Nasıl Hitap Edelim?
+                            </Text>
+                            <Text className="text-[14px] text-slate-500 dark:text-slate-400 text-center leading-5">
+                                Uygulama deneyimini kişiselleştirmek ve sana özel sertifikalar hazırlayabilmek için ismini bizimle paylaşır mısın?
+                            </Text>
+                        </View>
+
+                        <View className="bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 px-4 h-14 justify-center mb-6">
+                            <TextInput
+                                placeholder="Adın ve Soyadın"
+                                placeholderTextColor={isDarkMode ? "#64748b" : "#94a3b8"}
+                                value={newName}
+                                onChangeText={setNewName}
+                                className="text-base text-slate-900 dark:text-white font-medium"
+                                autoFocus
+                            />
+                        </View>
+
+                        <TouchableOpacity
+                            onPress={handleSaveName}
+                            disabled={isSavingName}
+                            className={`w-full h-14 rounded-2xl items-center justify-center flex-row ${isSavingName ? 'bg-blue-400' : 'bg-blue-600'}`}
+                        >
+                            <Text className="text-white font-bold text-lg mr-2">
+                                {isSavingName ? 'Kaydediliyor...' : 'Kaydet ve Devam Et'}
+                            </Text>
+                            {!isSavingName && <CheckCircle2 size={20} color="white" />}
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }

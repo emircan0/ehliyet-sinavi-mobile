@@ -3,6 +3,7 @@ import Purchases, { CustomerInfo, LOG_LEVEL, PurchasesEntitlementInfo } from 're
 import RevenueCatUI, { PAYWALL_RESULT } from "react-native-purchases-ui";
 import Constants from 'expo-constants';
 import { supabase } from '../api/supabase';
+import { analytics } from './analytics';
 import { FREE_SUBSCRIPTION_STATUS, SubscriptionStatus } from '../types/subscription';
 
 // Provided API Keys
@@ -323,6 +324,7 @@ export class PurchaseService {
     public async presentPaywall(): Promise<boolean> {
         if (!PurchaseService.isInitialized) return false;
         try {
+            analytics.trackEvent({ eventName: 'purchase_started' });
             const paywallResult: PAYWALL_RESULT = await RevenueCatUI.presentPaywall();
 
             switch (paywallResult) {
@@ -332,6 +334,7 @@ export class PurchaseService {
                     return false;
                 case PAYWALL_RESULT.PURCHASED:
                 case PAYWALL_RESULT.RESTORED:
+                    analytics.trackEvent({ eventName: 'purchase_completed', metadata: { result: paywallResult } });
                     return true;
                 default:
                     return false;

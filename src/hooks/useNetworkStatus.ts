@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import NetInfo from '@react-native-community/netinfo';
 import Toast from 'react-native-toast-message';
+import { offlineSync } from '../services/offline-sync';
+import { analytics } from '../services/analytics';
 
 export const useNetworkStatus = () => {
     useEffect(() => {
@@ -14,8 +16,9 @@ export const useNetworkStatus = () => {
                     visibilityTime: 4000,
                 });
             } else if (state.isConnected) {
-                // If it re-connects, you might show a success toast.
-                // But only if it was previously disconnected to avoid spamming on start.
+                // İnternet geldiğinde kuyruktaki verileri senkronize et
+                offlineSync.flushOfflineQueue();
+                analytics.flushQueue();
             }
         });
 

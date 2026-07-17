@@ -3,6 +3,7 @@ import { View, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { purchaseService } from '../src/services/purchaseService';
 import { useSubscriptionStore } from '../src/store/useSubscriptionStore';
+import { analytics } from '../src/services/analytics';
 
 /**
  * PremiumScreen (Deactivated)
@@ -15,6 +16,8 @@ export default function PremiumScreen() {
 
     useEffect(() => {
         const triggerPaywall = async () => {
+            analytics.trackEvent({ eventName: 'premium_screen_viewed' });
+            
             // Trigger the RevenueCat paywall
             const success = await purchaseService.presentPaywall();
             if (success) {

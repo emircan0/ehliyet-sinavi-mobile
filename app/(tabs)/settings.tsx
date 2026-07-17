@@ -10,9 +10,10 @@ import { useThemeMode } from '../../src/hooks/useThemeMode';
 import { purchaseService } from '../../src/services/purchaseService';
 import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
+import { analytics } from '../../src/services/analytics';
 import {
     User, Bell, Moon, ChevronRight, Crown,
-    LogOut, HelpCircle, CreditCard, FileText, Mail, Trash2, Clock
+    LogOut, HelpCircle, CreditCard, FileText, Mail, Trash2, Clock, ShieldCheck
 } from 'lucide-react-native';
 import { scheduleDailyReminder, cancelAllReminders, registerForPushNotificationsAsync } from '../../src/api/notifications';
 import { useAuth } from '../../src/hooks/useAuth';
@@ -87,6 +88,8 @@ export default function SettingsScreen() {
     const setReminderEnabled = useSettingsStore(state => state.setReminderEnabled);
     const reminderTime = useSettingsStore(state => state.reminderTime);
     const setReminderTime = useSettingsStore(state => state.setReminderTime);
+    const analyticsEnabled = useSettingsStore(state => state.analyticsEnabled);
+    const setAnalyticsEnabled = useSettingsStore(state => state.setAnalyticsEnabled);
 
     // NativeWind State
     const { isDarkMode, colorScheme, setColorScheme } = useThemeMode();
@@ -150,6 +153,8 @@ export default function SettingsScreen() {
         // Switch sağa çekildiyse dark, sola çekildiyse light yap
         const newTheme = newValue ? 'dark' : 'light';
 
+        analytics.trackEvent({ eventName: 'theme_changed', metadata: { newTheme } });
+
         // 1. Önce durumu Zustand'a kaydet (Switch'in ANINDA hareket etmesini sağlar)
         setTheme(newTheme);
 
@@ -157,8 +162,21 @@ export default function SettingsScreen() {
         setColorScheme(newTheme);
     };
 
+    const toggleAnalytics = (newValue: boolean) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        setAnalyticsEnabled(newValue);
+        if (!newValue) {
+            Toast.show({
+                type: 'info',
+                text1: 'Analitik Kapatıldı',
+                text2: 'Artık kullanım verileriniz toplanmayacak.',
+            });
+        }
+    };
+
     const handleReminderToggle = async (newValue: boolean) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        analytics.trackEvent({ eventName: 'notification_preference_changed', metadata: { enabled: newValue } });
         setReminderEnabled(newValue);
 
         if (newValue) {
@@ -274,7 +292,15 @@ export default function SettingsScreen() {
                             }}
                         />
                     )}
-                    <SettingItem icon={Moon} label="Karanlık Mod" type="toggle" value={isDarkMode} isLast onPress={toggleDarkMode} />
+                    <SettingItem icon={Moon} label="Karanlık Mod" type="toggle" value={isDarkMode} onPress={toggleDarkMode} />
+                    <SettingItem 
+                        icon={ShieldCheck} 
+                        label="Kullanım Verilerini Paylaş" 
+                        type="toggle" 
+                        value={analyticsEnabled} 
+                        onPress={toggleAnalytics} 
+                        isLast 
+                    />
                 </View>
 
                 <SectionHeader title="Destek" />
