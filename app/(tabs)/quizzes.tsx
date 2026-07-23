@@ -65,6 +65,32 @@ export default function QuizzesScreen() {
         });
     };
 
+    const handleAdGatedAccess = (onSuccess: () => void) => {
+        if (isPremium) {
+            onSuccess();
+            return;
+        }
+        
+        Alert.alert(
+            "Kilidi Aç",
+            "Bu özelliğe erişmek için kısa bir video izleyebilir veya Premium'a geçebilirsiniz.",
+            [
+                { text: "İptal", style: "cancel" },
+                { 
+                    text: "Reklam İzle", 
+                    onPress: () => {
+                        const adShown = adService.showRewarded(() => onSuccess());
+                        if (!adShown) Alert.alert("Bilgi", "Video reklam henüz hazır değil. Lütfen birkaç saniye sonra tekrar deneyin.");
+                    }
+                },
+                { 
+                    text: "Premium'a Geç", 
+                    onPress: () => router.push('/premium' as any) 
+                }
+            ]
+        );
+    };
+
     const loadData = async () => {
         try {
             setHasError(false);
@@ -112,9 +138,12 @@ export default function QuizzesScreen() {
         loadData();
     }, []);
 
-    // Sınavları basitçe ikiye ayırıyoruz: İlki öne çıkan, kalanı liste.
-    const featuredExam = exams.length > 0 ? exams[0] : null;
-    const regularExams = exams.length > 1 ? exams.slice(1) : [];
+    // Sınavları sırasıyla çözmeyi teşvik etmek için, tamamlanmamış ilk sınavı öne çıkarıyoruz.
+    const firstUncompletedIndex = exams.findIndex(e => (Number(e.progress_percentage) || 0) < 100);
+    const featuredIndex = firstUncompletedIndex !== -1 ? firstUncompletedIndex : 0;
+    
+    const featuredExam = exams.length > 0 ? exams[featuredIndex] : null;
+    const regularExams = exams.filter((_, idx) => idx !== featuredIndex);
 
     if (hasError) {
         return (
@@ -189,7 +218,7 @@ export default function QuizzesScreen() {
                                 bg="bg-red-50 dark:bg-[#FF453A]/10"
                                 onPress={() => {
                                     if ((counts?.wrongCount || 0) > 0) {
-                                        router.push('/quiz/mistakes');
+                                        handleAdGatedAccess(() => router.push('/quiz/mistakes'));
                                     } else {
                                         Alert.alert("Bilgi", "Henüz hata yaptığınız soru bulunmuyor.");
                                     }
@@ -203,7 +232,7 @@ export default function QuizzesScreen() {
                                 bg="bg-amber-50 dark:bg-[#FF9F0A]/10"
                                 onPress={() => {
                                     if ((counts?.favoriteCount || 0) > 0) {
-                                        router.push('/quiz/favorites');
+                                        handleAdGatedAccess(() => router.push('/quiz/favorites'));
                                     } else {
                                         Alert.alert("Bilgi", "Favorilere eklediğiniz soru bulunmuyor.");
                                     }

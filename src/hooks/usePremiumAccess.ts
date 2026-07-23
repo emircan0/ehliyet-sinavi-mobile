@@ -13,7 +13,7 @@ interface PremiumAccessOptions {
 
 export const usePremiumAccess = () => {
     const router = useRouter();
-    const { isPremium, spendCredits, checkSubscriptionStatus } = useSubscriptionStore();
+    const { isPremium, spendCredits, checkSubscriptionStatus, credits } = useSubscriptionStore();
 
     const checkAccess = ({
         onSuccess,
@@ -25,6 +25,37 @@ export const usePremiumAccess = () => {
 
         if (isPremium) {
             onSuccess();
+            return;
+        }
+
+        if (credits < creditCost) {
+            Alert.alert(
+                "Kredi Yetersiz",
+                "Reklam izleyerek kredi kazanabilir veya Premium'a geçerek sınırsız erişim sağlayabilirsiniz.",
+                [
+                    { text: "Vazgeç", style: "cancel" },
+                    {
+                        text: "Reklam İzle",
+                        onPress: () => {
+                            if (onAdRequired) {
+                                onAdRequired();
+                            } else {
+                                Alert.alert("Bilgi", "Ana sayfadan reklam izleyerek kredi kazanabilirsiniz.");
+                            }
+                        }
+                    },
+                    {
+                        text: "Sınırsız Aç",
+                        onPress: async () => {
+                            const success = await purchaseService.presentPaywall();
+                            if (success) {
+                                await checkSubscriptionStatus();
+                                onSuccess();
+                            }
+                        }
+                    }
+                ]
+            );
             return;
         }
 

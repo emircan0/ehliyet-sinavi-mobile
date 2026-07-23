@@ -32,7 +32,7 @@ import { analytics } from '../../src/services/analytics';
 const EXTRA_GENERAL_EXAM_CREDIT_COST = 6;
 
 export default function QuizScreen() {
-    const { id } = useLocalSearchParams();
+    const { id, fromResult } = useLocalSearchParams();
     const router = useRouter();
     const isPremium = useSubscriptionStore(state => state.isPremium);
     const spendCredits = useSubscriptionStore(state => state.spendCredits);
@@ -119,22 +119,69 @@ export default function QuizScreen() {
                     }
                 }
 
-                const isNumeric = /^\d+$/.test(idString);
-                const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idString);
+                // --- YARIDA KALAN SINAVI KONTROL ET (ÖNCE SORULARI KURTAR) ---
+                let savedQuizState: any = null;
 
-                // --- ÖZEL MODLAR BURADA YAKALANIYOR ---
-                if (idString === 'quick' && user) {
-                    data = await fetchQuickPracticeQuestions(user.id);
-                } else if (idString === 'mistakes' && user) {
-                    data = await fetchMistakeQuestions(user.id);
-                } else if (idString === 'favorites' && user) {
-                    data = await fetchFavoriteQuestions(user.id);
+                // Eğer Sonuç ekranından "Hataları Çöz" butonuyla geliyorsak, 
+                // yarıda kalmış eski bir "mistakes" testini YÜKLEMEMELİYİZ. Yepyeni hataları yüklemeliyiz.
+                const shouldIgnoreSavedState = idString === 'mistakes' && fromResult === 'true';
+
+                if (!shouldIgnoreSavedState) {
+                    try {
+                        const savedStateStr = await AsyncStorage.getItem(`@quiz_state_${idString}`);
+                        if (savedStateStr) {
+                            savedQuizState = JSON.parse(savedStateStr);
+                        }
+                    } catch (e) {
+                        console.error("Yarıda kalan sınav okunurken hata:", e);
+                    }
                 }
-                // --- NORMAL SINAV VE KATEGORİLER ---
-                else if (isNumeric || isUUID) {
-                    data = await fetchQuestionsByExamId(idString);
+
+                if (savedQuizState?.questions && savedQuizState.questions.length > 0) {
+                    data = savedQuizState.questions;
+                    
+                    // Kaldığı yeri ve cevapları store'a yükle
+                    restoreQuizState(
+                        savedQuizState.answers || [],
+                        savedQuizState.index || 0,
+                        savedQuizState.currentQuestionId
+                    );
                 } else {
-                    data = await fetchQuestionsByCategory(idString, user?.id);
+                    const isNumeric = /^\d+$/.test(idString);
+                    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idString);
+
+                    // --- ÖZEL MODLAR BURADA YAKALANIYOR ---
+                    if (idString === 'quick' && user) {
+                        data = await fetchQuickPracticeQuestions(user.id);
+                    } else if (idString === 'mistakes' && user) {
+                        if (fromResult === 'true') {
+                            try {
+                                const stored = await AsyncStorage.getItem('@last_exam_mistakes');
+                                if (stored) {
+                                    const parsedIds = JSON.parse(stored);
+                                    if (Array.isArray(parsedIds) && parsedIds.length > 0) {
+                                        data = await fetchMistakeQuestions(user.id, parsedIds);
+                                    } else {
+                                        data = await fetchMistakeQuestions(user.id);
+                                    }
+                                } else {
+                                    data = await fetchMistakeQuestions(user.id);
+                                }
+                            } catch (e) {
+                                data = await fetchMistakeQuestions(user.id);
+                            }
+                        } else {
+                            data = await fetchMistakeQuestions(user.id);
+                        }
+                    } else if (idString === 'favorites' && user) {
+                        data = await fetchFavoriteQuestions(user.id);
+                    }
+                    // --- NORMAL SINAV VE KATEGORİLER ---
+                    else if (isNumeric || isUUID) {
+                        data = await fetchQuestionsByExamId(idString);
+                    } else {
+                        data = await fetchQuestionsByCategory(idString, user?.id);
+                    }
                 }
 
                 if (data && data.length > 0) {
@@ -146,20 +193,13 @@ export default function QuizScreen() {
                         setFavoriteIds(favs);
                     }
 
-                    // --- YARIDA KALAN SINAVI KONTROL ET ---
-                    try {
-                        const savedState = await AsyncStorage.getItem(`@quiz_state_${idString}`);
-                        if (savedState) {
-                            const parsed = JSON.parse(savedState);
-                            restoreQuizState(
-                                parsed.answers || [],
-                                parsed.index || 0,
-                                parsed.currentQuestionId
-                            );
-                        }
-                    } catch (error) {
-                        console.error("Kritik Hata Oluştu:", error);
-                        setIsLoading(false);
+                    // --- CEVAPLARI VE INDEXİ GERİ YÜKLE ---
+                    if (savedQuizState) {
+                        restoreQuizState(
+                            savedQuizState.answers || [],
+                            savedQuizState.index || 0,
+                            savedQuizState.currentQuestionId
+                        );
                     }
 
                     analytics.trackQuizStarted(idString, data.length);
@@ -287,12 +327,21 @@ export default function QuizScreen() {
                     await AsyncStorage.setItem(`@quiz_state_${id}`, JSON.stringify({
                         answers: selectedAnswers,
                         index: currentIndex,
-                        currentQuestionId: questions[currentIndex]?.id
+                        currentQuestionId: questions[currentIndex]?.id,
+                        questions: questions
                     }));
                     throw new Error('Quiz result could not be saved');
                 }
 
                 await AsyncStorage.removeItem(`@quiz_state_${id}`);
+            }
+
+            // Hatalı soruları kaydet (Sonuç ekranındaki Hataları Çöz butonu için)
+            const wrongQuestionIds = validAnswers.filter(a => a != null && !a.isCorrect).map(a => a.questionId);
+            if (wrongQuestionIds.length > 0) {
+                await AsyncStorage.setItem('@last_exam_mistakes', JSON.stringify(wrongQuestionIds));
+            } else {
+                await AsyncStorage.removeItem('@last_exam_mistakes');
             }
 
             analytics.trackQuizCompleted(
@@ -331,7 +380,8 @@ export default function QuizScreen() {
                 await AsyncStorage.setItem(`@quiz_state_${id}`, JSON.stringify({
                     answers: selectedAnswers,
                     index: currentIndex,
-                    currentQuestionId: questions[currentIndex]?.id
+                    currentQuestionId: questions[currentIndex]?.id,
+                    questions: questions
                 }));
             }
 

@@ -354,7 +354,7 @@ export const fetchExamsWithProgress = async (userId: string) => {
             .from('exams')
             .select('*')
             .eq('is_active', true)
-            .order('created_at', { ascending: false });
+            .order('created_at', { ascending: true });
 
         if (examsError) throw examsError;
 
@@ -406,7 +406,7 @@ export const fetchExamsWithProgress = async (userId: string) => {
 
             return {
                 ...exam,
-                title: `Genel Deneme ${exams.length - index}`,
+                title: exam.title || `Deneme Sınavı ${index + 1}`,
                 total_questions: total,
                 solved_questions: solved,
                 progress_percentage: percentage,
@@ -640,17 +640,20 @@ export const fetchAdvancedMasteryData = async (userId: string) => {
 };
 
 // Yanlış yapılan soruları çeker
-export const fetchMistakeQuestions = async (userId: string) => {
+export const fetchMistakeQuestions = async (userId: string, filterIds?: string[]) => {
     try {
-        const { data: wrongAnswers, error: wrongError } = await supabase
-            .from('user_answers')
-            .select('question_id')
-            .eq('user_id', userId)
-            .eq('is_correct', false);
+        let questionIds = filterIds;
 
-        if (wrongError || !wrongAnswers.length) return [];
+        if (!questionIds || questionIds.length === 0) {
+            const { data: wrongAnswers, error: wrongError } = await supabase
+                .from('user_answers')
+                .select('question_id')
+                .eq('user_id', userId)
+                .eq('is_correct', false);
 
-        const questionIds = wrongAnswers.map(a => a.question_id);
+            if (wrongError || !wrongAnswers.length) return [];
+            questionIds = wrongAnswers.map(a => a.question_id);
+        }
 
         const { data: questions, error: qError } = await supabase
             .from('questions')

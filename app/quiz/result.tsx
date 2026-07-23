@@ -303,7 +303,7 @@ export default function QuizResultScreen() {
                         <TouchableOpacity
                             onPress={() => {
                                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                router.push('/quiz/mistakes');
+                                router.push({ pathname: '/quiz/mistakes', params: { fromResult: 'true' } });
                             }}
                             activeOpacity={0.8}
                             style={s.outlineBtn}

@@ -5,7 +5,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
     Play, Car, Heart, ShieldAlert, GraduationCap,
     Bell, ChevronRight, Sparkles, Zap,
-    X, CheckCircle2, Award, Clock, Info, Timer, Crown
+    X, CheckCircle2, Award, Clock, Info, Timer, Crown,
+    BrainCircuit, XCircle, Star, BookOpen, TrendingUp, Trophy
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { ScreenLayout } from '../../src/components/ScreenLayout';
@@ -65,57 +66,33 @@ export default function Home() {
     const [newName, setNewName] = useState('');
     const [isSavingName, setIsSavingName] = useState(false);
 
-    // PREMIUM PROMOSYON ZAMANLAYICISI
+    // PREMIUM PROMOSYON ZAMANLAYICISI (Her gün gece yarısına geri sayım)
     useEffect(() => {
         if (isPremium) return;
 
         let interval: ReturnType<typeof setInterval> | null = null;
         let isMounted = true;
 
-        const initTimer = async () => {
-            try {
-                let startTimeStr = await AsyncStorage.getItem('promo_start_time');
-                let startTime: number;
+        const updateTimer = () => {
+            if (!isMounted) return;
+            const now = new Date();
+            const endOfDay = new Date();
+            endOfDay.setHours(23, 59, 59, 999);
+            const diff = endOfDay.getTime() - now.getTime();
 
-                if (!startTimeStr) {
-                    startTime = Date.now();
-                    await AsyncStorage.setItem('promo_start_time', startTime.toString());
-                } else {
-                    startTime = parseInt(startTimeStr);
-                }
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
-                const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
-
-                const updateTimer = () => {
-                    const now = Date.now();
-                    const diff = startTime + SIX_HOURS_MS - now;
-
-                    if (diff <= 0) {
-                        setTimeLeft(null);
-                        return;
-                    }
-
-                    const hours = Math.floor(diff / (1000 * 60 * 60));
-                    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-                    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-                    setTimeLeft({ hours, minutes, seconds });
-                };
-
-                if (!isMounted) return;
-                updateTimer();
-                interval = setInterval(updateTimer, 1000);
-            } catch (e) {
-                console.error("Timer init error:", e);
-            }
+            setTimeLeft({ hours, minutes, seconds });
         };
 
-        initTimer();
+        updateTimer();
+        interval = setInterval(updateTimer, 1000);
+
         return () => {
             isMounted = false;
-            if (interval) {
-                clearInterval(interval);
-            }
+            if (interval) clearInterval(interval);
         };
     }, [isPremium]);
 
@@ -198,6 +175,28 @@ export default function Home() {
         });
     };
 
+    const handleMistakes = () => {
+        checkAccess({
+            onSuccess: () => {
+                router.push('/quiz/mistakes' as any);
+            },
+            featureName: 'Hatalarım',
+            onAdRequired: triggerRandomAd,
+            creditCost: 2
+        });
+    };
+
+    const handleFavorites = () => {
+        checkAccess({
+            onSuccess: () => {
+                router.push('/quiz/favorites' as any);
+            },
+            featureName: 'Favori Sorular',
+            onAdRequired: triggerRandomAd,
+            creditCost: 2
+        });
+    };
+
     const handleSaveName = async () => {
         const trimmed = newName.trim();
         if (!trimmed || trimmed.length < 2) {
@@ -235,31 +234,21 @@ export default function Home() {
             <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
 
             {/* --- HEADER --- */}
-            <View className="px-6 py-4 flex-row justify-between items-start z-10 mt-2">
+            <View className="px-6 py-2 flex-row justify-between items-center z-10 mt-2">
                 <View className="flex-1 pr-4">
-                    <Text className="text-[28px] font-black text-slate-900 dark:text-slate-50 tracking-tight leading-tight" numberOfLines={1}>
-                        Merhaba, {(userName || 'Sürücü').split(' ')[0]} 👋
+                    <Text className="text-sm font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">
+                        Hoş Geldin
                     </Text>
-                    
-                    {!isPremium && (
-                        <TouchableOpacity
-                            onPress={triggerRandomAd}
-                            activeOpacity={0.8}
-                            className="bg-amber-100/80 dark:bg-amber-900/30 px-3 py-1.5 rounded-xl border border-amber-200 dark:border-amber-800/50 flex-row items-center self-start mt-2"
-                        >
-                            <Zap size={14} color="#b45309" fill="#b45309" className="mr-2" />
-                            <Text className="text-amber-800 dark:text-amber-400 font-black text-[11px] uppercase tracking-wide">
-                                Reklam İzle Kredi Kazan • 🪙 {credits}
-                            </Text>
-                        </TouchableOpacity>
-                    )}
+                    <Text className="text-[28px] font-black text-slate-900 dark:text-white tracking-tight leading-tight" numberOfLines={1}>
+                        {(userName || 'Sürücü').split(' ')[0]}
+                    </Text>
                 </View>
 
                 {/* BİLDİRİM ZİL BUTONU */}
-                <View className="flex-row items-center pt-1">
+                <View className="flex-row items-center">
                     <TouchableOpacity
                         onPress={() => setShowNotifications(true)}
-                        className="w-11 h-11 bg-white dark:bg-slate-900 rounded-full items-center justify-center border border-slate-100 dark:border-slate-800 shadow-sm shadow-slate-200 dark:shadow-none active:opacity-70"
+                        className="w-11 h-11 bg-white dark:bg-slate-900 rounded-full items-center justify-center border border-slate-100 dark:border-slate-800 shadow-sm shadow-slate-200/50 dark:shadow-none active:opacity-70"
                     >
                         <Bell size={20} color={isDarkMode ? "#94a3b8" : "#64748b"} />
                         {unreadCount > 0 && (
@@ -275,6 +264,31 @@ export default function Home() {
                 contentContainerStyle={{ paddingBottom: 120 }}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
             >
+                {/* --- YENİ CÜZDAN / KREDİ KARTI --- */}
+                {!isPremium && (
+                    <View className="px-6 mb-6 mt-1">
+                        <View className="bg-white dark:bg-slate-900 rounded-[24px] p-4 flex-row justify-between items-center border border-slate-100 dark:border-slate-800/60 shadow-sm shadow-slate-200/50 dark:shadow-none">
+                            <View className="flex-row items-center">
+                                <View className="w-12 h-12 bg-amber-50 dark:bg-amber-500/10 rounded-[18px] items-center justify-center mr-4 border border-amber-100/50 dark:border-amber-500/20">
+                                    <Zap size={22} color="#f59e0b" fill="#f59e0b" />
+                                </View>
+                                <View>
+                                    <Text className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">Bakiyen</Text>
+                                    <Text className="text-[17px] font-black text-slate-900 dark:text-white leading-none">{credits} Kredi</Text>
+                                </View>
+                            </View>
+                            <TouchableOpacity
+                                onPress={triggerRandomAd}
+                                activeOpacity={0.7}
+                                className="bg-slate-900 dark:bg-white px-5 py-3.5 rounded-xl flex-row items-center shadow-md shadow-slate-900/20 dark:shadow-none"
+                            >
+                                <Play size={14} color={isDarkMode ? "#0f172a" : "#ffffff"} fill={isDarkMode ? "#0f172a" : "#ffffff"} className="mr-1.5" />
+                                <Text className="text-white dark:text-slate-900 font-bold text-[13px]">Kazan</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                )}
+                {/* --- PREMIUM KAMPANYA --- */}
                 {!isPremium && timeLeft && (
                     <View className="px-6 mb-6">
                         <TouchableOpacity
@@ -282,103 +296,196 @@ export default function Home() {
                                 if (success) checkSub();
                             })}
                             activeOpacity={0.9}
-                            className="bg-amber-400 rounded-[28px] p-5 flex-row items-center relative overflow-hidden shadow-xl shadow-amber-400/20"
+                            className="bg-rose-600 dark:bg-rose-900 rounded-[24px] p-5 flex-row items-center relative overflow-hidden shadow-lg shadow-rose-600/30 border border-rose-500/50 dark:border-rose-800"
                         >
-                            <View className="flex-1 pr-6 z-10">
-                                <View className="flex-row items-center bg-white/20 self-start px-2 py-1 rounded-lg mb-2 border border-white/20">
-                                    <Timer size={12} color="#78350f" className="mr-1.5" />
-                                    <Text className="text-amber-950 text-[10px] font-black uppercase tracking-widest">
-                                        FIRSAT: {timeLeft.hours.toString().padStart(2, '0')}:{timeLeft.minutes.toString().padStart(2, '0')}:{timeLeft.seconds.toString().padStart(2, '0')}
+                            <View className="flex-1 pr-4 z-10">
+                                <View className="flex-row items-center bg-white/20 dark:bg-rose-950/40 self-start px-2 py-1 rounded-lg mb-2 border border-white/20 dark:border-rose-800/50">
+                                    <Timer size={12} color="#ffffff" className="mr-1.5" />
+                                    <Text className="text-white text-[10px] font-black uppercase tracking-widest">
+                                        SON FIRSAT: {timeLeft.hours.toString().padStart(2, '0')}:{timeLeft.minutes.toString().padStart(2, '0')}:{timeLeft.seconds.toString().padStart(2, '0')}
                                     </Text>
                                 </View>
-                                <Text className="text-amber-950 font-black text-[22px] tracking-tight leading-7">
-                                    Kapsamlı <Text className="text-white">Hazırlık</Text>
+                                <Text className="text-white font-black text-[20px] tracking-tight leading-6 mb-1">
+                                    Zamlardan Etkilenmeyin
                                 </Text>
-                                <Text className="text-amber-900/70 text-xs font-bold mt-1">Hemen Premium'a geç, farkı hisset.</Text>
+                                <Text className="text-rose-100/90 text-[12px] font-bold leading-4">
+                                    Premium'a geçerek sınırsız erişim hakkını indirimli fiyattan yakalayın!
+                                </Text>
                             </View>
-                            <View className="w-14 h-14 bg-white/30 rounded-full items-center justify-center z-10 backdrop-blur-md">
-                                <Crown size={28} color="#78350f" fill="#78350f" />
+                            <View className="w-12 h-12 bg-white/20 rounded-[16px] items-center justify-center z-10 border border-white/20 backdrop-blur-sm">
+                                <Crown size={24} color="#ffffff" />
                             </View>
 
-                            <View className="absolute -right-6 -bottom-6 w-32 h-32 bg-white/20 rounded-full" />
-                            <View className="absolute right-12 -top-12 w-24 h-24 bg-white/10 rounded-full" />
+                            {/* Arka plan efektleri */}
+                            <View className="absolute -right-6 -bottom-6 w-32 h-32 bg-rose-500/30 blur-2xl rounded-full" />
+                            <View className="absolute right-12 -top-12 w-24 h-24 bg-rose-400/20 blur-2xl rounded-full" />
                         </TouchableOpacity>
                     </View>
                 )}
 
 
-                {/* 1. HERO CARD: Genel Deneme */}
-                <View className="px-6 mb-5">
+                {/* --- ANA AKSİYONLAR --- */}
+                {/* 1. HERO CARD: Hızlı Antrenman */}
+                <View className="px-6 mb-4">
                     <TouchableOpacity
-                        activeOpacity={0.9}
-                        onPress={handleGeneralExam}
-                        className="bg-slate-900 rounded-[32px] p-6 relative overflow-hidden shadow-2xl shadow-slate-900/30"
+                        activeOpacity={0.8}
+                        onPress={() => router.push('/quiz/quick' as any)}
+                        className="bg-blue-600 dark:bg-slate-900 rounded-[28px] p-6 relative overflow-hidden shadow-xl shadow-blue-600/20 border border-blue-500/50 dark:border-slate-800"
                     >
-                        <View className="absolute -right-10 -top-10 w-40 h-40 bg-blue-500/20 blur-3xl rounded-full" />
-                        <View className="absolute right-12 -bottom-12 w-24 h-24 bg-indigo-500/20 blur-2xl rounded-full" />
+                        {/* Arka plan deseni / ikonu */}
+                        <View className="absolute right-[-10] bottom-[-20] opacity-10 rotate-12">
+                            <Zap size={150} color="#ffffff" />
+                        </View>
+                        
+                        <View className="relative z-10 flex-row justify-between items-start">
+                            <View className="flex-1">
+                                <View className="bg-white/20 dark:bg-blue-500/20 self-start px-2.5 py-1 rounded-lg mb-4 border border-white/20 dark:border-blue-400/30">
+                                    <Text className="text-white dark:text-blue-400 text-[10px] font-black tracking-widest uppercase">Hızlı Pratik</Text>
+                                </View>
 
-                        <View className="relative z-10">
-                            <View className="bg-white/10 self-start px-3 py-1.5 rounded-xl border border-white/10 mb-5 flex-row items-center">
-                                <Play size={12} color="#60a5fa" fill="#60a5fa" className="mr-1.5" />
-                                <Text className="text-blue-300 text-[10px] font-black tracking-widest uppercase">Gerçek Sınav Modu</Text>
-                            </View>
+                                <Text className="text-white text-[26px] font-black tracking-tight mb-1">
+                                    10 Soru Çöz
+                                </Text>
+                                <Text className="text-blue-100/90 dark:text-slate-400 text-[13px] font-medium mb-6 leading-5 pr-4">
+                                    Zaman kaybetmeden hemen başla.
+                                </Text>
 
-                            <Text className="text-white text-[32px] font-black tracking-tight mb-2">
-                                Genel Deneme
-                            </Text>
-                            <Text className="text-slate-400 text-[13px] font-medium mb-7 leading-5 max-w-[85%]">
-                                MEB müfredatına uygun 50 soruluk deneme. Premium ile sınırsız, ücretsiz planda krediyle erişim.
-                            </Text>
-
-                            <View className="self-start p-1.5 pl-5 pr-1.5 rounded-full flex-row items-center shadow-lg bg-blue-600 shadow-blue-600/30">
-                                <Text className="text-white font-bold text-sm mr-4">Hemen Başla</Text>
-                                <View className="w-8 h-8 bg-white/20 rounded-full items-center justify-center">
-                                    <ChevronRight size={18} color="white" />
+                                <View className="bg-white dark:bg-blue-600 self-start px-4 py-2.5 rounded-xl flex-row items-center shadow-sm">
+                                    <Text className="text-blue-700 dark:text-white font-bold text-[14px] mr-2">Hemen Başla</Text>
+                                    <ChevronRight size={16} color={isDarkMode ? "#ffffff" : "#1d4ed8"} />
                                 </View>
                             </View>
                         </View>
                     </TouchableOpacity>
                 </View>
 
-                {/* 2. YENİ BÖLÜM: Hızlı Antrenman */}
+                {/* 2. SECONDARY CARD: Genel Deneme */}
+                <View className="px-6 mb-6">
+                    <TouchableOpacity
+                        activeOpacity={0.7}
+                        onPress={handleGeneralExam}
+                        className="bg-white dark:bg-slate-900 rounded-[24px] p-5 relative overflow-hidden border border-slate-100 dark:border-slate-800 shadow-sm shadow-slate-200/40 dark:shadow-none"
+                    >
+                        <View className="absolute -right-4 -bottom-4 opacity-5 dark:opacity-[0.03]">
+                            <Trophy size={100} color={isDarkMode ? "#ffffff" : "#000000"} />
+                        </View>
+
+                        <View className="flex-row items-center justify-between z-10">
+                            <View className="flex-1 pr-4">
+                                <View className="flex-row items-center mb-2">
+                                    <View className="w-2 h-2 bg-rose-500 rounded-full mr-2" />
+                                    <Text className="text-slate-500 dark:text-slate-400 font-bold text-[10px] uppercase tracking-widest">Sınav Provası</Text>
+                                </View>
+                                <Text className="text-slate-900 dark:text-white font-black text-[18px] mb-0.5 tracking-tight">Genel Deneme Modu</Text>
+                                <Text className="text-slate-500 dark:text-slate-400 text-[12px] font-medium">MEB müfredatına tam uygun 50 soru.</Text>
+                            </View>
+                            <View className="w-12 h-12 bg-slate-50 dark:bg-slate-800 rounded-2xl items-center justify-center border border-slate-100 dark:border-slate-700/50 shadow-sm">
+                                <ChevronRight size={20} color={isDarkMode ? "#cbd5e1" : "#64748b"} />
+                            </View>
+                        </View>
+                    </TouchableOpacity>
+                </View>
+
+                {/* --- HIZLI KISAYOLLAR --- */}
+                <View className="px-6 mb-8">
+                    <Text className="text-[16px] font-black text-slate-900 dark:text-white tracking-tight mb-3">Kısayollar</Text>
+                    <View className="flex-row justify-between">
+                        {/* 1. İstatistik */}
+                        <TouchableOpacity 
+                            onPress={() => router.push('/statistics' as any)}
+                            activeOpacity={0.6}
+                            className="bg-white dark:bg-slate-900 items-center justify-center py-4 rounded-[20px] border border-slate-100 dark:border-slate-800 flex-1 mr-2 shadow-sm shadow-slate-200/30 dark:shadow-none"
+                        >
+                            <View className="w-10 h-10 bg-indigo-50 dark:bg-indigo-500/10 rounded-2xl items-center justify-center mb-2">
+                                <TrendingUp size={20} color="#6366f1" />
+                            </View>
+                            <Text className="text-[11px] font-bold text-slate-700 dark:text-slate-300">İstatistik</Text>
+                        </TouchableOpacity>
+
+                        {/* 2. Hatalarım */}
+                        <TouchableOpacity 
+                            onPress={handleMistakes}
+                            activeOpacity={0.6}
+                            className="bg-white dark:bg-slate-900 items-center justify-center py-4 rounded-[20px] border border-slate-100 dark:border-slate-800 flex-1 mr-2 shadow-sm shadow-slate-200/30 dark:shadow-none"
+                        >
+                            <View className="w-10 h-10 bg-rose-50 dark:bg-rose-500/10 rounded-2xl items-center justify-center mb-2">
+                                <XCircle size={20} color="#f43f5e" />
+                            </View>
+                            <Text className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Hatalarım</Text>
+                        </TouchableOpacity>
+
+                        {/* 3. Favoriler */}
+                        <TouchableOpacity 
+                            onPress={handleFavorites}
+                            activeOpacity={0.6}
+                            className="bg-white dark:bg-slate-900 items-center justify-center py-4 rounded-[20px] border border-slate-100 dark:border-slate-800 flex-1 mr-2 shadow-sm shadow-slate-200/30 dark:shadow-none"
+                        >
+                            <View className="w-10 h-10 bg-amber-50 dark:bg-amber-500/10 rounded-2xl items-center justify-center mb-2">
+                                <Star size={20} color="#f59e0b" />
+                            </View>
+                            <Text className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Favoriler</Text>
+                        </TouchableOpacity>
+
+                        {/* 4. Notlar */}
+                        <TouchableOpacity 
+                            onPress={() => router.push('/notes' as any)}
+                            activeOpacity={0.6}
+                            className="bg-white dark:bg-slate-900 items-center justify-center py-4 rounded-[20px] border border-slate-100 dark:border-slate-800 flex-1 shadow-sm shadow-slate-200/30 dark:shadow-none"
+                        >
+                            <View className="w-10 h-10 bg-emerald-50 dark:bg-emerald-500/10 rounded-2xl items-center justify-center mb-2">
+                                <BookOpen size={20} color="#10b981" />
+                            </View>
+                            <Text className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Notlar</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+
+                {/* --- AI HOCA PROMOSYON --- */}
                 <View className="px-6 mb-8">
                     <TouchableOpacity
-                        activeOpacity={0.9}
-                        onPress={() => router.push('/quiz/quick' as any)}
-                        className="bg-emerald-500 rounded-[24px] p-5 flex-row items-center justify-between shadow-lg shadow-emerald-500/20 overflow-hidden relative"
+                        activeOpacity={0.8}
+                        onPress={() => router.push('/ai-tutor' as any)}
+                        className="bg-indigo-600 dark:bg-indigo-900/60 rounded-[24px] p-5 relative overflow-hidden flex-row items-center border border-indigo-500/30 dark:border-indigo-500/20 shadow-lg shadow-indigo-600/20"
                     >
-                        <View className="absolute -right-4 -top-8 opacity-10 rotate-12">
-                            <Zap size={100} color="white" fill="white" />
+                        <View className="absolute right-[-20] top-[-20] opacity-10">
+                            <BrainCircuit size={140} color="#ffffff" />
                         </View>
-                        <View className="flex-1 pr-4 z-10">
-                            <Text className="text-white font-black text-lg mb-0.5 tracking-tight">Hızlı Antrenman</Text>
-                            <Text className="text-emerald-100 text-xs font-medium">Vaktin mi az? Rastgele 10 soru çöz.</Text>
+                        
+                        <View className="w-14 h-14 bg-white/20 rounded-[18px] items-center justify-center mr-4 border border-white/20 backdrop-blur-sm">
+                            <BrainCircuit size={28} color="#ffffff" />
                         </View>
-                        <View className="w-12 h-12 bg-white/20 rounded-2xl items-center justify-center z-10 backdrop-blur-md border border-white/20">
-                            <Zap size={24} color="white" fill="white" />
+                        <View className="flex-1">
+                            <Text className="text-white text-[16px] font-black tracking-tight mb-1">Anlamadığın soru mu var?</Text>
+                            <Text className="text-indigo-100/80 text-[12px] font-medium leading-4">Yapay zeka asistanınla hemen çalış.</Text>
+                        </View>
+                        <View className="w-8 h-8 bg-white/10 rounded-full items-center justify-center border border-white/20">
+                            <ChevronRight size={16} color="#ffffff" />
                         </View>
                     </TouchableOpacity>
                 </View>
 
                 {/* 4. KONU BAZLI TESTLER */}
                 <View className="px-6">
-                    <Text className="text-[19px] font-black text-slate-900 dark:text-slate-50 tracking-tight mb-4">Konu Testleri</Text>
+                    <View className="flex-row items-center justify-between mb-4">
+                        <Text className="text-[18px] font-black text-slate-900 dark:text-white tracking-tight">Kategoriler</Text>
+                    </View>
                     <View className="flex-row flex-wrap justify-between gap-y-4">
                         {categories.map((cat) => (
                             <TouchableOpacity
                                 key={cat.id}
-                                activeOpacity={0.7}
-                                className="w-[48%] bg-white dark:bg-slate-900 p-5 rounded-[28px] border border-slate-100 dark:border-slate-800 shadow-sm shadow-slate-200/50 dark:shadow-none flex-col h-[150px] relative"
+                                activeOpacity={0.6}
+                                className="w-[48%] bg-white dark:bg-slate-900 p-4 rounded-[24px] border border-slate-100 dark:border-slate-800 shadow-sm shadow-slate-200/30 dark:shadow-none flex-col"
                                 onPress={() => router.push(`/quiz/${cat.id}` as any)}
                             >
-                                <View className={`w-12 h-12 rounded-2xl ${cat.bg} dark:bg-opacity-10 items-center justify-center mb-3`}>
-                                    <cat.icon size={24} color={cat.color} />
+                                <View className="flex-row justify-between items-start mb-5">
+                                    <View className={`w-11 h-11 rounded-2xl ${cat.bg} dark:bg-opacity-10 items-center justify-center`}>
+                                        <cat.icon size={22} color={cat.color} />
+                                    </View>
+                                    <View className="w-6 h-6 bg-slate-50 dark:bg-slate-800 rounded-full items-center justify-center mt-1">
+                                        <ChevronRight size={12} color={isDarkMode ? "#64748b" : "#94a3b8"} />
+                                    </View>
                                 </View>
-                                <Text className="font-extrabold text-slate-900 dark:text-slate-100 text-[15px] leading-5" numberOfLines={2}>{cat.name}</Text>
-                                <View className="flex-row items-center justify-between mt-auto pt-2 border-t border-slate-50 dark:border-slate-800">
-                                    <Text className="text-slate-400 dark:text-slate-500 text-[10px] font-bold uppercase tracking-widest">Testi Çöz</Text>
-                                    <ChevronRight size={14} color={isDarkMode ? "#475569" : "#94a3b8"} />
-                                </View>
+                                <Text className="font-bold text-slate-900 dark:text-slate-100 text-[14px] leading-5">{cat.name}</Text>
                             </TouchableOpacity>
                         ))}
                     </View>
@@ -523,19 +630,44 @@ const HomeSkeleton = () => {
 
     return (
         <SafeAreaView className="flex-1 bg-base" edges={['top']}>
-            <View className="px-6 pt-12 pb-6">
-                <View className="flex-row justify-between items-center mb-8">
+            <View className="px-6 pt-2 pb-6">
+                <View className="flex-row justify-between items-center mb-6">
                     <View>
-
-                        <View className="h-8 w-48 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" />
+                        <View className="h-3 w-20 bg-slate-200 dark:bg-slate-800 rounded mb-2 animate-pulse" />
+                        <View className="h-8 w-40 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" />
                     </View>
                     <View className="w-11 h-11 bg-slate-200 dark:bg-slate-800 rounded-full animate-pulse" />
                 </View>
-                <View className="h-56 w-full bg-slate-200 dark:bg-slate-800 rounded-[32px] mb-6 animate-pulse" />
+
+                {/* Wallet Skeleton */}
+                <View className="h-20 w-full bg-slate-200 dark:bg-slate-800 rounded-[24px] mb-5 animate-pulse" />
+
+                {/* Hero Skeleton */}
+                <View className="h-32 w-full bg-slate-200 dark:bg-slate-800 rounded-[28px] mb-4 animate-pulse" />
+
+                
+                {/* Secondary Skeleton */}
+                <View className="h-24 w-full bg-slate-200 dark:bg-slate-800 rounded-[24px] mb-6 animate-pulse" />
+                
+                {/* Shortcuts Skeleton */}
+                <View className="flex-row justify-between mb-8">
+                    <View className="h-24 flex-1 bg-slate-200 dark:bg-slate-800 rounded-[20px] mr-2 animate-pulse" />
+                    <View className="h-24 flex-1 bg-slate-200 dark:bg-slate-800 rounded-[20px] mr-2 animate-pulse" />
+                    <View className="h-24 flex-1 bg-slate-200 dark:bg-slate-800 rounded-[20px] mr-2 animate-pulse" />
+                    <View className="h-24 flex-1 bg-slate-200 dark:bg-slate-800 rounded-[20px] animate-pulse" />
+                </View>
+
+                {/* AI Tutor Skeleton */}
                 <View className="h-24 w-full bg-slate-200 dark:bg-slate-800 rounded-[24px] mb-8 animate-pulse" />
+
+                {/* Grid Skeleton */}
+                <View className="flex-row gap-4 mb-4">
+                    <View className="h-20 flex-1 bg-slate-200 dark:bg-slate-800 rounded-[24px] animate-pulse" />
+                    <View className="h-20 flex-1 bg-slate-200 dark:bg-slate-800 rounded-[24px] animate-pulse" />
+                </View>
                 <View className="flex-row gap-4 mb-8">
-                    <View className="h-[150px] w-[135px] bg-slate-200 dark:bg-slate-800 rounded-[28px] animate-pulse" />
-                    <View className="h-[150px] w-[135px] bg-slate-200 dark:bg-slate-800 rounded-[28px] animate-pulse" />
+                    <View className="h-20 flex-1 bg-slate-200 dark:bg-slate-800 rounded-[24px] animate-pulse" />
+                    <View className="h-20 flex-1 bg-slate-200 dark:bg-slate-800 rounded-[24px] animate-pulse" />
                 </View>
             </View>
         </SafeAreaView>

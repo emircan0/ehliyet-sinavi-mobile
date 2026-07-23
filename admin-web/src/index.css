@@ -624,47 +624,73 @@ button {
 .legend-active { background: var(--color-secondary); }
 .legend-quiz { background: var(--color-primary); }
 
-.activity-chart {
+.activity-chart-container {
   height: 285px;
+  position: relative;
   display: flex;
-  align-items: stretch;
-  gap: clamp(4px, 0.65vw, 10px);
-  padding: 0.7rem 0.2rem 0;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 0.7rem 0 0;
+}
+
+.activity-chart-svg {
+  position: absolute;
+  top: 0.7rem;
+  left: 0;
+  right: 0;
+  bottom: 30px;
+  width: 100%;
+  height: calc(100% - 30px - 0.7rem);
+  overflow: visible;
   border-bottom: 1px solid var(--border-primary);
   background-image: linear-gradient(to top, rgba(255,255,255,0.045) 1px, transparent 1px);
   background-size: 100% 25%;
 }
 
-.activity-column {
-  min-width: 8px;
-  flex: 1;
+.activity-chart-svg circle {
+  transition: r 0.2s ease, fill 0.2s ease;
+  vector-effect: non-scaling-stroke;
+}
+
+.activity-chart-svg circle:hover {
+  r: 4;
+}
+
+.activity-data-label {
+  font-size: 3.5px;
+  font-weight: 500;
+  pointer-events: none;
+}
+
+.active-users-label {
+  fill: #22d3ee;
+}
+
+.quiz-label {
+  fill: #a78bfa;
+}
+
+.activity-chart-labels {
   display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
+  justify-content: space-between;
+  padding: 0 0.5rem;
+  height: 30px;
   align-items: center;
-  gap: 0.45rem;
 }
 
-.activity-bars {
-  width: 100%;
-  height: 235px;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  gap: 2px;
+.activity-label-wrapper {
+  flex: 1;
+  text-align: center;
 }
 
-.activity-bar {
-  width: min(12px, 42%);
-  min-height: 4px;
-  border-radius: 4px 4px 1px 1px;
-  transition: height 0.35s ease, filter 0.2s ease;
+.activity-label {
+  color: var(--text-muted);
+  font-size: 0.6rem;
+  white-space: nowrap;
+  display: inline-block;
+  transform: rotate(-35deg);
+  transform-origin: center;
 }
-
-.activity-column:hover .activity-bar { filter: brightness(1.3); }
-.activity-bar-users { background: linear-gradient(to top, #0891b2, #22d3ee); }
-.activity-bar-quizzes { background: linear-gradient(to top, #6d28d9, #a78bfa); }
-.activity-label { color: var(--text-muted); font-size: 0.6rem; white-space: nowrap; transform: rotate(-35deg); transform-origin: center; }
 
 .health-score {
   display: flex;

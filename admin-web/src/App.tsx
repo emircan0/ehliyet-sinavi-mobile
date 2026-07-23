@@ -596,6 +596,30 @@ function App() {
     }
   };
 
+  const handleExportAnalyticsJson = () => {
+    const reportData = {
+      generatedAt: new Date().toISOString(),
+      dateRangeDays: analyticsRange,
+      kpis,
+      categoryPerformance,
+      quizTypeStats,
+      funnelStats,
+      telemetry,
+      hardestQuestionsList: hardestQuestionsList.slice(0, 10),
+      recentActivity: activitySeries
+    };
+    
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(reportData, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `analytics_report_${new Date().toISOString().split('T')[0]}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+    
+    triggerAlert('success', 'Analiz raporu JSON olarak indirildi. Bunu yapay zeka araçlarına (ör. ChatGPT, Gemini) yükleyerek yorumlatabilirsiniz.');
+  };
+
   const loadAnalyticsData = useCallback(async () => {
     setAnalyticsLoading(true);
     try {
@@ -2406,6 +2430,14 @@ function App() {
                     : <RefreshCw size={16} />}
                   Yenile
                 </button>
+                <button
+                  onClick={handleExportAnalyticsJson}
+                  className="btn btn-primary"
+                  title="Yapay zekaya (ChatGPT, Gemini vb.) analiz ettirmek için JSON formatında rapor indir"
+                >
+                  <Download size={16} style={{ marginRight: '6px' }} />
+                  JSON Raporu Al
+                </button>
               </div>
             </header>
 
@@ -2500,32 +2532,66 @@ function App() {
                     {activitySeries.length === 0 ? (
                       <div className="dashboard-empty">Bu dönem için aktivite verisi bulunamadı.</div>
                     ) : (
-                      <div className="activity-chart" role="img" aria-label="Aktif kullanıcı ve quiz zaman serisi">
-                        {activitySeries.map(point => {
-                          const maxValue = Math.max(
-                            1,
-                            ...activitySeries.flatMap(item => [item.activeUsers, item.quizzes])
-                          );
-                          return (
-                            <div
-                              className="activity-column"
-                              key={point.key}
-                              title={point.label + ': ' + point.activeUsers + ' aktif, ' + point.quizzes + ' quiz, ' + point.answers + ' cevap'}
-                            >
-                              <div className="activity-bars">
-                                <span
-                                  className="activity-bar activity-bar-users"
-                                  style={{ height: Math.max(4, Math.round((point.activeUsers / maxValue) * 100)) + '%' }}
-                                ></span>
-                                <span
-                                  className="activity-bar activity-bar-quizzes"
-                                  style={{ height: Math.max(4, Math.round((point.quizzes / maxValue) * 100)) + '%' }}
-                                ></span>
-                              </div>
+                      <div className="activity-chart-container" role="img" aria-label="Aktif kullanıcı ve quiz zaman serisi">
+                        <svg className="activity-chart-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
+                          <defs>
+                            <linearGradient id="grad-active" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#22d3ee" stopOpacity="0.5" />
+                              <stop offset="100%" stopColor="#22d3ee" stopOpacity="0" />
+                            </linearGradient>
+                            <linearGradient id="grad-quiz" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#a78bfa" stopOpacity="0.5" />
+                              <stop offset="100%" stopColor="#a78bfa" stopOpacity="0" />
+                            </linearGradient>
+                          </defs>
+                          {(() => {
+                            const maxValue = Math.max(1, ...activitySeries.flatMap(item => [item.activeUsers, item.quizzes]));
+                            const getPoints = (key: 'activeUsers' | 'quizzes') => {
+                              if (activitySeries.length === 1) return `0,${100 - (activitySeries[0][key] / maxValue) * 100} 100,${100 - (activitySeries[0][key] / maxValue) * 100}`;
+                              return activitySeries.map((p, i) => {
+                                const x = (i / (activitySeries.length - 1)) * 100;
+                                const y = 100 - (p[key] / maxValue) * 100;
+                                return `${x},${y}`;
+                              }).join(' ');
+                            };
+                            
+                            const activePoints = getPoints('activeUsers');
+                            const quizPoints = getPoints('quizzes');
+                            
+                            return (
+                              <>
+                                <polygon points={`0,100 ${activePoints} 100,100`} fill="url(#grad-active)" />
+                                <polyline points={activePoints} fill="none" stroke="#22d3ee" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" />
+                                
+                                <polygon points={`0,100 ${quizPoints} 100,100`} fill="url(#grad-quiz)" />
+                                <polyline points={quizPoints} fill="none" stroke="#a78bfa" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" />
+                                
+                                {activitySeries.map((p, i) => {
+                                  const x = activitySeries.length === 1 ? 50 : (i / (activitySeries.length - 1)) * 100;
+                                  const yActive = 100 - (p.activeUsers / maxValue) * 100;
+                                  const yQuiz = 100 - (p.quizzes / maxValue) * 100;
+                                  return (
+                                    <g key={p.key} className="activity-data-point">
+                                      <circle cx={x} cy={yActive} r="1.5" fill="#22d3ee" />
+                                      <text x={x} y={yActive - 3} className="activity-data-label active-users-label" textAnchor="middle">{p.activeUsers}</text>
+                                      
+                                      <circle cx={x} cy={yQuiz} r="1.5" fill="#a78bfa" />
+                                      <text x={x} y={yQuiz > yActive ? yQuiz + 5 : yQuiz - 3} className="activity-data-label quiz-label" textAnchor="middle">{p.quizzes}</text>
+                                    </g>
+                                  );
+                                })}
+                              </>
+                            );
+                          })()}
+                        </svg>
+                        
+                        <div className="activity-chart-labels">
+                          {activitySeries.map((point) => (
+                            <div key={point.key} className="activity-label-wrapper" title={point.label + ': ' + point.activeUsers + ' aktif, ' + point.quizzes + ' quiz'}>
                               <span className="activity-label">{point.label}</span>
                             </div>
-                          );
-                        })}
+                          ))}
+                        </div>
                       </div>
                     )}
                   </article>
