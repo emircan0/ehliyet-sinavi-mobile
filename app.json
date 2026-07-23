@@ -2,7 +2,7 @@
   "expo": {
     "name": "Ehliyet Hocam",
     "slug": "ehliyet-hocam",
-    "version": "1.2.4",
+    "version": "1.2.5",
     "orientation": "portrait",
     "icon": "./assets/images/logo.png",
     "userInterfaceStyle": "automatic",
@@ -15,7 +15,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.ehliyet.ai.sinav",
       "usesAppleSignIn": true,
-      "buildNumber": "4",
+      "buildNumber": "6",
       "infoPlist": {
         "CFBundleDisplayName": "Ehliyet Hocam",
         "NSCameraUsageDescription": "Uygulama, profil fotoğrafınızı güncellemek için kameraya erişim gerektirir.",
@@ -29,7 +29,7 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.ehliyet.ai.sinav",
-      "versionCode": 8,
+      "versionCode": 10,
       "edgeToEdgeEnabled": true
     },
     "web": {
