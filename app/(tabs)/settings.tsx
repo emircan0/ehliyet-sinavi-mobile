@@ -436,7 +436,7 @@ export default function SettingsScreen() {
                 {/* Removed Logout actions per user request */}
 
                 <View className="items-center mb-8">
-                    <Text className="text-slate-400 dark:text-[#EBEBF54D] text-[13px] font-medium">Ehliyet Hocam v1.2.4</Text>
+                    <Text className="text-slate-400 dark:text-[#EBEBF54D] text-[13px] font-medium">Ehliyet Hocam v1.2.6</Text>
                 </View>
             </ScrollView>
 
