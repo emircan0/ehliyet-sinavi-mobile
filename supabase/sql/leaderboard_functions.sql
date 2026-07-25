@@ -6,6 +6,7 @@
 -- 1. TABLO GÜNCELLEMESİ (Sütunlar yoksa eklenir)
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS leaderboard_hide_avatar BOOLEAN DEFAULT TRUE;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS leaderboard_nickname TEXT DEFAULT NULL;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS is_leaderboard_hidden BOOLEAN DEFAULT FALSE;
 
 -- 1.1. ESKİ KAYITLARI GÜNCELLE (Önceden false olarak kaydedilmişse true'ya çevir)
 -- (Sadece ilk kez çalıştırdığınızda etki eder, tüm kullanıcıların fotoğraflarını varsayılan olarak gizler)
@@ -49,6 +50,7 @@ BEGIN
         qr.total_questions >= 50
         AND qr.completed_at >= start_date
         AND qr.completed_at < end_date
+        AND (p.is_leaderboard_hidden IS NULL OR p.is_leaderboard_hidden = FALSE)
     GROUP BY 
         p.id, p.full_name, p.avatar_url, p.leaderboard_nickname, p.leaderboard_hide_avatar
     ORDER BY 
@@ -90,6 +92,7 @@ BEGIN
     WHERE 
         qr.completed_at >= start_date
         AND qr.completed_at < end_date
+        AND (p.is_leaderboard_hidden IS NULL OR p.is_leaderboard_hidden = FALSE)
     GROUP BY 
         p.id, p.full_name, p.avatar_url, p.leaderboard_nickname, p.leaderboard_hide_avatar
     HAVING 

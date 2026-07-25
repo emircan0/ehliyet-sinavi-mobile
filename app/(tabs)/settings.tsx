@@ -106,6 +106,7 @@ export default function SettingsScreen() {
     const [isGuest, setIsGuest] = useState(false);
 
     const [hideAvatar, setHideAvatar] = useState(true);
+    const [isLeaderboardHidden, setIsLeaderboardHidden] = useState(false);
     const [nickname, setNickname] = useState('');
     const [showNicknamePrompt, setShowNicknamePrompt] = useState(false);
     const [newNickname, setNewNickname] = useState('');
@@ -122,13 +123,14 @@ export default function SettingsScreen() {
                 
                 const { data: profile } = await supabase
                     .from('profiles')
-                    .select('leaderboard_hide_avatar, leaderboard_nickname')
+                    .select('leaderboard_hide_avatar, leaderboard_nickname, is_leaderboard_hidden')
                     .eq('id', user.id)
                     .maybeSingle();
                 if (profile) {
                     setHideAvatar(profile.leaderboard_hide_avatar ?? true);
                     setNickname(profile.leaderboard_nickname || '');
                     setNewNickname(profile.leaderboard_nickname || '');
+                    setIsLeaderboardHidden(profile.is_leaderboard_hidden ?? false);
                 }
                 
                 return;
@@ -266,6 +268,14 @@ export default function SettingsScreen() {
         }
     };
 
+    const handleToggleIsLeaderboardHidden = async (newValue: boolean) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        setIsLeaderboardHidden(newValue);
+        if (user) {
+            await supabase.from('profiles').update({ is_leaderboard_hidden: newValue }).eq('id', user.id);
+        }
+    };
+
     const handleSaveNickname = async () => {
         const trimmed = newNickname.trim();
         if (trimmed && trimmed.length < 2) {
@@ -358,6 +368,13 @@ export default function SettingsScreen() {
 
                 <SectionHeader title="Gizlilik Ayarları" />
                 <View className="mx-5 bg-white dark:bg-slate-900 rounded-[16px] overflow-hidden border border-slate-100 dark:border-slate-800 shadow-sm dark:shadow-none">
+                    <SettingItem 
+                        icon={User} 
+                        label="Liderlik Tablosunda Görün" 
+                        type="toggle" 
+                        value={!isLeaderboardHidden} 
+                        onPress={(val: boolean) => handleToggleIsLeaderboardHidden(!val)} 
+                    />
                     <SettingItem 
                         icon={User} 
                         label="Sıralamada Profilimi Gizle" 

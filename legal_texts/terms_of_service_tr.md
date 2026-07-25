@@ -21,7 +21,7 @@ Uygulama temel olarak ücretsiz olup, ek avantajlar (AI Hoca erişimi, detaylı 
 - **İptal ve İadeler:** Aboneliklerinizi cihazınızın "Hesap Ayarları" kısmından dilediğiniz zaman yönetebilir ve iptal edebilirsiniz. Tüm faturalandırma ve iade işlemleri doğrudan Apple'ın standart iade ve ödeme politikalarına tabidir; Geliştirici doğrudan iade yapma yetkisine sahip değildir.
 
 ## 4. Liderlik Tablosu (Leaderboard) ve Adil Oyun
-Liderlik tablosu, kullanıcılar arasında pozitif rekabet sağlamayı hedefler. Geliştirici, anormal puan artışları veya manipülasyon tespit ettiğinde kullanıcının sıralamasını sıfırlama, istatistiklerini silme veya kullanıcının liderlik tablosuna erişimini tamamen engelleme hakkına koşulsuz olarak sahiptir. 
+Liderlik tablosu, kullanıcılar arasında pozitif rekabet sağlamayı hedefler. Kullanıcılar, Uygulamayı kullandıklarında varsayılan olarak bu sıralamada yer almayı ve istatistiklerinin gösterilmesini peşinen kabul etmiş sayılırlar. Görünmek istemeyen kullanıcılar, Ayarlar menüsünden kendilerini gizleyebilirler. Geliştirici, anormal puan artışları veya manipülasyon tespit ettiğinde kullanıcının sıralamasını sıfırlama, istatistiklerini silme veya kullanıcının liderlik tablosuna erişimini tamamen engelleme hakkına koşulsuz olarak sahiptir. 
 
 ## 5. Fikri ve Sınai Mülkiyet Hakları
 Uygulama içerisinde yer alan tüm tasarım öğeleri, arayüz, logolar, yazılım algoritmaları, metinler, AI analiz modelleri ve özel soru havuzları üzerindeki telif ve diğer tüm fikri mülkiyet hakları münhasıran **Emircan Mert**'e aittir. İzinsiz kopyalama veya çoğaltma, yasal yaptırımlara tabidir.

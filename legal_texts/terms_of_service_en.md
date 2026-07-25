@@ -21,7 +21,7 @@ The App is primarily free but may include In-App Purchases and subscriptions tha
 - **Cancellations and Refunds:** You can manage and cancel your subscriptions at any time from your device's "Account Settings". All billing and refund processes are subject directly to Apple's standard refund and payment policies; the Developer does not have the authority to issue refunds directly.
 
 ## 4. Leaderboard and Fair Play
-The leaderboard aims to provide positive competition among users. If the Developer detects abnormal score increases or manipulation, the Developer unconditionally reserves the right to reset a user's rank, delete their statistics, or permanently block their access to the leaderboard.
+The leaderboard aims to provide positive competition among users. By using the App, users agree by default to participate in this ranking and have their statistics displayed. Users who do not wish to be visible can hide themselves via the Settings menu. If the Developer detects abnormal score increases or manipulation, the Developer unconditionally reserves the right to reset a user's rank, delete their statistics, or permanently block their access to the leaderboard.
 
 ## 5. Intellectual and Industrial Property Rights
 All design elements, interfaces, logos, software algorithms, texts, AI analysis models, and custom question banks within the App, as well as their copyright and all other intellectual property rights, belong exclusively to **Emircan Mert**. Unauthorized copying or reproduction is subject to legal sanctions.

@@ -32,7 +32,7 @@ Uygulama, verilerinizi ticari amaçlarla asla üçüncü şahıslara satmaz. Anc
 - **Apple:** "Apple ile Giriş" (Sign in with Apple) ve App Store ödeme altyapısı entegrasyonu.
 
 ## 5. Liderlik Tablosu ve Gizlilik Tercihleri
-Uygulama içindeki Liderlik Tablosu özelliği, kullanıcıların "Soru" ve "Başarı" oranlarına göre sıralanmasını sağlar. Sıralamada adınız, profil resminiz ve puanınız herkese açık olarak sergilenebilir. Ancak, gizliliğinize saygı duyuyoruz: "Ayarlar" sayfasından profil fotoğrafınızı dilediğiniz zaman diğer kullanıcılardan gizleyebilirsiniz. Ayrıca, küfürlü/uygunsuz isim kullanan profiller sistem filtresine takılarak anonimleştirilir.
+Uygulama içindeki Liderlik Tablosu özelliği, kullanıcıların "Soru" ve "Başarı" oranlarına göre sıralanmasını sağlar. Kullanıcılarımız varsayılan olarak bu tabloda yer almayı ve istatistiklerinin (ad, profil resmi, puan) herkese açık olarak sergilenmesini peşinen kabul ederler. Ancak, gizliliğinize saygı duyuyoruz: Eğer sıralamada hiçbir şekilde yer almak istemezseniz, "Ayarlar" sayfasından kendinizi liderlik tablosundan tamamen gizleyebilirsiniz. Ayrıca, sadece profil fotoğrafınızı da gizleme seçeneğiniz bulunmaktadır. Ek olarak, küfürlü/uygunsuz isim kullanan profiller sistem filtresine takılarak anonimleştirilir veya tablodan silinir.
 
 ## 6. Veri Güvenliği ve Saklama Süresi
 Verileriniz, uluslararası standartlarda şifreleme yöntemleri (SSL/TLS) ile iletilir ve bulut altyapısında güvenli bir şekilde saklanır. Verileriniz, hesabınız aktif olduğu sürece sistemlerimizde tutulur. Hesabınızı silmeniz durumunda, verileriniz yasal bir zorunluluk (örn. fatura kayıtları) bulunmadıkça en geç 30 gün içinde kalıcı olarak anonimleştirilir veya silinir.

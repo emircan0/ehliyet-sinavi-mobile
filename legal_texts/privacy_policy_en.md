@@ -32,7 +32,7 @@ The App never sells your data to third parties for commercial purposes. However,
 - **Apple:** Integration for "Sign in with Apple" and App Store payment infrastructure.
 
 ## 5. Leaderboard and Privacy Preferences
-The Leaderboard feature within the App ranks users based on their "Questions Solved" and "Success" rates. Your name, profile picture, and score may be displayed publicly in the ranking. However, we respect your privacy: you can hide your profile picture or details from other users at any time via the "Settings" page. Furthermore, profiles using profanity or inappropriate names are caught by system filters and automatically anonymized.
+The Leaderboard feature within the App ranks users based on their "Questions Solved" and "Success" rates. By using the App, users agree by default to participate in this leaderboard and have their statistics (name, profile picture, score) displayed publicly. However, we respect your privacy: if you do not wish to be included in the ranking at all, you can completely hide yourself from the leaderboard via the "Settings" page. You also have the option to hide just your profile picture. Furthermore, profiles using profanity or inappropriate names are caught by system filters and automatically anonymized or removed from the leaderboard.
 
 ## 6. Data Security and Retention Period
 Your data is transmitted using international standard encryption methods (SSL/TLS) and safely stored in cloud infrastructure. Your data is kept in our systems as long as your account remains active. In the event you delete your account, your data will be permanently anonymized or deleted within 30 days at the latest, unless there is a legal obligation (e.g., billing records) to retain it.
