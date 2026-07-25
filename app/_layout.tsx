@@ -86,6 +86,7 @@ export default function RootLayout() {
             if (!premiumStatus) {
                 adService.loadRewarded();
                 adService.loadInterstitial();
+                adService.loadRewardedInterstitial();
             }
         };
 

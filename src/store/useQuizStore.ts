@@ -19,6 +19,9 @@ interface QuizState {
     aiExplanation: string | null;
     activeQuestionId: string | null; // Track which question's explanation is shown
 
+    // Ad State
+    mistakesUnlocked: boolean;
+
     // Actions
     setQuestions: (questions: Question[]) => void;
     nextQuestion: () => void;
@@ -26,6 +29,7 @@ interface QuizState {
     setAnswer: (questionIndex: number, answerIndex: number, isCorrect: boolean) => void;
     finishQuiz: () => void;
     resetQuiz: () => void;
+    unlockMistakes: () => void;
     restoreQuizState: (
         answers: Array<SelectedAnswer | null | undefined>,
         index: number,
@@ -54,6 +58,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
     isAiLoading: false,
     aiExplanation: null,
     activeQuestionId: null,
+    mistakesUnlocked: false,
 
     setQuestions: (questions) => set({
         questions,
@@ -62,7 +67,8 @@ export const useQuizStore = create<QuizState>((set, get) => ({
         isFinished: false,
         isAiLoading: false,
         aiExplanation: null,
-        activeQuestionId: null
+        activeQuestionId: null,
+        mistakesUnlocked: false
     }),
 
     nextQuestion: () => {
@@ -105,8 +111,11 @@ export const useQuizStore = create<QuizState>((set, get) => ({
         isFinished: false,
         isAiLoading: false,
         aiExplanation: null,
-        activeQuestionId: null
+        activeQuestionId: null,
+        mistakesUnlocked: false
     }),
+
+    unlockMistakes: () => set({ mistakesUnlocked: true }),
 
     restoreQuizState: (answers, index, currentQuestionId) => set((state) => {
         const answersByQuestionId = new Map<string, SelectedAnswer>();

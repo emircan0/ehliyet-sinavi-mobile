@@ -17,6 +17,13 @@ interface Premiumps {
     onPress: () => void;
 }
 
+const CATEGORY_NAMES: Record<string, string> = {
+    trafik: 'Trafik ve Çevre',
+    ilkyardim: 'İlk Yardım',
+    motor: 'Araç Tekniği',
+    adap: 'Trafik Adabı',
+};
+
 export const MasteryCard = ({ data, onPress }: Premiumps) => {
     const isExpert = data.status === 'expert';
     const isCritical = data.status === 'critical';
@@ -30,6 +37,7 @@ export const MasteryCard = ({ data, onPress }: Premiumps) => {
 
     const theme = getTheme();
     const ThemeIcon = theme.icon;
+    const displayName = CATEGORY_NAMES[data.name.toLowerCase()] || data.name.replace('_', ' ');
 
     return (
         <TouchableOpacity
@@ -44,8 +52,8 @@ export const MasteryCard = ({ data, onPress }: Premiumps) => {
                 
                 <View className="flex-1">
                     <View className="flex-row justify-between items-center mb-1">
-                        <Text className="text-slate-900 dark:text-slate-50 font-black text-base capitalize">
-                            {data.name.replace('_', ' ')}
+                        <Text className="text-slate-900 dark:text-slate-50 font-black text-base">
+                            {displayName}
                         </Text>
                         <Text className="text-slate-400 dark:text-slate-500 font-bold text-[10px] uppercase tracking-widest">
                             {data.totalAttempts} Soru

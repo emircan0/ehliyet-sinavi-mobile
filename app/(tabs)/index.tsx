@@ -10,6 +10,7 @@ import {
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { ScreenLayout } from '../../src/components/ScreenLayout';
+import { LeaderboardWidget } from '../../src/components/LeaderboardWidget';
 import { fetchHomeDashboardData } from '../../src/api/queries';
 import { useSubscriptionStore } from '../../src/store/useSubscriptionStore';
 import { useAuth } from '../../src/hooks/useAuth';
@@ -19,6 +20,7 @@ import { useThemeMode } from '../../src/hooks/useThemeMode';
 import { adService } from '../../src/services/adService';
 import { purchaseService } from '../../src/services/purchaseService';
 import { supabase } from '../../src/api/supabase';
+import { containsProfanity } from '../../src/utils/profanityFilter';
 
 
 
@@ -115,8 +117,11 @@ export default function Home() {
                 setQuestionCounts(data.counts);
                 setIsLoading(false);
 
-                // Eğer isimsiz ise isim sorma ekranını çıkar
-                if (data.fullName === 'İsimsiz Sürücü' || data.fullName === 'Sürücü Adayı' || !data.fullName) {
+                // Eğer isimsiz ise veya uygunsuz bir ismi varsa isim sorma ekranını çıkar
+                const nameCheck = data.fullName ? data.fullName.trim() : '';
+                const placeholderNames = ['İsimsiz Sürücü', 'Sürücü Adayı', 'Misafir Sürücü', 'Misafir', 'Sürücü'];
+                
+                if (!nameCheck || placeholderNames.includes(nameCheck) || containsProfanity(nameCheck)) {
                     setShowNamePrompt(true);
                 }
             }
@@ -203,6 +208,12 @@ export default function Home() {
             Alert.alert('Hata', 'Lütfen geçerli bir isim giriniz.');
             return;
         }
+
+        if (containsProfanity(trimmed)) {
+            Alert.alert('Uyarı', 'Lütfen geçerli ve uygun bir isim giriniz.');
+            return;
+        }
+
         setIsSavingName(true);
         try {
             // Update auth profile
@@ -323,7 +334,6 @@ export default function Home() {
                     </View>
                 )}
 
-
                 {/* --- ANA AKSİYONLAR --- */}
                 {/* 1. HERO CARD: Hızlı Antrenman */}
                 <View className="px-6 mb-4">
@@ -435,10 +445,13 @@ export default function Home() {
                             <View className="w-10 h-10 bg-emerald-50 dark:bg-emerald-500/10 rounded-2xl items-center justify-center mb-2">
                                 <BookOpen size={20} color="#10b981" />
                             </View>
-                            <Text className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Notlar</Text>
+                    <Text className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Notlar</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
+
+                {/* --- LİDERLİK TABLOSU ÖZETİ --- */}
+                <LeaderboardWidget />
 
                 {/* --- AI HOCA PROMOSYON --- */}
                 <View className="px-6 mb-8">
@@ -576,12 +589,12 @@ export default function Home() {
                 </View>
             </Modal>
 
-            {/* İSİM TOPLAMA MODALI */}
             <Modal
                 visible={showNamePrompt}
                 transparent
                 animationType="fade"
                 statusBarTranslucent
+                onRequestClose={() => {}} // Engellemek için boş bırakıldı
             >
                 <View className="flex-1 bg-black/60 items-center justify-center px-6">
                     <View className="w-full bg-white dark:bg-slate-900 rounded-[32px] p-6 shadow-2xl border border-slate-100 dark:border-slate-800">

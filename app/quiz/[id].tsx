@@ -350,7 +350,9 @@ export default function QuizScreen() {
                 durationSeconds
             );
 
-            adService.showInterstitialAfterQuiz(isPremium);
+            adService.showPostQuizAd(isPremium, () => {
+                useQuizStore.getState().unlockMistakes();
+            });
             router.replace({
                 pathname: '/quiz/result',
                 params: {

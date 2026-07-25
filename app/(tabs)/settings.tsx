@@ -17,8 +17,9 @@ import {
 } from 'lucide-react-native';
 import { scheduleDailyReminder, cancelAllReminders, registerForPushNotificationsAsync } from '../../src/api/notifications';
 import { useAuth } from '../../src/hooks/useAuth';
-import { Modal } from 'react-native';
+import { Modal, TextInput } from 'react-native';
 import { profileSync } from '../../src/services/profile-sync';
+import { containsProfanity } from '../../src/utils/profanityFilter';
 
 const SectionHeader = ({ title }: { title: string }) => (
     <View className="px-5 mt-8 mb-2">
@@ -104,6 +105,12 @@ export default function SettingsScreen() {
     const [tempTime, setTempTime] = useState({ hour: 20, minute: 0 });
     const [isGuest, setIsGuest] = useState(false);
 
+    const [hideAvatar, setHideAvatar] = useState(true);
+    const [nickname, setNickname] = useState('');
+    const [showNicknamePrompt, setShowNicknamePrompt] = useState(false);
+    const [newNickname, setNewNickname] = useState('');
+    const [isSavingNickname, setIsSavingNickname] = useState(false);
+
     const { user } = useAuth();
 
     useEffect(() => {
@@ -112,6 +119,18 @@ export default function SettingsScreen() {
                 setIsGuest(false);
                 setUserEmail(user.email || '');
                 setUserName(user.user_metadata?.full_name || 'Kullanıcı');
+                
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('leaderboard_hide_avatar, leaderboard_nickname')
+                    .eq('id', user.id)
+                    .maybeSingle();
+                if (profile) {
+                    setHideAvatar(profile.leaderboard_hide_avatar ?? true);
+                    setNickname(profile.leaderboard_nickname || '');
+                    setNewNickname(profile.leaderboard_nickname || '');
+                }
+                
                 return;
             }
 
@@ -239,6 +258,45 @@ export default function SettingsScreen() {
         }
     };
 
+    const handleToggleHideAvatar = async (newValue: boolean) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        setHideAvatar(newValue);
+        if (user) {
+            await supabase.from('profiles').update({ leaderboard_hide_avatar: newValue }).eq('id', user.id);
+        }
+    };
+
+    const handleSaveNickname = async () => {
+        const trimmed = newNickname.trim();
+        if (trimmed && trimmed.length < 2) {
+            Alert.alert('Hata', 'Lütfen geçerli bir takma ad giriniz veya iptal ediniz.');
+            return;
+        }
+
+        if (containsProfanity(trimmed)) {
+            Alert.alert('Uyarı', 'Lütfen geçerli ve uygun bir takma ad giriniz.');
+            return;
+        }
+
+        setIsSavingNickname(true);
+        try {
+            if (user) {
+                await supabase.from('profiles').update({ leaderboard_nickname: trimmed || null }).eq('id', user.id);
+            }
+            setNickname(trimmed);
+            setShowNicknamePrompt(false);
+            Toast.show({
+                type: 'success',
+                text1: 'Takma Ad Kaydedildi',
+            });
+        } catch (error) {
+            console.error('Takma ad kaydedilirken hata:', error);
+            Alert.alert('Hata', 'Kaydedilemedi, lütfen tekrar deneyin.');
+        } finally {
+            setIsSavingNickname(false);
+        }
+    };
+
     return (
         <ScreenLayout className="bg-base">
             <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
@@ -298,6 +356,25 @@ export default function SettingsScreen() {
                     )}
                 </View>
 
+                <SectionHeader title="Gizlilik Ayarları" />
+                <View className="mx-5 bg-white dark:bg-slate-900 rounded-[16px] overflow-hidden border border-slate-100 dark:border-slate-800 shadow-sm dark:shadow-none">
+                    <SettingItem 
+                        icon={User} 
+                        label="Sıralamada Profilimi Gizle" 
+                        type="toggle" 
+                        value={hideAvatar} 
+                        onPress={handleToggleHideAvatar} 
+                    />
+                    <SettingItem 
+                        icon={User} 
+                        label="Sıralama Takma Adı" 
+                        type="value"
+                        value={nickname ? nickname : 'Gerçek İsim'}
+                        onPress={() => setShowNicknamePrompt(true)}
+                        isLast 
+                    />
+                </View>
+
                 <SectionHeader title="Tercihler" />
                 <View className="mx-5 bg-white dark:bg-slate-900 rounded-[16px] overflow-hidden border border-slate-100 dark:border-slate-800 shadow-sm dark:shadow-none">
                     <SettingItem icon={Bell} label="Bildirimler" type="toggle" value={notificationsEnabled} onPress={handleNotificationChange} />
@@ -345,6 +422,59 @@ export default function SettingsScreen() {
                     <Text className="text-slate-400 dark:text-[#EBEBF54D] text-[13px] font-medium">Ehliyet Hocam v1.2.4</Text>
                 </View>
             </ScrollView>
+
+            {/* NICKNAME MODAL */}
+            <Modal
+                visible={showNicknamePrompt}
+                transparent
+                animationType="fade"
+                statusBarTranslucent
+            >
+                <View className="flex-1 bg-black/60 items-center justify-center px-6">
+                    <View className="w-full bg-white dark:bg-slate-900 rounded-[32px] p-6 shadow-2xl border border-slate-100 dark:border-slate-800">
+                        <View className="items-center mb-6">
+                            <View className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-500/20 items-center justify-center mb-4">
+                                <User size={32} color="#2563eb" />
+                            </View>
+                            <Text className="text-xl font-black text-slate-900 dark:text-white text-center mb-2">
+                                Takma Ad Belirle
+                            </Text>
+                            <Text className="text-slate-500 dark:text-slate-400 text-center text-[13px] leading-5">
+                                Gerçek isminin sıralamada görünmesini istemiyorsan bir takma ad girebilirsin. Boş bırakırsan gerçek ismin görünür.
+                            </Text>
+                        </View>
+
+                        <TextInput
+                            value={newNickname}
+                            onChangeText={setNewNickname}
+                            placeholder="Takma ad (Örn: Usta Sürücü)"
+                            placeholderTextColor={isDarkMode ? "#64748b" : "#94a3b8"}
+                            autoCorrect={false}
+                            maxLength={30}
+                            className="w-full bg-slate-50 dark:bg-slate-800 px-5 py-4 rounded-2xl text-[16px] font-bold text-slate-900 dark:text-white mb-6 border border-slate-200 dark:border-slate-700"
+                        />
+
+                        <View className="flex-row gap-3">
+                            <TouchableOpacity
+                                onPress={() => setShowNicknamePrompt(false)}
+                                className="flex-1 bg-slate-200 dark:bg-slate-800 py-4 rounded-2xl items-center"
+                            >
+                                <Text className="text-slate-700 dark:text-slate-300 font-bold text-[15px]">İptal</Text>
+                            </TouchableOpacity>
+                            
+                            <TouchableOpacity
+                                onPress={handleSaveNickname}
+                                disabled={isSavingNickname}
+                                className={`flex-1 bg-blue-600 py-4 rounded-2xl items-center ${isSavingNickname ? 'opacity-70' : ''}`}
+                            >
+                                <Text className="text-white font-bold text-[15px]">
+                                    {isSavingNickname ? 'Kaydediliyor...' : 'Kaydet'}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
 
             {/* CUSTOM TIME PICKER MODAL */}
             <Modal

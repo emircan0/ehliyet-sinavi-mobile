@@ -180,7 +180,7 @@ export async function scheduleDailyReminder(fixedHour: number, fixedMinute: numb
                         data: { route: '/quiz/quick' },
                         sound: true,
                     },
-                    trigger: { date: fixedDate } as any,
+                    trigger: { type: 'date', date: fixedDate } as any,
                 });
             }
 
@@ -222,7 +222,7 @@ export async function scheduleDailyReminder(fixedHour: number, fixedMinute: numb
                             data: { route: '/quiz/quick' },
                             sound: true,
                         },
-                        trigger: { date: randomDate } as any,
+                        trigger: { type: 'date', date: randomDate } as any,
                     });
                 }
             }

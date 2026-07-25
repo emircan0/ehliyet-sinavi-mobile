@@ -9,6 +9,7 @@ import {
     Dimensions,
     StyleSheet,
     Animated,
+    Alert,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
@@ -17,6 +18,7 @@ import { supabase } from '../../src/api/supabase';
 import * as Haptics from 'expo-haptics';
 import { useSubscriptionStore } from '../../src/store/useSubscriptionStore';
 import { adService } from '../../src/services/adService';
+import { useQuizStore } from '../../src/store/useQuizStore';
 
 const { width, height } = Dimensions.get('window');
 const isSmall = height < 700;
@@ -125,6 +127,8 @@ export default function QuizResultScreen() {
         total?: string | string[];
     }>();
     const isPremium = useSubscriptionStore(state => state.isPremium);
+    const mistakesUnlocked = useQuizStore(state => state.mistakesUnlocked);
+    const unlockMistakes = useQuizStore(state => state.unlockMistakes);
     const [isLoading, setIsLoading] = useState(true);
     const [result, setResult] = useState<QuizResult | null>(null);
     const [displayScore, setDisplayScore] = useState(0);
@@ -303,7 +307,24 @@ export default function QuizResultScreen() {
                         <TouchableOpacity
                             onPress={() => {
                                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                router.push({ pathname: '/quiz/mistakes', params: { fromResult: 'true' } });
+                                if (isPremium || mistakesUnlocked) {
+                                    router.push({ pathname: '/quiz/mistakes', params: { fromResult: 'true' } });
+                                } else {
+                                    Alert.alert(
+                                        "Analiz Hakkı",
+                                        "Hatalarınızı tekrar edebilmek için kısa bir video izleyebilirsiniz.",
+                                        [
+                                            { text: "İptal", style: "cancel" },
+                                            { text: "Reklam İzle", onPress: () => {
+                                                const adShown = adService.showRewarded(() => {
+                                                    unlockMistakes();
+                                                    router.push({ pathname: '/quiz/mistakes', params: { fromResult: 'true' } });
+                                                });
+                                                if (!adShown) Alert.alert("Bilgi", "Video reklam henüz hazır değil, lütfen biraz bekleyip tekrar deneyin.");
+                                            }}
+                                        ]
+                                    );
+                                }
                             }}
                             activeOpacity={0.8}
                             style={s.outlineBtn}

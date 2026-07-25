@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import { InterstitialAd, RewardedAd, TestIds, AdEventType, RewardedAdEventType } from 'react-native-google-mobile-ads';
+import { InterstitialAd, RewardedAd, RewardedInterstitialAd, TestIds, AdEventType, RewardedAdEventType } from 'react-native-google-mobile-ads';
 
 const interstitialAdUnitId = Platform.select({
   ios: process.env.EXPO_PUBLIC_ADMOB_IOS_INTERSTITIAL_ID || TestIds.INTERSTITIAL,
@@ -13,9 +13,16 @@ const rewardedAdUnitId = Platform.select({
   default: TestIds.REWARDED,
 });
 
+const rewardedInterstitialAdUnitId = Platform.select({
+  ios: process.env.EXPO_PUBLIC_ADMOB_IOS_REWARDED_INTERSTITIAL_ID || TestIds.REWARDED_INTERSTITIAL,
+  android: process.env.EXPO_PUBLIC_ADMOB_ANDROID_REWARDED_INTERSTITIAL_ID || TestIds.REWARDED_INTERSTITIAL,
+  default: TestIds.REWARDED_INTERSTITIAL,
+});
+
 class AdService {
   private interstitial: InterstitialAd | null = null;
   private rewarded: RewardedAd | null = null;
+  private rewardedInterstitial: RewardedInterstitialAd | null = null;
   private appStartedAt = Date.now();
   private lastInterstitialShownAt = 0;
   private interstitialShowsThisSession = 0;
@@ -48,13 +55,13 @@ class AdService {
   public showInterstitial(onClosed?: () => void): boolean {
     if (this.interstitial && this.interstitial.loaded) {
       let closeListener: (() => void) | null = null;
-      if (onClosed) {
-        closeListener = this.interstitial.addAdEventListener(AdEventType.CLOSED, () => {
-          closeListener?.();
-          onClosed();
-        });
-      }
+      
+      const cleanup = () => {
+        if (closeListener) { closeListener(); closeListener = null; }
+        if (onClosed) onClosed();
+      };
 
+      closeListener = this.interstitial.addAdEventListener(AdEventType.CLOSED, cleanup);
       this.interstitial.show();
       this.lastInterstitialShownAt = Date.now();
       this.interstitialShowsThisSession += 1;
@@ -130,20 +137,85 @@ class AdService {
 
   public showRewarded(onReward: () => void): boolean {
     if (this.rewarded && this.rewarded.loaded) {
-      const rewardListener = this.rewarded.addAdEventListener(
-        RewardedAdEventType.EARNED_REWARD,
-        () => {
-          console.log('User earned reward');
-          onReward();
-          rewardListener(); // Unsubscribe
-        }
-      );
+      let rewardListener: (() => void) | null = null;
+      let closeListener: (() => void) | null = null;
+
+      const cleanup = () => {
+        if (rewardListener) { rewardListener(); rewardListener = null; }
+        if (closeListener) { closeListener(); closeListener = null; }
+      };
+
+      rewardListener = this.rewarded.addAdEventListener(RewardedAdEventType.EARNED_REWARD, () => {
+        console.log('User earned reward');
+        onReward();
+      });
+      
+      closeListener = this.rewarded.addAdEventListener(AdEventType.CLOSED, cleanup);
+
       this.rewarded.show();
       return true;
     }
     console.log('Rewarded ad not loaded yet.');
     this.loadRewarded();
     return false;
+  }
+
+  public loadRewardedInterstitial() {
+    this.rewardedInterstitial = RewardedInterstitialAd.createForAdRequest(rewardedInterstitialAdUnitId, {
+      keywords: ['education', 'driving', 'test', 'exam'],
+    });
+
+    this.rewardedInterstitial.addAdEventListener(RewardedAdEventType.LOADED, () => {
+      console.log('Rewarded Interstitial Ad loaded.');
+    });
+
+    this.rewardedInterstitial.addAdEventListener(AdEventType.CLOSED, () => {
+      console.log('Rewarded Interstitial Ad closed.');
+      this.loadRewardedInterstitial();
+    });
+
+    this.rewardedInterstitial.addAdEventListener(AdEventType.ERROR, (error) => {
+      console.log('Rewarded Interstitial Ad failed to load: ', error);
+    });
+
+    this.rewardedInterstitial.load();
+  }
+
+  public showRewardedInterstitial(onReward: () => void, isPremium?: boolean): boolean {
+    if (isPremium) return false;
+
+    if (this.rewardedInterstitial && this.rewardedInterstitial.loaded) {
+      let rewardListener: (() => void) | null = null;
+      let closeListener: (() => void) | null = null;
+
+      const cleanup = () => {
+        if (rewardListener) { rewardListener(); rewardListener = null; }
+        if (closeListener) { closeListener(); closeListener = null; }
+      };
+
+      rewardListener = this.rewardedInterstitial.addAdEventListener(RewardedAdEventType.EARNED_REWARD, () => {
+        console.log('User earned reward from Rewarded Interstitial');
+        onReward();
+      });
+      
+      closeListener = this.rewardedInterstitial.addAdEventListener(AdEventType.CLOSED, cleanup);
+
+      this.rewardedInterstitial.show();
+      return true;
+    }
+    console.log('Rewarded Interstitial ad not loaded yet.');
+    this.loadRewardedInterstitial();
+    return false;
+  }
+
+  public showPostQuizAd(isPremium: boolean, onReward?: () => void): boolean {
+    if (isPremium) return false;
+
+    if (this.rewardedInterstitial && this.rewardedInterstitial.loaded) {
+      return this.showRewardedInterstitial(onReward || (() => {}), isPremium);
+    }
+
+    return this.showInterstitialAfterQuiz(isPremium);
   }
 }
 

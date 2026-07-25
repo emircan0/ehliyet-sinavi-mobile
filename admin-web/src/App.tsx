@@ -146,7 +146,7 @@ const formatDuration = (seconds: number) => {
   return remainingSeconds > 0 ? `${minutes} dk ${remainingSeconds} sn` : `${minutes} dk`;
 };
 
-const getCategoryLabel = (category: string) => {
+const getCategoryLabel = (category: string, exams?: Exam[]) => {
   const labels: Record<string, string> = {
     trafik: 'Trafik ve Çevre',
     motor: 'Motor ve Araç Tekniği',
@@ -155,9 +155,18 @@ const getCategoryLabel = (category: string) => {
     general: 'Genel Deneme',
     quick: 'Hızlı Pratik',
     mistakes: 'Hata Tekrarı',
-    favorites: 'Favoriler'
+    favorites: 'Favoriler',
+    custom_exams: 'Özel Sınavlar'
   };
-  return labels[category] || category || 'Diğer';
+  
+  if (labels[category]) return labels[category];
+  
+  if (exams) {
+    const examMatch = exams.find(e => e.id === category);
+    if (examMatch) return examMatch.title;
+  }
+  
+  return category || 'Diğer';
 };
 
 function TrendBadge({ value, suffix = '%' }: { value: number; suffix?: string }) {
@@ -989,9 +998,13 @@ function App() {
       }
       setActivitySeries(series);
 
+      const standardCategories = ['trafik', 'motor', 'ilkyardim', 'adap', 'general', 'quick', 'mistakes', 'favorites', 'other'];
       const categoryMap: Record<string, { attempts: number; score: number; passed: number; duration: number; timed: number }> = {};
       currentResults.forEach(result => {
-        const category = result.category || 'other';
+        let category = result.category || 'other';
+        if (!standardCategories.includes(category)) {
+          category = 'custom_exams';
+        }
         const current = categoryMap[category] || { attempts: 0, score: 0, passed: 0, duration: 0, timed: 0 };
         const score = Number(result.score || 0);
         const duration = Number(result.duration_seconds || 0);
@@ -2642,7 +2655,7 @@ function App() {
                         {categoryPerformance.map(category => (
                           <div className="category-row" key={category.category}>
                             <div>
-                              <strong>{getCategoryLabel(category.category)}</strong>
+                              <strong>{getCategoryLabel(category.category, exams)}</strong>
                               <small>{formatDuration(category.avgDuration)} ortalama</small>
                             </div>
                             <span>{formatCompactNumber(category.attempts)}</span>
@@ -2728,7 +2741,7 @@ function App() {
                       <div className="distribution-list">
                         {quizTypeStats.map(item => (
                           <div key={item.type}>
-                            <div><strong>{getCategoryLabel(item.type)}</strong><span>{item.count} · %{item.share}</span></div>
+                            <div><strong>{getCategoryLabel(item.type, exams)}</strong><span>{item.count} · %{item.share}</span></div>
                             <i><b style={{ width: item.share + '%' }}></b></i>
                           </div>
                         ))}
@@ -2831,7 +2844,7 @@ function App() {
                           <div className="insight-item" key={question.id}>
                             <p>{question.content}</p>
                             <div>
-                              <span className="badge badge-cyan">{getCategoryLabel(question.category)}</span>
+                              <span className="badge badge-cyan">{getCategoryLabel(question.category, exams)}</span>
                               <strong>%{question.errorRate} hata · {question.totalAttempts} cevap</strong>
                             </div>
                           </div>

@@ -6,7 +6,8 @@ import {
     ClipboardList,
     Settings,
     BrainCircuit,
-    BarChart3
+    BarChart3,
+    Trophy
 } from 'lucide-react-native';
 import { useThemeMode } from '../../src/hooks/useThemeMode';
 
@@ -69,6 +70,13 @@ export default function TabLayout() {
                 options={{
                     title: 'İstatistik',
                     tabBarIcon: ({ color }) => <BarChart3 size={24} color={color} strokeWidth={2.5} />,
+                }}
+            />
+            <Tabs.Screen
+                name="leaderboard"
+                options={{
+                    title: 'Sıralama',
+                    tabBarIcon: ({ color }) => <Trophy size={24} color={color} strokeWidth={2.5} />,
                 }}
             />
             <Tabs.Screen

@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, ScrollView, RefreshControl, TouchableOpacity, Alert } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { View, Text, ScrollView, RefreshControl, TouchableOpacity, Alert, Animated } from 'react-native';
+import { useRouter } from 'expo-router';
 import {
-    TrendingUp, Clock, Target,
-    Zap, AlertCircle, CheckCircle2, Info, AlertTriangle, Lock
+    TrendingUp, Clock, Target, Zap,
+    AlertCircle, CheckCircle2, AlertTriangle, Lock,
+    BarChart3, Award, BookOpen, ArrowRight, ChevronRight, Trophy
 } from 'lucide-react-native';
 import { ScreenLayout } from '../../src/components/ScreenLayout';
 import { supabase } from '../../src/api/supabase';
@@ -16,23 +17,84 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { usePremiumAccess } from '../../src/hooks/usePremiumAccess';
 import { adService } from '../../src/services/adService';
 
-const CATEGORY_NAMES: Record<string, string> = {
-    trafik: 'TRAFİK VE ÇEVRE',
-    motor: 'MOTOR VE ARAÇ TEKNİĞİ',
-    ilkyardim: 'İLK YARDIM',
-    adap: 'TRAFİK ADABI'
-};
+// ─── CONSTANTS ───────────────────────────────────────────────────────
+const CATEGORIES = [
+    { id: 'trafik',    name: 'Trafik ve Çevre', short: 'Trafik',    color: '#2563eb', light: '#eff6ff', darkBg: '#1e3a5f' },
+    { id: 'motor',     name: 'Araç Tekniği',    short: 'Motor',     color: '#f59e0b', light: '#fffbeb', darkBg: '#451a03' },
+    { id: 'ilkyardim', name: 'İlk Yardım',      short: 'İlk Yardım',color: '#ef4444', light: '#fff1f2', darkBg: '#4c0519' },
+    { id: 'adap',      name: 'Trafik Adabı',    short: 'Adap',      color: '#8b5cf6', light: '#f5f3ff', darkBg: '#2e1065' },
+];
 
 const GENERAL_EVALUATION_ACCESS_KEY = '@general_evaluation_access_date';
 const GENERAL_EVALUATION_CREDIT_COST = 3;
 
+// ─── GRADE HELPER ────────────────────────────────────────────────────
+function getGrade(rate: number): { label: string; color: string; emoji: string } {
+    if (rate >= 90) return { label: 'Mükemmel',    color: '#059669', emoji: '🏆' };
+    if (rate >= 75) return { label: 'Çok İyi',     color: '#10b981', emoji: '🎯' };
+    if (rate >= 60) return { label: 'İyi',          color: '#2563eb', emoji: '📈' };
+    if (rate >= 45) return { label: 'Gelişiyor',   color: '#f59e0b', emoji: '💪' };
+    return { label: 'Çalışma Gerekli', color: '#ef4444', emoji: '⚠️' };
+}
+
+function getAIComment(rate: number, total: number, exams: number): string {
+    if (total === 0) return "Henüz soru çözülmedi. Hadi başlayalım!";
+    if (rate >= 90) return `${total} soruda %${rate} başarı — olağanüstü bir performans! Sınav sana göre.`;
+    if (rate >= 75) return `%${rate} ortalama ve ${exams} sınav çözülmüş. Son düzeltmelerle sınavı rahat geçersin.`;
+    if (rate >= 60) return `${total} soruda %${rate} başarı. İyi temeller kurulmuş ama zayıf konulara odaklanmak gerekiyor.`;
+    if (rate >= 45) return `%${rate} başarıyla henüz geçme barajının altındasın (%70). Düzenli çalışmayla bu hızla yakında geçersin!`;
+    return `%${rate} başarı oranı, geçme barajının çok altında. Düzenli ve planlı çalışma şart — bugün başlamak için iyi bir gün!`;
+}
+
+// ─── DONUT CHART (Success Rate) ──────────────────────────────────────
+function DonutCircle({ rate, color }: { rate: number; color: string }) {
+    const SIZE = 110;
+    const STROKE = 10;
+    const R = (SIZE - STROKE) / 2;
+    const CIRCUMFERENCE = 2 * Math.PI * R;
+    const progress = ((100 - rate) / 100) * CIRCUMFERENCE;
+
+    return (
+        <View style={{ width: SIZE, height: SIZE, alignItems: 'center', justifyContent: 'center' }}>
+            {/* SVG yerine basit View ile yaklaşım */}
+            <View
+                style={{
+                    width: SIZE, height: SIZE, borderRadius: SIZE / 2,
+                    borderWidth: STROKE, borderColor: '#f1f5f9',
+                    position: 'absolute',
+                }}
+            />
+            {/* Colored arc simulation via border */}
+            <View
+                style={{
+                    width: SIZE, height: SIZE, borderRadius: SIZE / 2,
+                    borderWidth: STROKE,
+                    borderColor: 'transparent',
+                    borderTopColor: color,
+                    borderRightColor: rate > 25 ? color : 'transparent',
+                    borderBottomColor: rate > 50 ? color : 'transparent',
+                    borderLeftColor: rate > 75 ? color : 'transparent',
+                    position: 'absolute',
+                    transform: [{ rotate: '-90deg' }],
+                }}
+            />
+            <View style={{ alignItems: 'center' }}>
+                <Text style={{ fontSize: 22, fontWeight: '900', color, lineHeight: 26 }}>%{rate}</Text>
+                <Text style={{ fontSize: 9, fontWeight: '700', color: '#94a3b8', letterSpacing: 0.5 }}>BAŞARI</Text>
+            </View>
+        </View>
+    );
+}
+
+// ─── MAIN COMPONENT ──────────────────────────────────────────────────
 export default function StatisticsScreen() {
     const router = useRouter();
     const isPremium = useSubscriptionStore(state => state.isPremium);
     const checkSubscriptionStatus = useSubscriptionStore(state => state.checkSubscriptionStatus);
     const addCredits = useSubscriptionStore(state => state.addCredits);
     const { checkAccess } = usePremiumAccess();
-    const { isDarkMode, colorScheme } = useThemeMode();
+    const { isDarkMode } = useThemeMode();
+    const fadeAnim = useRef(new Animated.Value(0)).current;
 
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -48,10 +110,7 @@ export default function StatisticsScreen() {
             addCredits(3);
             Alert.alert("Tebrikler!", "3 Kredi kazandınız.");
         });
-
-        if (!adShown) {
-            Alert.alert("Bilgi", "Video reklam henüz yüklenmedi, lütfen birkaç saniye sonra tekrar deneyin.");
-        }
+        if (!adShown) Alert.alert("Bilgi", "Video reklam henüz yüklenmedi.");
     };
 
     const unlockGeneralEvaluation = async () => {
@@ -70,39 +129,27 @@ export default function StatisticsScreen() {
 
     const openPaywall = async () => {
         const success = await purchaseService.presentPaywall();
-        if (success) {
-            await checkSubscriptionStatus();
-        }
+        if (success) await checkSubscriptionStatus();
     };
 
     const loadStats = async () => {
         setIsLoading(true);
         setError(null);
-
         try {
             const guestFlag = await AsyncStorage.getItem('is_guest');
-            if (guestFlag === 'true') {
-                setIsGuest(true);
-                setIsLoading(false);
-                return;
-            }
+            if (guestFlag === 'true') { setIsGuest(true); setIsLoading(false); return; }
 
             const { data: { user }, error: userError } = await supabase.auth.getUser();
-
-            if (userError || !user) {
-                setIsGuest(true);
-                setIsLoading(false);
-                return;
-            }
+            if (userError || !user) { setIsGuest(true); setIsLoading(false); return; }
 
             const data = await fetchUserStats(user.id);
             setStats(data);
 
-            const generalEvaluationAccessDate = await AsyncStorage.getItem(GENERAL_EVALUATION_ACCESS_KEY);
-            setIsGeneralEvaluationUnlocked(generalEvaluationAccessDate === getTodayKey());
+            const evalDate = await AsyncStorage.getItem(GENERAL_EVALUATION_ACCESS_KEY);
+            setIsGeneralEvaluationUnlocked(evalDate === getTodayKey());
 
+            Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
         } catch (err: any) {
-            console.error("İstatistikler yüklenirken hata:", err);
             setError("Verilere ulaşırken bir sorun oluştu. İnternet bağlantınızı kontrol edin.");
         } finally {
             setIsLoading(false);
@@ -110,325 +157,445 @@ export default function StatisticsScreen() {
         }
     };
 
-    useEffect(() => {
-        loadStats();
-    }, []);
+    useEffect(() => { loadStats(); }, []);
 
-    const performanceData = useMemo(() => {
+    const pd = useMemo(() => {
         const answers = stats?.answers || [];
-        const totalQuestions = answers.length;
-        const correctAnswers = answers.filter((a: any) => a.is_correct).length;
-        const successRate = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0;
-        const totalExams = stats?.results?.length || 0;
+        const total = answers.length;
+        const correct = answers.filter((a: any) => a.is_correct).length;
+        const wrong = total - correct;
+        const rate = total > 0 ? Math.round((correct / total) * 100) : 0;
+        const exams = stats?.results?.length || 0;
 
-        const categories = Object.keys(CATEGORY_NAMES).map(catKey => {
-            const catQuestions = answers.filter((a: any) => a.questions?.category === catKey);
-            const catCorrect = catQuestions.filter((a: any) => a.is_correct).length;
-            const catRate = catQuestions.length > 0 ? Math.round((catCorrect / catQuestions.length) * 100) : 0;
-
-            return { id: catKey, name: CATEGORY_NAMES[catKey], rate: catRate, total: catQuestions.length };
+        const cats = CATEGORIES.map(cat => {
+            const catA = answers.filter((a: any) => a.questions?.category === cat.id);
+            const catOk = catA.filter((a: any) => a.is_correct).length;
+            const catRate = catA.length > 0 ? Math.round((catOk / catA.length) * 100) : 0;
+            return { ...cat, rate: catRate, total: catA.length, correct: catOk };
         });
 
-        return { totalQuestions, correctAnswers, successRate, totalExams, categories };
+        return { total, correct, wrong, rate, exams, cats };
     }, [stats]);
 
-    const canViewGeneralEvaluation = isPremium || isGeneralEvaluationUnlocked;
+    const canViewGeneral = isPremium || isGeneralEvaluationUnlocked;
+    const grade = getGrade(pd.rate);
+    const aiComment = getAIComment(pd.rate, pd.total, pd.exams);
+    const weakCat = pd.cats.filter(c => c.total > 0).sort((a, b) => a.rate - b.rate)[0];
+    const strongCat = pd.cats.filter(c => c.total > 0).sort((a, b) => b.rate - a.rate)[0];
 
-    // --- DURUM 1: YÜKLENİYOR EKRANI ---
-    if (isLoading) return <StatisticsSkeleton />;
+    // ─── LOADING ───
+    if (isLoading) return (
+        <ScreenLayout className="bg-base">
+            <View className="px-6 pt-4">
+                <View className="flex-row justify-between items-center mt-2 mb-6">
+                    <View>
+                        <View className="h-3 w-16 bg-slate-100 dark:bg-slate-800 rounded mb-2" />
+                        <View className="h-8 w-36 bg-slate-200 dark:bg-slate-800 rounded" />
+                    </View>
+                    <View className="w-11 h-11 bg-slate-100 dark:bg-slate-800 rounded-full" />
+                </View>
+                <View className="h-44 bg-slate-100 dark:bg-slate-800 rounded-[28px] mb-4" />
+                <View className="flex-row gap-x-3 mb-4">
+                    <View className="flex-1 h-28 bg-slate-100 dark:bg-slate-800 rounded-[24px]" />
+                    <View className="flex-1 h-28 bg-slate-100 dark:bg-slate-800 rounded-[24px]" />
+                    <View className="flex-1 h-28 bg-slate-100 dark:bg-slate-800 rounded-[24px]" />
+                </View>
+                <View className="h-56 bg-slate-100 dark:bg-slate-800 rounded-[24px] mb-4" />
+                <View className="h-24 bg-slate-100 dark:bg-slate-800 rounded-[24px]" />
+            </View>
+        </ScreenLayout>
+    );
 
-    // --- DURUM GUEST: MİSAFİR UPSALE EKRANI ---
+    // ─── GUEST ───
     if (isGuest) return (
         <ScreenLayout className="bg-base">
-            <View className="px-6 pt-4 pb-4 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
-                <Text className="text-2xl font-bold text-slate-900 dark:text-slate-50 tracking-tight">İstatistikler</Text>
-                <Text className="text-slate-500 dark:text-slate-400 text-sm font-medium">Gelişimini takip etmek için üye ol.</Text>
-            </View>
-            <View className="flex-1 items-center justify-center px-6 mt-[-40px]">
-                <View className="w-24 h-24 bg-blue-100/50 dark:bg-blue-900/30 rounded-full items-center justify-center mb-6 border border-blue-200 dark:border-blue-800">
-                    <TrendingUp size={40} color="#3b82f6" />
+            <View className="px-6 py-2 flex-row justify-between items-center mt-2">
+                <View>
+                    <Text className="text-sm font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Veriler</Text>
+                    <Text className="text-[28px] font-black text-slate-900 dark:text-white tracking-tight">İstatistikler</Text>
                 </View>
-                <Text className="text-2xl font-black text-slate-900 dark:text-white mb-3 text-center tracking-tight">Gelişimini Takip Et</Text>
-                <Text className="text-slate-500 dark:text-slate-400 text-center mb-10 leading-6 px-4">
-                    Misafir olarak ilerlemen kaydedilmiyor. Başarı oranını, çözdüğün testleri ve AI analizlerini görmek için ücretsiz hesap oluştur.
+                <View className="w-11 h-11 bg-indigo-600 rounded-full items-center justify-center">
+                    <TrendingUp size={20} color="white" />
+                </View>
+            </View>
+            <View className="flex-1 items-center justify-center px-6">
+                <View className="w-20 h-20 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] items-center justify-center mb-5 border border-blue-100 dark:border-blue-800">
+                    <TrendingUp size={36} color="#3b82f6" />
+                </View>
+                <Text className="text-2xl font-black text-slate-900 dark:text-white mb-2 text-center tracking-tight">Gelişimini Takip Et</Text>
+                <Text className="text-slate-500 dark:text-slate-400 text-center mb-8 leading-6 px-4 text-[14px]">
+                    Misafir olarak ilerlemen kaydedilmiyor. Başarı oranını ve AI analizlerini görmek için ücretsiz hesap oluştur.
                 </Text>
-                <TouchableOpacity
-                    onPress={() => router.push('/auth/register')}
-                    className="bg-[#0A84FF] w-full py-4 rounded-2xl items-center shadow-lg shadow-blue-600/30 active:scale-95 transition-transform mb-3"
-                >
+                <TouchableOpacity onPress={() => router.push('/auth/register')} className="bg-blue-600 w-full py-4 rounded-2xl items-center mb-3">
                     <Text className="text-white font-black text-[16px]">Ücretsiz Kullanmaya Başla</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                    onPress={() => router.push('/auth/login')}
-                    className="w-full py-4 rounded-2xl items-center border border-slate-200 dark:border-slate-800 active:bg-slate-50 dark:active:bg-slate-800/50"
-                >
+                <TouchableOpacity onPress={() => router.push('/auth/login')} className="w-full py-4 rounded-2xl items-center border border-slate-200 dark:border-slate-800">
                     <Text className="text-slate-700 dark:text-slate-300 font-bold text-[15px]">Zaten Hesabım Var</Text>
                 </TouchableOpacity>
             </View>
         </ScreenLayout>
     );
 
-    // --- DURUM 2: HATA EKRANI (İnternet/Supabase hatası) ---
+    // ─── ERROR ───
     if (error) return (
         <ScreenLayout className="bg-base">
             <View className="flex-1 items-center justify-center px-6">
-                <View className="bg-red-50 p-6 rounded-full mb-6">
-                    <AlertTriangle size={40} color="#ef4444" />
+                <View className="w-16 h-16 bg-red-50 dark:bg-red-500/10 rounded-[20px] items-center justify-center mb-4">
+                    <AlertTriangle size={28} color="#ef4444" />
                 </View>
-                <Text className="text-2xl font-bold text-slate-900 mb-2">Hata Oluştu</Text>
-                <Text className="text-slate-500 text-center mb-8">{error}</Text>
-                <TouchableOpacity
-                    onPress={loadStats}
-                    className="bg-slate-900 w-full py-4 rounded-2xl items-center"
-                >
-                    <Text className="text-white font-bold text-lg">Tekrar Dene</Text>
+                <Text className="text-xl font-black text-slate-900 dark:text-white mb-2 tracking-tight">Hata Oluştu</Text>
+                <Text className="text-slate-500 dark:text-slate-400 text-center mb-8 text-[14px]">{error}</Text>
+                <TouchableOpacity onPress={loadStats} className="bg-slate-900 dark:bg-white w-full py-4 rounded-2xl items-center">
+                    <Text className="text-white dark:text-slate-900 font-bold text-lg">Tekrar Dene</Text>
                 </TouchableOpacity>
             </View>
         </ScreenLayout>
     );
 
-    // --- DURUM 3: BAŞARILI DURUM (Veri var veya Henüz soru çözülmemiş) ---
     return (
         <ScreenLayout className="bg-base">
-            <View className="px-6 pt-4 pb-4 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
-                <Text className="text-2xl font-bold text-slate-900 dark:text-slate-50 tracking-tight">İstatistikler</Text>
-                <Text className="text-slate-500 dark:text-slate-400 text-sm font-medium">Gerçek zamanlı performans analizin.</Text>
-            </View>
-
-            <ScrollView
+            <Animated.ScrollView
+                style={{ opacity: fadeAnim }}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: 120 }}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadStats(); }} />}
             >
-                {performanceData.totalQuestions === 0 ? (
-                    /* DURUM 3A: BOŞ DURUM (Henüz soru çözülmemişse) */
-                    <View className="px-6 mt-16 items-center justify-center">
-                        <View className="bg-blue-50 dark:bg-blue-900/20 p-5 rounded-full mb-4">
-                            <Info size={32} color={isDarkMode ? "#3b82f6" : "#2563eb"} />
+                {/* ─── HEADER ─── */}
+                <View className="px-6 py-2 flex-row justify-between items-center mt-2 mb-4">
+                    <View>
+                        <Text className="text-sm font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Veriler</Text>
+                        <Text className="text-[28px] font-black text-slate-900 dark:text-white tracking-tight leading-tight">İstatistikler</Text>
+                    </View>
+                    <View className="w-11 h-11 bg-indigo-600 rounded-full items-center justify-center">
+                        <TrendingUp size={20} color="white" />
+                    </View>
+                </View>
+
+                {/* ─── LEADERBOARD BUTONU ─── */}
+                <View className="px-6 mb-6">
+                    <TouchableOpacity
+                        activeOpacity={0.8}
+                        onPress={() => router.push('/leaderboard')}
+                        className="bg-amber-500 dark:bg-amber-600 rounded-[24px] p-5 flex-row items-center justify-between shadow-lg shadow-amber-500/20"
+                    >
+                        <View className="flex-row items-center flex-1">
+                            <View className="w-12 h-12 bg-white/20 rounded-2xl items-center justify-center mr-4">
+                                <Trophy size={24} color="#ffffff" />
+                            </View>
+                            <View className="flex-1 pr-2">
+                                <Text className="text-white font-black text-[18px] mb-0.5">Liderlik Tablosu</Text>
+                                <Text className="text-amber-100 font-medium text-[12px] leading-4">Diğer adaylarla yarış ve sıralamanı gör!</Text>
+                            </View>
                         </View>
-                        <Text className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">Henüz Veri Yok</Text>
-                        <Text className="text-center text-slate-500 dark:text-slate-400 mb-6">
+                        <View className="w-8 h-8 bg-white/20 rounded-full items-center justify-center">
+                            <ChevronRight size={18} color="#ffffff" />
+                        </View>
+                    </TouchableOpacity>
+                </View>
+
+                {pd.total === 0 ? (
+                    // ─── BOŞ DURUM ───
+                    <View className="px-6 mt-10 items-center">
+                        <View className="w-20 h-20 bg-blue-50 dark:bg-blue-500/10 rounded-[28px] items-center justify-center mb-5 border border-blue-100 dark:border-blue-500/20">
+                            <BarChart3 size={32} color="#2563eb" />
+                        </View>
+                        <Text className="text-xl font-black text-slate-900 dark:text-white mb-2 tracking-tight">Henüz Veri Yok</Text>
+                        <Text className="text-slate-500 dark:text-slate-400 text-center mb-6 text-[14px] leading-5 px-4">
                             İstatistiklerini görebilmek için önce birkaç test çözmelisin.
                         </Text>
                         <TouchableOpacity
-                            onPress={() => {
-                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                router.push('/(tabs)/quizzes');
-                            }}
-                            className="bg-blue-600 px-6 py-3 rounded-xl"
+                            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/(tabs)/quizzes'); }}
+                            className="bg-blue-600 px-8 py-3.5 rounded-2xl flex-row items-center"
                         >
-                            <Text className="text-white font-bold">Soru Çözmeye Başla</Text>
+                            <Text className="text-white font-bold text-[14px] mr-2">Soru Çözmeye Başla</Text>
+                            <ArrowRight size={15} color="white" />
                         </TouchableOpacity>
                     </View>
                 ) : (
-                    /* DURUM 3B: DOLU DURUM (İstatistikler) */
                     <>
-                        <View className="px-6 mt-6">
-                            <View className="flex-row items-center justify-between mb-4">
-                                <Text className="text-lg font-bold text-slate-900 dark:text-slate-50">Genel Değerlendirme</Text>
-                                {!canViewGeneralEvaluation && (
-                                    <View className="bg-amber-50 dark:bg-amber-900/20 px-3 py-1.5 rounded-full border border-amber-100 dark:border-amber-900/40 flex-row items-center">
-                                        <Lock size={12} color="#d97706" />
-                                        <Text className="text-amber-800 dark:text-amber-300 text-[10px] font-black ml-1">
-                                            {GENERAL_EVALUATION_CREDIT_COST} KREDİ
-                                        </Text>
-                                    </View>
-                                )}
-                            </View>
+                        {/* ═══ HERO KART — BAŞARI DURUMU ═══ */}
+                        <View className="px-6 mb-4">
+                            {canViewGeneral ? (
+                                <View className="bg-white dark:bg-slate-900 rounded-[28px] p-6 border border-slate-100 dark:border-slate-800 shadow-sm shadow-slate-200/40 dark:shadow-none">
+                                    <View className="flex-row items-center justify-between">
+                                        {/* Sol: Başarı oranı daire */}
+                                        <DonutCircle rate={pd.rate} color={grade.color} />
 
-                            {canViewGeneralEvaluation ? (
-                                <View className="flex-row flex-wrap justify-between gap-y-4">
-                                    <StatCard icon={Target} label="Toplam Soru" value={performanceData.totalQuestions.toString()} color="#3b82f6" bgColor="bg-blue-50" />
-                                    <StatCard icon={TrendingUp} label="Genel Başarı" value={`%${performanceData.successRate}`} color="#10b981" bgColor="bg-emerald-50" />
-                                    <StatCard icon={Clock} label="Çözülen Sınav" value={performanceData.totalExams.toString()} color="#f59e0b" bgColor="bg-amber-50" />
-                                    <StatCard icon={Zap} label="Doğru Sayısı" value={performanceData.correctAnswers.toString()} color="#8b5cf6" bgColor="bg-purple-50" />
+                                        {/* Sağ: Özet istatistikler */}
+                                        <View className="flex-1 ml-5">
+                                            {/* Grade badge */}
+                                            <View className="flex-row items-center mb-3">
+                                                <View className="px-2.5 py-1 rounded-xl border" style={{
+                                                    backgroundColor: grade.color + '15',
+                                                    borderColor: grade.color + '30',
+                                                }}>
+                                                    <Text style={{ color: grade.color }} className="text-[10px] font-black uppercase tracking-widest">
+                                                        {grade.emoji}  {grade.label}
+                                                    </Text>
+                                                </View>
+                                            </View>
+
+                                            {[
+                                                { label: 'Toplam Soru',   value: pd.total.toString(),   icon: Target,      color: '#2563eb' },
+                                                { label: 'Doğru',         value: pd.correct.toString(), icon: CheckCircle2,color: '#10b981' },
+                                                { label: 'Yanlış',        value: pd.wrong.toString(),   icon: AlertCircle, color: '#ef4444' },
+                                                { label: 'Sınav',         value: pd.exams.toString(),   icon: Award,       color: '#f59e0b' },
+                                            ].map(({ label, value, icon: Icon, color }) => (
+                                                <View key={label} className="flex-row items-center justify-between mb-2">
+                                                    <View className="flex-row items-center">
+                                                        <View className="w-5 h-5 rounded-md items-center justify-center mr-2" style={{ backgroundColor: color + '18' }}>
+                                                            <Icon size={11} color={color} />
+                                                        </View>
+                                                        <Text className="text-slate-500 dark:text-slate-400 text-[11px] font-medium">{label}</Text>
+                                                    </View>
+                                                    <Text className="text-slate-900 dark:text-white text-[13px] font-black">{value}</Text>
+                                                </View>
+                                            ))}
+                                        </View>
+                                    </View>
+
+                                    {/* Geçme Barajı Progress */}
+                                    <View className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-800">
+                                        <View className="flex-row justify-between items-center mb-2">
+                                            <Text className="text-slate-500 dark:text-slate-400 text-[11px] font-bold uppercase tracking-widest">Sınav Barajı</Text>
+                                            <Text className="text-[11px] font-black" style={{ color: pd.rate >= 70 ? '#10b981' : '#f59e0b' }}>
+                                                {pd.rate >= 70 ? '✓ Geçer Seviye' : `%${70 - pd.rate} eksik`}
+                                            </Text>
+                                        </View>
+                                        <View className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                            <View className="h-full rounded-full" style={{
+                                                width: `${Math.min(100, pd.rate)}%`,
+                                                backgroundColor: pd.rate >= 70 ? '#10b981' : pd.rate >= 50 ? '#f59e0b' : '#ef4444'
+                                            }} />
+                                            {/* %70 işareti */}
+                                            <View className="absolute top-0 h-full w-px bg-slate-400 dark:bg-slate-600" style={{ left: '70%' }} />
+                                        </View>
+                                        <View className="flex-row justify-end mt-1">
+                                            <Text className="text-slate-400 text-[9px] font-bold">%70 BARIĞI</Text>
+                                        </View>
+                                    </View>
                                 </View>
                             ) : (
+                                // Kilitli hero
                                 <TouchableOpacity
+                                    activeOpacity={0.85}
                                     onPress={openGeneralEvaluation}
-                                    activeOpacity={0.9}
-                                    className="bg-slate-900 dark:bg-slate-950 rounded-3xl p-5 border border-slate-800 overflow-hidden"
+                                    className="bg-blue-600 rounded-[28px] p-6 relative overflow-hidden shadow-xl shadow-blue-600/20 border border-blue-500/50"
                                 >
-                                    <View className="absolute -right-8 -top-10 w-32 h-32 bg-blue-500/20 rounded-full" />
-                                    <View className="absolute right-12 -bottom-12 w-24 h-24 bg-amber-400/20 rounded-full" />
-
-                                    <View className="flex-row items-start justify-between">
-                                        <View className="flex-1 pr-5">
-                                            <View className="bg-white/10 self-start px-3 py-1.5 rounded-xl border border-white/10 mb-4 flex-row items-center">
-                                                <TrendingUp size={12} color="#fbbf24" />
-                                                <Text className="text-amber-300 text-[10px] font-black ml-1.5 uppercase tracking-widest">Kilitli Analiz</Text>
-                                            </View>
-                                            <Text className="text-white text-xl font-black tracking-tight mb-2">
-                                                Genel Değerlendirmeyi Aç
-                                            </Text>
-                                            <Text className="text-slate-300 text-xs leading-5 font-medium">
-                                                Toplam soru, genel başarı, çözülen sınav ve doğru sayını günlük olarak görüntüle.
-                                            </Text>
-                                        </View>
-                                        <View className="w-12 h-12 bg-white/10 rounded-2xl items-center justify-center border border-white/10">
-                                            <Lock size={22} color="#fbbf24" />
-                                        </View>
+                                    <View className="absolute right-[-10] bottom-[-20] opacity-10 rotate-12">
+                                        <BarChart3 size={150} color="#ffffff" />
                                     </View>
-
-                                    <View className="self-start mt-5 bg-amber-500 px-5 py-3 rounded-2xl shadow-lg shadow-amber-500/20">
-                                        <Text className="text-amber-950 font-black text-xs">{GENERAL_EVALUATION_CREDIT_COST} Krediyle Aç</Text>
+                                    <View className="bg-white/20 self-start px-2.5 py-1 rounded-lg mb-4 border border-white/20">
+                                        <Text className="text-white text-[10px] font-black tracking-widest uppercase">Kilitli Analiz</Text>
+                                    </View>
+                                    <Text className="text-white text-[24px] font-black tracking-tight mb-2">Genel Değerlendirmeyi Aç</Text>
+                                    <Text className="text-blue-100/80 text-[13px] leading-[20px] font-medium mb-6">
+                                        Başarı oranın, toplam soru ve doğru sayını günlük olarak görüntüle.
+                                    </Text>
+                                    <View className="bg-white self-start px-5 py-3 rounded-xl flex-row items-center">
+                                        <Text className="text-blue-700 font-bold text-[13px] mr-2">{GENERAL_EVALUATION_CREDIT_COST} Krediyle Aç</Text>
+                                        <ChevronRight size={14} color="#1d4ed8" />
                                     </View>
                                 </TouchableOpacity>
                             )}
                         </View>
 
-                        <View className="px-6 mt-8">
-                            <Text className="text-lg font-bold text-slate-900 dark:text-slate-50 mb-4">Konu Performansı</Text>
+                        {/* ═══ KONU PERFORMANSI ═══ */}
+                        <View className="px-6 mb-4">
+                            <Text className="text-[16px] font-black text-slate-900 dark:text-white tracking-tight mb-3">Konu Performansı</Text>
 
-                            <View className="relative">
-                                {/* İçerik */}
-                                <View className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm gap-6 overflow-hidden">
-                                    {performanceData.categories.map((cat, i) => (
-                                        <View key={`${cat.id}-${i}`}>
-                                            <View className="flex-row justify-between mb-2">
-                                                <Text className="text-slate-900 dark:text-slate-100 font-bold text-xs">{cat.name}</Text>
-                                                <Text className="font-bold text-xs text-slate-500 dark:text-slate-400">%{cat.rate}</Text>
+                            <View className="bg-white dark:bg-slate-900 rounded-[24px] border border-slate-100 dark:border-slate-800 shadow-sm shadow-slate-200/40 dark:shadow-none overflow-hidden">
+                                {pd.cats.map((cat, i) => (
+                                    <View
+                                        key={cat.id}
+                                        className={`px-5 py-4 ${i < pd.cats.length - 1 ? 'border-b border-slate-50 dark:border-slate-800' : ''}`}
+                                    >
+                                        <View className="flex-row items-center justify-between mb-2.5">
+                                            <View className="flex-row items-center flex-1">
+                                                {/* Renk nokta */}
+                                                <View className="w-8 h-8 rounded-xl items-center justify-center mr-3" style={{ backgroundColor: cat.color + '15' }}>
+                                                    <View className="w-3 h-3 rounded-full" style={{ backgroundColor: cat.color }} />
+                                                </View>
+                                                <View>
+                                                    <Text className="text-slate-800 dark:text-slate-200 font-bold text-[13px]">{cat.name}</Text>
+                                                    {cat.total > 0 ? (
+                                                        <Text className="text-slate-400 text-[10px] font-medium">{cat.correct}/{cat.total} doğru</Text>
+                                                    ) : (
+                                                        <Text className="text-slate-300 dark:text-slate-600 text-[10px] font-medium italic">Henüz çözülmedi</Text>
+                                                    )}
+                                                </View>
                                             </View>
-                                            <View className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                                <View className={`h-full rounded-full ${cat.rate >= 70 ? 'bg-emerald-500' : 'bg-blue-500'}`} style={{ width: `${cat.rate}%` }} />
+                                            <View className="items-end">
+                                                <Text className="text-[18px] font-black" style={{
+                                                    color: cat.rate >= 70 ? '#10b981' : cat.rate >= 50 ? '#f59e0b' : cat.total === 0 ? '#cbd5e1' : '#ef4444'
+                                                }}>
+                                                    %{cat.rate}
+                                                </Text>
                                             </View>
                                         </View>
-                                    ))}
-                                </View>
 
+                                        {/* Progress bar */}
+                                        <View className="h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                            <View
+                                                className="h-full rounded-full"
+                                                style={{
+                                                    width: `${cat.rate}%`,
+                                                    backgroundColor: cat.rate >= 70 ? '#10b981' : cat.rate >= 50 ? '#f59e0b' : cat.total === 0 ? '#e2e8f0' : '#ef4444',
+                                                    minWidth: cat.total > 0 ? 4 : 0,
+                                                }}
+                                            />
+                                        </View>
+                                    </View>
+                                ))}
                             </View>
 
                             {!isPremium && (
-                                <View className="bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/40 p-5 rounded-3xl mt-4">
+                                <View className="bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/40 p-5 rounded-[24px] mt-3">
                                     <View className="flex-row items-center mb-2">
-                                        <Lock size={16} color="#d97706" />
-                                        <Text className="text-amber-900 dark:text-amber-300 font-black text-sm ml-2">Detaylı Analiz Premium</Text>
+                                        <Lock size={14} color="#d97706" />
+                                        <Text className="text-amber-900 dark:text-amber-300 font-black text-[13px] ml-2">Kişisel Çalışma Planı</Text>
                                     </View>
-                                    <Text className="text-amber-900/70 dark:text-amber-200/80 text-xs leading-5 font-medium mb-4">
-                                        Konu yüzdelerini görebilirsin. Hangi sırayla çalışman gerektiğini ve kişisel telafi planını Premium açar.
+                                    <Text className="text-amber-900/70 dark:text-amber-200/70 text-[12px] leading-5 font-medium mb-4">
+                                        Hangi konuya önce çalışman gerektiğini ve telafi testlerini Premium açar.
                                     </Text>
-                                    <TouchableOpacity
-                                        onPress={openPaywall}
-                                        className="bg-amber-500 px-5 py-3 rounded-2xl self-start shadow-lg shadow-amber-500/20 active:scale-95"
-                                    >
-                                        <Text className="text-amber-950 font-black text-xs">Çalışma Planını Aç</Text>
+                                    <TouchableOpacity onPress={openPaywall} className="bg-amber-500 py-3 rounded-xl items-center">
+                                        <Text className="text-amber-950 font-black text-[13px]">Planı Aç</Text>
                                     </TouchableOpacity>
                                 </View>
                             )}
                         </View>
 
-                        <View className="px-6 mt-8">
-                            <Text className="text-lg font-bold text-slate-900 dark:text-slate-50 mb-4">Yapay Zeka Analizi</Text>
-
-                            <View className="relative">
-                                {/* İçerik */}
-                                <View className="overflow-hidden rounded-2xl">
-                                    {performanceData.successRate < 70 ? (
-                                        <View className="bg-red-50 dark:bg-red-900/10 p-4 rounded-2xl border border-red-100 dark:border-red-900/30 flex-row items-start">
-                                            <AlertCircle size={20} color="#ef4444" className="mr-3 mt-0.5" />
-                                            <View className="flex-1">
-                                                <Text className="text-red-900 dark:text-red-400 font-bold text-sm mb-1">Gelişmen Gerekiyor</Text>
-                                                <Text className="text-red-800/80 dark:text-red-400/80 text-xs leading-5">
-                                                    Başarı oranın barajın altında. Özellikle düşük performans gösterdiğin konulara tekrar göz atmalısın.
-                                                </Text>
+                        {/* ═══ EN GÜÇLÜ / EN ZAYIF ═══ */}
+                        {(weakCat || strongCat) && (
+                            <View className="px-6 mb-4">
+                                <Text className="text-[16px] font-black text-slate-900 dark:text-white tracking-tight mb-3">Öne Çıkanlar</Text>
+                                <View className="flex-row gap-x-3">
+                                    {strongCat && (
+                                        <View className="flex-1 bg-white dark:bg-slate-900 rounded-[24px] p-4 border border-slate-100 dark:border-slate-800 shadow-sm shadow-slate-200/40 dark:shadow-none">
+                                            <View className="w-9 h-9 rounded-xl items-center justify-center mb-3" style={{ backgroundColor: '#10b98118' }}>
+                                                <Award size={18} color="#10b981" />
                                             </View>
+                                            <Text className="text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">En Güçlü</Text>
+                                            <Text className="text-slate-900 dark:text-white font-black text-[13px] leading-4 mb-1">{strongCat.name}</Text>
+                                            <Text className="text-[20px] font-black" style={{ color: '#10b981' }}>%{strongCat.rate}</Text>
                                         </View>
-                                    ) : (
-                                        <View className="bg-emerald-50 dark:bg-emerald-900/10 p-4 rounded-2xl border border-emerald-100 dark:border-emerald-900/30 flex-row items-start">
-                                            <CheckCircle2 size={20} color="#10b981" className="mr-3 mt-0.5" />
-                                            <View className="flex-1">
-                                                <Text className="text-emerald-900 dark:text-emerald-400 font-bold text-sm mb-1">Harika Gidiyorsun!</Text>
-                                                <Text className="text-emerald-800/80 dark:text-emerald-400/80 text-xs leading-5">
-                                                    Mevcut performansın gerçek sınavı geçmek için yeterli görünüyor. İstikrarını koru!
-                                                </Text>
+                                    )}
+                                    {weakCat && weakCat.id !== strongCat?.id && (
+                                        <View className="flex-1 bg-white dark:bg-slate-900 rounded-[24px] p-4 border border-slate-100 dark:border-slate-800 shadow-sm shadow-slate-200/40 dark:shadow-none">
+                                            <View className="w-9 h-9 rounded-xl items-center justify-center mb-3" style={{ backgroundColor: '#ef444418' }}>
+                                                <Target size={18} color="#ef4444" />
                                             </View>
+                                            <Text className="text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">Öncelik</Text>
+                                            <Text className="text-slate-900 dark:text-white font-black text-[13px] leading-4 mb-1">{weakCat.name}</Text>
+                                            <Text className="text-[20px] font-black" style={{ color: '#ef4444' }}>%{weakCat.rate}</Text>
                                         </View>
                                     )}
                                 </View>
+                            </View>
+                        )}
 
+                        {/* ═══ AI ANALİZİ ═══ */}
+                        <View className="px-6 mb-4">
+                            <Text className="text-[16px] font-black text-slate-900 dark:text-white tracking-tight mb-3">AI Değerlendirmesi</Text>
+
+                            <View className="bg-white dark:bg-slate-900 rounded-[24px] p-5 border border-slate-100 dark:border-slate-800 shadow-sm shadow-slate-200/40 dark:shadow-none mb-3">
+                                <View className="flex-row items-center mb-3">
+                                    <View className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 items-center justify-center mr-3 border border-indigo-100/50 dark:border-indigo-500/20">
+                                        <Zap size={16} color="#6366f1" />
+                                    </View>
+                                    <Text className="text-indigo-600 dark:text-indigo-400 text-[10px] font-black uppercase tracking-widest">Yapay Zeka Yorumu</Text>
+                                </View>
+                                <Text className="text-slate-700 dark:text-slate-300 text-[13px] leading-[21px] font-medium">{aiComment}</Text>
+                            </View>
+
+                            {/* Durum alert kartı */}
+                            <View className="rounded-[24px] p-5 border flex-row items-start" style={{
+                                backgroundColor: pd.rate >= 70 ? '#f0fdf4' : '#fff7ed',
+                                borderColor: pd.rate >= 70 ? '#bbf7d0' : '#fed7aa',
+                            }}>
+                                <View className="w-9 h-9 rounded-xl items-center justify-center mr-3" style={{
+                                    backgroundColor: pd.rate >= 70 ? '#10b98120' : '#f59e0b20'
+                                }}>
+                                    {pd.rate >= 70
+                                        ? <CheckCircle2 size={18} color="#10b981" />
+                                        : <AlertCircle size={18} color="#f59e0b" />
+                                    }
+                                </View>
+                                <View className="flex-1">
+                                    <Text className="font-black text-[13px] mb-1" style={{ color: pd.rate >= 70 ? '#065f46' : '#78350f' }}>
+                                        {pd.rate >= 70 ? 'Sınav Barajını Geçiyorsun! 🎉' : 'Barajın Altındasın — Çalışma Zamanı'}
+                                    </Text>
+                                    <Text className="text-[12px] leading-[19px] font-medium" style={{ color: pd.rate >= 70 ? '#047857' : '#92400e' }}>
+                                        {pd.rate >= 70
+                                            ? `%${pd.rate} başarı oranınla gerçek sınavı geçmeye hazırsın. Son bir tekrarla neredeyse sıfır hata hedefle!`
+                                            : `Geçmek için %${70 - pd.rate} daha fazla başarı gerekiyor. ${weakCat ? `"${weakCat.name}" konusuna odaklanmak iyi bir başlangıç olur.` : 'Düzenli çalışma ile bu farkı kapatabilirsin.'}`
+                                        }
+                                    </Text>
+                                </View>
                             </View>
 
                             {!isPremium && (
                                 <TouchableOpacity
+                                    activeOpacity={0.85}
                                     onPress={openPaywall}
-                                    className="mt-4 bg-slate-900 dark:bg-slate-800 p-5 rounded-3xl flex-row items-center justify-between active:scale-95"
+                                    className="bg-slate-900 dark:bg-slate-900 rounded-[24px] p-5 mt-3 border border-slate-800 flex-row items-center relative overflow-hidden"
                                 >
-                                    <View className="flex-1 pr-4">
-                                        <Text className="text-white font-black text-sm mb-1">AI Gelişim Raporunu Aç</Text>
-                                        <Text className="text-slate-300 text-xs leading-5">
+                                    <View className="absolute right-[-10] bottom-[-20] opacity-10 rotate-12">
+                                        <TrendingUp size={120} color="#ffffff" />
+                                    </View>
+                                    <View className="flex-1 pr-4 z-10">
+                                        <Text className="text-white font-black text-[14px] mb-1">AI Gelişim Raporunu Aç</Text>
+                                        <Text className="text-slate-400 text-[12px] leading-[19px] font-medium">
                                             Yanlışlarına göre eksik konu, risk seviyesi ve sıradaki en mantıklı testi gör.
                                         </Text>
                                     </View>
-                                    <Zap size={22} color="#f59e0b" />
+                                    <View className="w-9 h-9 bg-white/10 rounded-xl items-center justify-center">
+                                        <ArrowRight size={16} color="#f59e0b" />
+                                    </View>
                                 </TouchableOpacity>
                             )}
                         </View>
-                    </>
-                )}
-            </ScrollView>
-        </ScreenLayout>
-    );
-}
 
-interface StatCardProps {
-    icon: any;
-    label: string;
-    value: string;
-    color: string;
-    bgColor: string;
-}
-
-const StatCard = ({ icon: Icon, label, value, color, bgColor }: StatCardProps) => (
-    <View className="w-[48%] bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-        <View className={`${bgColor} dark:bg-opacity-10 self-start p-2 rounded-lg mb-3`}>
-            <Icon size={18} color={color} />
-        </View>
-        <Text className="text-2xl font-bold text-slate-900 dark:text-slate-50">{value}</Text>
-        <Text className="text-slate-500 dark:text-slate-400 text-xs font-medium">{label}</Text>
-    </View>
-);
-
-const StatisticsSkeleton = () => {
-    const { isDarkMode, colorScheme } = useThemeMode();
-    
-    return (
-        <ScreenLayout className="bg-base">
-            <View className="px-6 pt-4 pb-4 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
-                <View className="h-8 w-48 bg-slate-200 dark:bg-slate-800 rounded animate-pulse mb-2" />
-                <View className="h-4 w-64 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" />
-            </View>
-
-            <View className="px-6 mt-6 flex-row flex-wrap justify-between gap-y-4">
-                {[1, 2, 3, 4].map((i) => (
-                    <View key={i} className="w-[48%] bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                        <View className="h-8 w-8 bg-slate-200 dark:bg-slate-800 rounded-lg mb-3 animate-pulse" />
-                        <View className="h-8 w-16 bg-slate-200 dark:bg-slate-800 rounded mb-1 animate-pulse" />
-                        <View className="h-4 w-24 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" />
-                    </View>
-                ))}
-            </View>
-
-            <View className="px-6 mt-8">
-                <View className="h-6 w-40 bg-slate-200 dark:bg-slate-800 rounded mb-4 animate-pulse" />
-                <View className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm gap-6">
-                    {[1, 2, 3, 4].map((i) => (
-                        <View key={i}>
-                            <View className="flex-row justify-between mb-2">
-                                <View className="h-4 w-32 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" />
-                                <View className="h-4 w-8 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" />
-                            </View>
-                            <View className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                <View className="h-full bg-slate-200 dark:bg-slate-700 w-1/2 animate-pulse rounded-full" />
+                        {/* ═══ HIZLI AKSIYONLAR ═══ */}
+                        <View className="px-6">
+                            <Text className="text-[16px] font-black text-slate-900 dark:text-white tracking-tight mb-3">Hızlı Erişim</Text>
+                            <View className="flex-row gap-x-3">
+                                <TouchableOpacity
+                                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/quiz/mistakes' as any); }}
+                                    activeOpacity={0.7}
+                                    className="flex-1 bg-white dark:bg-slate-900 items-center py-4 rounded-[20px] border border-slate-100 dark:border-slate-800 shadow-sm"
+                                >
+                                    <View className="w-10 h-10 bg-rose-50 dark:bg-rose-500/10 rounded-2xl items-center justify-center mb-2">
+                                        <AlertCircle size={19} color="#ef4444" />
+                                    </View>
+                                    <Text className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Hata Tekrarı</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/(tabs)/ai-tutor' as any); }}
+                                    activeOpacity={0.7}
+                                    className="flex-1 bg-white dark:bg-slate-900 items-center py-4 rounded-[20px] border border-slate-100 dark:border-slate-800 shadow-sm"
+                                >
+                                    <View className="w-10 h-10 bg-indigo-50 dark:bg-indigo-500/10 rounded-2xl items-center justify-center mb-2">
+                                        <Zap size={19} color="#6366f1" />
+                                    </View>
+                                    <Text className="text-[11px] font-bold text-slate-700 dark:text-slate-300">AI Hoca</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/notes' as any); }}
+                                    activeOpacity={0.7}
+                                    className="flex-1 bg-white dark:bg-slate-900 items-center py-4 rounded-[20px] border border-slate-100 dark:border-slate-800 shadow-sm"
+                                >
+                                    <View className="w-10 h-10 bg-emerald-50 dark:bg-emerald-500/10 rounded-2xl items-center justify-center mb-2">
+                                        <BookOpen size={19} color="#10b981" />
+                                    </View>
+                                    <Text className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Notlar</Text>
+                                </TouchableOpacity>
                             </View>
                         </View>
-                    ))}
-                </View>
-            </View>
 
-            <View className="px-6 mt-8">
-                <View className="h-6 w-40 bg-slate-200 dark:bg-slate-800 rounded mb-4 animate-pulse" />
-                <View className="h-[88px] w-full bg-slate-200 dark:bg-slate-800 rounded-2xl animate-pulse" />
-            </View>
+                    </>
+                )}
+            </Animated.ScrollView>
         </ScreenLayout>
     );
-};
+}
