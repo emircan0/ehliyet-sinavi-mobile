@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, Animated, Alert } from 'react-native';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { View, Text, TouchableOpacity, ActivityIndicator, Animated, Alert, RefreshControl, ScrollView } from 'react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
 import {
     BrainCircuit, Target, BookOpen, ChevronRight,
     MessageSquare, Lightbulb, TrendingDown, Lock,
@@ -9,7 +10,6 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ScreenLayout } from '../../src/components/ScreenLayout';
 import { fetchAdvancedMasteryData } from '../../src/api/queries';
-import { useRouter } from 'expo-router';
 import { useSubscriptionStore } from '../../src/store/useSubscriptionStore';
 import { useThemeMode } from '../../src/hooks/useThemeMode';
 import { purchaseService } from '../../src/services/purchaseService';
@@ -263,22 +263,34 @@ export default function AITutorScreen() {
         if (ok) await checkSubscriptionStatus();
     };
 
-    useEffect(() => {
+    const [refreshing, setRefreshing] = useState(false);
+
+    const loadData = useCallback(async () => {
         if (authLoading) return;
-        (async () => {
-            if (user) {
-                setIsGuest(false);
-                const raw = await fetchAdvancedMasteryData(user.id);
-                setData(raw as MasteryItem[]);
-                Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
-            } else {
-                setIsGuest(true);
-            }
-            const p = await AsyncStorage.getItem('user_preferences');
-            if (p) setPrefs(JSON.parse(p));
-            setLoading(false);
-        })();
+        if (user) {
+            setIsGuest(false);
+            const raw = await fetchAdvancedMasteryData(user.id);
+            setData(raw as MasteryItem[]);
+            Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
+        } else {
+            setIsGuest(true);
+        }
+        const p = await AsyncStorage.getItem('user_preferences');
+        if (p) setPrefs(JSON.parse(p));
+        setLoading(false);
     }, [user, authLoading]);
+
+    useFocusEffect(
+        useCallback(() => {
+            loadData();
+        }, [loadData])
+    );
+
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        await loadData();
+        setRefreshing(false);
+    }, [loadData]);
 
 
     if (loading) return (
@@ -328,6 +340,7 @@ export default function AITutorScreen() {
                 className="flex-1"
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: 110 }}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
             >
                 {/* ─── HEADER ─── */}
                 <View className="px-6 py-2 flex-row justify-between items-center mt-2 mb-1">

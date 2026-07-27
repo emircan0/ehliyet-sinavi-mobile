@@ -13,7 +13,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Trophy, PlayCircle, Crown, Rocket, BellRing, Check } from 'lucide-react-native';
+import { Trophy, PlayCircle, Crown, Rocket, BellRing, Check, X } from 'lucide-react-native';
 
 import { supabase } from '../src/api/supabase';
 import { scheduleDailyReminder, cancelAllReminders } from '../src/api/notifications';
@@ -102,7 +102,7 @@ export default function OnboardingScreen() {
     const insets = useSafeAreaInsets();
 
     const [step, setStep] = useState(0);
-    const [notifTime, setNotifTime] = useState<string | null>(null);
+    const [notifTime, setNotifTime] = useState<string | null>('20:00');
     const [finishing, setFinishing] = useState(false);
 
     // Animations
@@ -191,7 +191,17 @@ export default function OnboardingScreen() {
             <View style={[styles.root, { backgroundColor: bgColor }]}>
                 <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
                 <SafeAreaView style={{ flex: 1 }}>
+                    <View style={{ alignItems: 'flex-end', paddingHorizontal: 24, paddingTop: 12 }}>
+                        <TouchableOpacity
+                            onPress={() => router.replace('/auth/login')}
+                            activeOpacity={0.7}
+                            style={[styles.closeIconBtn, { backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7' }]}
+                        >
+                            <X size={18} color={isDark ? '#FFFFFF' : '#000000'} />
+                        </TouchableOpacity>
+                    </View>
                     <ScrollView 
+                        style={{ flex: 1 }}
                         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}
                         showsVerticalScrollIndicator={false}
                     >
@@ -272,19 +282,28 @@ export default function OnboardingScreen() {
             <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
             <SafeAreaView style={{ flex: 1 }}>
                 
-                {/* Modern Segmented Progress Bar */}
-                <View style={styles.topBar}>
-                    {SLIDES.map((_, i) => (
-                        <View
-                            key={i}
-                            style={[
-                                styles.segment,
-                                {
-                                    backgroundColor: i <= step ? textColor : (isDark ? '#38383A' : '#E5E5EA'),
-                                }
-                            ]}
-                        />
-                    ))}
+                {/* Modern Segmented Progress Bar + Close Button */}
+                <View style={styles.topHeaderRow}>
+                    <View style={styles.topBar}>
+                        {SLIDES.map((_, i) => (
+                            <View
+                                key={i}
+                                style={[
+                                    styles.segment,
+                                    {
+                                        backgroundColor: i <= step ? textColor : (isDark ? '#38383A' : '#E5E5EA'),
+                                    }
+                                ]}
+                            />
+                        ))}
+                    </View>
+                    <TouchableOpacity
+                        onPress={() => router.replace('/auth/login')}
+                        activeOpacity={0.7}
+                        style={[styles.closeIconBtn, { backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7' }]}
+                    >
+                        <X size={18} color={isDark ? '#FFFFFF' : '#000000'} />
+                    </TouchableOpacity>
                 </View>
 
                 <View style={styles.contentArea}>
@@ -328,11 +347,24 @@ const styles = StyleSheet.create({
     root: {
         flex: 1,
     },
-    topBar: {
+    topHeaderRow: {
         flexDirection: 'row',
+        alignItems: 'center',
         paddingHorizontal: 24,
-        paddingTop: 12, // Reduced
+        paddingTop: 12,
+        gap: 14,
+    },
+    topBar: {
+        flex: 1,
+        flexDirection: 'row',
         gap: 6,
+    },
+    closeIconBtn: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     segment: {
         flex: 1,

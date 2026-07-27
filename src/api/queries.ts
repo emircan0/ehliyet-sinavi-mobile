@@ -12,7 +12,7 @@ export const handleApiError = <T,>(context: string, error: unknown, fallbackValu
 export const ensureUserProfile = async (userId: string, fullName?: string) => {
     const { data: profile, error } = await supabase
         .from('profiles')
-        .select('id')
+        .select('id, full_name')
         .eq('id', userId)
         .maybeSingle();
 
@@ -20,7 +20,12 @@ export const ensureUserProfile = async (userId: string, fullName?: string) => {
         throw error;
     }
 
+    const PLACEHOLDER_NAMES = ['İsimsiz Sürücü', 'Sürücü Adayı', 'Misafir Sürücü', 'Misafir', 'Sürücü', 'Kullanıcı'];
+
     if (profile) {
+        if (fullName && (!profile.full_name || PLACEHOLDER_NAMES.includes(profile.full_name.trim()))) {
+            await supabase.from('profiles').update({ full_name: fullName }).eq('id', userId);
+        }
         return profile;
     }
 
@@ -45,22 +50,29 @@ export const fetchHomeDashboardData = async () => {
         const user = data?.user;
 
         let fullName = 'Misafir Sürücü';
+        const PLACEHOLDER_NAMES = ['İsimsiz Sürücü', 'Sürücü Adayı', 'Misafir Sürücü', 'Misafir', 'Sürücü', 'Kullanıcı'];
         
         if (user) {
-            // İlk olarak metadata'daki ismi alalım (Hızlı fallback)
-            if (user.user_metadata?.full_name) {
-                fullName = user.user_metadata.full_name;
+            let userMetaName = user.user_metadata?.full_name || user.user_metadata?.name || null;
+            if (userMetaName && PLACEHOLDER_NAMES.includes(userMetaName.trim())) {
+                userMetaName = null;
             }
 
-            // Sonra güncel profil tablosuna bakalım
             const { data: profile, error: profileError } = await supabase
                 .from('profiles')
                 .select('full_name')
                 .eq('id', user.id)
                 .maybeSingle();
 
-            if (!profileError && profile?.full_name) {
-                fullName = profile.full_name;
+            let dbProfileName = (!profileError && profile?.full_name) ? profile.full_name.trim() : null;
+            if (dbProfileName && PLACEHOLDER_NAMES.includes(dbProfileName)) {
+                dbProfileName = null;
+            }
+
+            fullName = dbProfileName || userMetaName || 'İsimsiz Sürücü';
+
+            if (userMetaName && (!dbProfileName || dbProfileName !== userMetaName)) {
+                supabase.from('profiles').update({ full_name: userMetaName }).eq('id', user.id).then(() => {});
             }
         }
 
@@ -192,22 +204,26 @@ export const saveQuizResults = async (
             .filter(ans => ans != null)
             .map(ans => ({
                 user_id: userId,
-                question_id: ans.questionId,
-                selected_option: ans.selectedOption,
-                is_correct: ans.isCorrect,
+                question_id: ans.questionId || (ans as any).question_id,
+                selected_option: ans.selectedOption ?? (ans as any).selected_option ?? 0,
+                is_correct: ans.isCorrect ?? (ans as any).is_correct ?? false,
                 solved_at: completedAt
             }));
 
         if (answersToInsert.length > 0) {
-            // NOT: Bunun çalışması için Supabase'de `user_answers` tablosunda
-            // (user_id, question_id) ikilisinin UNIQUE olması gerekir.
             const { error: answersError } = await supabase
                 .from('user_answers')
                 .upsert(answersToInsert, { onConflict: 'user_id,question_id' });
 
             if (answersError) {
-                console.warn("user_answers kaydedilemedi (RLS UPDATE izni veya unique constraint eksik olabilir):", answersError);
-                // throw yapmıyoruz ki ana sınav sonucu exam_results tablosuna kaydedilebilsin.
+                console.warn("user_answers upsert hatası, normal insert deneniyor:", answersError.message);
+                const { error: insertError } = await supabase
+                    .from('user_answers')
+                    .insert(answersToInsert);
+
+                if (insertError) {
+                    console.error("user_answers insert de başarısız oldu:", insertError.message);
+                }
             }
         }
 
@@ -595,52 +611,90 @@ export const fetchAdvancedMasteryData = async (userId: string) => {
             .eq('user_id', userId)
             .order('solved_at', { ascending: false });
 
-        if (error) throw error;
-        if (!data || data.length === 0) return [];
+        if (!error && data && data.length > 0) {
+            const masteryMap: Record<string, {
+                correct: number;
+                total: number;
+                lastSolved: string;
+                recentCorrect: number;
+                recentTotal: number;
+            }> = {};
 
-        const masteryMap: Record<string, {
-            correct: number;
-            total: number;
-            lastSolved: string;
-            recentCorrect: number; // Son 5 sorudaki başarısı (trend analizi için)
-            recentTotal: number;
-        }> = {};
+            data.forEach((item: any) => {
+                const category = Array.isArray(item.questions) ? item.questions[0]?.category : item.questions?.category;
+                if (!category) return;
 
-        data.forEach((item: any) => {
-            const category = Array.isArray(item.questions) ? item.questions[0]?.category : item.questions?.category;
-            if (!category) return;
+                if (!masteryMap[category]) {
+                    masteryMap[category] = { correct: 0, total: 0, lastSolved: item.solved_at, recentCorrect: 0, recentTotal: 0 };
+                }
 
-            if (!masteryMap[category]) {
-                masteryMap[category] = { correct: 0, total: 0, lastSolved: item.solved_at, recentCorrect: 0, recentTotal: 0 };
+                if (item.is_correct) masteryMap[category].correct += 1;
+                masteryMap[category].total += 1;
+
+                if (masteryMap[category].recentTotal < 5) {
+                    if (item.is_correct) masteryMap[category].recentCorrect += 1;
+                    masteryMap[category].recentTotal += 1;
+                }
+            });
+
+            return Object.keys(masteryMap).map(category => {
+                const stats = masteryMap[category];
+                const score = Math.round((stats.correct / stats.total) * 100);
+                const recentScore = Math.round((stats.recentCorrect / stats.recentTotal) * 100);
+
+                return {
+                    name: category,
+                    totalAttempts: stats.total,
+                    masteryScore: score,
+                    recentScore: recentScore,
+                    lastSolved: stats.lastSolved,
+                    trend: recentScore >= score ? 'improving' : 'declining',
+                    status: score >= 85 && stats.total >= 10 ? 'expert' : (score >= 60 ? 'learning' : 'critical')
+                };
+            }).sort((a, b) => a.masteryScore - b.masteryScore);
+        }
+
+        // Fallback: Eğer user_answers boşsa exam_results sonuçlarından derle
+        const { data: examResults, error: examErr } = await supabase
+            .from('exam_results')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false });
+
+        if (!examErr && examResults && examResults.length > 0) {
+            const catMap: Record<string, { correct: number; total: number; lastSolved: string }> = {};
+
+            examResults.forEach((res: any) => {
+                const cat = res.category || 'trafik';
+                if (['trafik', 'ilkyardim', 'motor', 'adap'].includes(cat)) {
+                    if (!catMap[cat]) {
+                        catMap[cat] = { correct: 0, total: 0, lastSolved: res.created_at || res.completed_at };
+                    }
+                    catMap[cat].correct += (res.correct_count || 0);
+                    catMap[cat].total += (res.total_questions || (res.correct_count + res.wrong_count));
+                }
+            });
+
+            const resultList = Object.keys(catMap).map(cat => {
+                const c = catMap[cat];
+                const score = c.total > 0 ? Math.round((c.correct / c.total) * 100) : 0;
+                return {
+                    name: cat,
+                    totalAttempts: c.total,
+                    masteryScore: score,
+                    recentScore: score,
+                    lastSolved: c.lastSolved,
+                    trend: 'improving' as const,
+                    status: score >= 85 ? ('expert' as const) : score >= 60 ? ('learning' as const) : ('critical' as const)
+                };
+            });
+
+            if (resultList.length > 0) {
+                return resultList.sort((a, b) => a.masteryScore - b.masteryScore);
             }
+        }
 
-            if (item.is_correct) masteryMap[category].correct += 1;
-            masteryMap[category].total += 1;
-
-            // Trend analizi: Kategorideki son 5 soruyu incele
-            if (masteryMap[category].recentTotal < 5) {
-                if (item.is_correct) masteryMap[category].recentCorrect += 1;
-                masteryMap[category].recentTotal += 1;
-            }
-        });
-
-        // Veriyi AI Hoca'nın anlayacağı profesyonel formata çevir
-        return Object.keys(masteryMap).map(category => {
-            const stats = masteryMap[category];
-            const score = Math.round((stats.correct / stats.total) * 100);
-            const recentScore = Math.round((stats.recentCorrect / stats.recentTotal) * 100);
-
-            return {
-                name: category,
-                totalAttempts: stats.total,
-                masteryScore: score,
-                recentScore: recentScore,
-                lastSolved: stats.lastSolved,
-                trend: recentScore >= score ? 'improving' : 'declining',
-                status: score >= 85 && stats.total >= 10 ? 'expert' : (score >= 60 ? 'learning' : 'critical')
-            };
-        }).sort((a, b) => a.masteryScore - b.masteryScore); // En zayıf konular en üstte
-
+        return [];
     } catch (error) {
         return handleApiError('fetchAdvancedMasteryData', error, []);
     }

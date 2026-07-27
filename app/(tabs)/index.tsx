@@ -289,33 +289,36 @@ export default function Home() {
                 {/* --- YENİ CÜZDAN / KREDİ KARTI --- */}
                 {!isPremium && (
                     <View className="px-6 mb-6 mt-1">
-                        <View className="bg-white dark:bg-slate-900 rounded-[24px] p-5 border border-slate-100 dark:border-slate-800/60 shadow-sm shadow-slate-200/50 dark:shadow-none">
-                            <View className="flex-row justify-between items-start mb-3">
-                                <View className="flex-row items-center">
-                                    <View className="w-12 h-12 bg-amber-50 dark:bg-amber-500/10 rounded-[18px] items-center justify-center mr-3 border border-amber-100/50 dark:border-amber-500/20">
-                                        <Zap size={22} color="#f59e0b" fill="#f59e0b" />
+                        <View className="bg-white dark:bg-slate-900 rounded-[20px] p-4 border border-slate-100 dark:border-slate-800/60 shadow-sm shadow-slate-200/50 dark:shadow-none">
+                            <View className="flex-row justify-between items-center mb-3">
+                                <View className="flex-row items-center flex-1 mr-2">
+                                    <View className="w-10 h-10 bg-amber-50 dark:bg-amber-500/10 rounded-[14px] items-center justify-center mr-3 border border-amber-100/50 dark:border-amber-500/20">
+                                        <Zap size={20} color="#f59e0b" fill="#f59e0b" />
                                     </View>
-                                    <View>
-                                        <Text className="text-[12px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-0.5">Mevcut Kredin</Text>
-                                        <Text className="text-[20px] font-black text-slate-900 dark:text-white leading-none">{credits} Kredi</Text>
+                                    <View className="flex-1">
+                                        <Text className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1.5" numberOfLines={1}>Mevcut Kredin</Text>
+                                        <Text className="text-[18px] font-black text-slate-900 dark:text-white leading-none" numberOfLines={1}>{credits} Kredi</Text>
                                     </View>
                                 </View>
                                 <TouchableOpacity
                                     onPress={triggerRandomAd}
                                     activeOpacity={0.7}
-                                    className="bg-slate-900 dark:bg-white px-5 py-3 rounded-xl flex-row items-center justify-center shadow-md shadow-slate-900/20 dark:shadow-none"
+                                    className="bg-emerald-500 dark:bg-emerald-600 px-3.5 py-2.5 rounded-xl flex-row items-center justify-center shadow-sm shadow-emerald-500/30 dark:shadow-none"
                                 >
-                                    <Play size={13} color={isDarkMode ? "#0f172a" : "#ffffff"} fill={isDarkMode ? "#0f172a" : "#ffffff"} className="mr-2" />
-                                    <Text className="text-white dark:text-slate-900 font-bold text-[13px] tracking-wide">Kazan</Text>
-                                    <View className="bg-white/20 dark:bg-slate-900/10 rounded-md px-2 py-0.5 ml-2.5">
-                                        <Text className="text-white/90 dark:text-slate-700 font-bold text-[10px] tracking-tight">+3 Kredi</Text>
+                                    <Play size={12} color="#ffffff" fill="#ffffff" className="mr-1.5" />
+                                    <Text className="text-white font-bold text-[12px] tracking-wide mr-1.5">Kazan</Text>
+                                    <View className="bg-white/25 rounded-md px-1.5 py-0.5">
+                                        <Text className="text-white font-bold text-[10px] tracking-tight">+3</Text>
                                     </View>
                                 </TouchableOpacity>
                             </View>
                             
-                            <View className="bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-xl flex-row items-center justify-center mt-2">
-                                <Text className="text-[13px] font-medium text-slate-500 dark:text-slate-400 text-center leading-snug px-2">
-                                    Reklam izleyerek anında +3 kredi kazan. Bu kredilerle kilitli sınavları ve özellikleri açabilirsin.
+                            <View className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl flex-row items-center mt-1">
+                                <View style={{ marginRight: 10 }}>
+                                    <Info size={15} color={isDarkMode ? "#94a3b8" : "#64748b"} />
+                                </View>
+                                <Text className="text-[12px] flex-1 font-medium text-slate-500 dark:text-slate-400 leading-snug">
+                                    Reklam izleyerek +3 kredi kazanıp kilitli özellikleri açabilirsin.
                                 </Text>
                             </View>
                         </View>

@@ -322,19 +322,7 @@ export default function QuizResultScreen() {
                         <TouchableOpacity
                             onPress={() => {
                                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                if (isPremium || mistakesUnlocked) {
-                                    router.push({ pathname: '/quiz/mistakes', params: { fromResult: 'true' } });
-                                } else {
-                                    checkAccess({
-                                        onSuccess: () => {
-                                            unlockMistakes();
-                                            router.push({ pathname: '/quiz/mistakes', params: { fromResult: 'true' } });
-                                        },
-                                        featureName: 'Hataları Tekrar Et',
-                                        onAdRequired: triggerRandomAd,
-                                        creditCost: 2
-                                    });
-                                }
+                                router.push({ pathname: '/quiz/mistakes', params: { fromResult: 'true' } });
                             }}
                             activeOpacity={0.8}
                             style={s.outlineBtn}

@@ -190,25 +190,41 @@ export default function RootLayout() {
 
     // 3. Notification Listeners 
     useEffect(() => {
-        const isExpoGo = Constants.appOwnership === 'expo';
-        if (isExpoGo) return;
-
         let isMounted = true;
-        const Notifications = require('expo-notifications');
+        let Notifications: typeof import('expo-notifications') | null = null;
+        try {
+            Notifications = require('expo-notifications');
+        } catch (e) {
+            // Notifications module not available
+        }
 
+        if (!Notifications) return;
+
+        // Ekrana veya arka plana düşen gelen bildirimi içi listeye kaydet
         const receivedSubscription = Notifications.addNotificationReceivedListener((notification: Notification) => {
             if (isMounted) {
+                const content = notification.request.content;
                 addNotification({
-                    title: notification.request.content.title || 'Yeni Bildirim',
-                    message: notification.request.content.body || '',
-                    type: (notification.request.content.data?.type as any) || 'info',
-                    data: notification.request.content.data,
+                    title: content.title || 'Yeni Bildirim',
+                    message: content.body || '',
+                    type: (content.data?.type as any) || 'info',
+                    data: content.data,
                 });
             }
         });
 
+        // Bildirime tıklandığında hem içi listeye kaydet hem de sayfaya yönlendir
         const responseSubscription = Notifications.addNotificationResponseReceivedListener((response: NotificationResponse) => {
-            const data = response.notification.request.content.data;
+            const content = response.notification.request.content;
+            if (isMounted) {
+                addNotification({
+                    title: content.title || 'Yeni Bildirim',
+                    message: content.body || '',
+                    type: (content.data?.type as any) || 'info',
+                    data: content.data,
+                });
+            }
+            const data = content.data;
             if (data?.route && typeof data.route === 'string') {
                 router.push(data.route as any);
             } else if (data?.url && typeof data.url === 'string') {
@@ -216,10 +232,24 @@ export default function RootLayout() {
             }
         });
 
+        // Ekrana düşmüş olan mevcut bildirimleri de senkronize et
+        Notifications.getPresentedNotificationsAsync().then((presented) => {
+            if (!isMounted || !Array.isArray(presented)) return;
+            presented.forEach((notif) => {
+                const content = notif.request.content;
+                addNotification({
+                    title: content.title || 'Yeni Bildirim',
+                    message: content.body || '',
+                    type: (content.data?.type as any) || 'info',
+                    data: content.data,
+                });
+            });
+        }).catch(() => {});
+
         return () => {
             isMounted = false;
-            receivedSubscription.remove();
-            responseSubscription.remove();
+            receivedSubscription?.remove();
+            responseSubscription?.remove();
         };
     }, []);
 

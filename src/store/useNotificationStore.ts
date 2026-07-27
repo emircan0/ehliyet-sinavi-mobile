@@ -22,12 +22,36 @@ interface NotificationState {
     clearAll: () => void;
 }
 
+const DEFAULT_NOTIFICATIONS: AppNotification[] = [
+    {
+        id: 'welcome-notif-1',
+        title: 'Ehliyet Sınavı Uygulamasına Hoş Geldin! 🎉',
+        message: 'Sınava en iyi şekilde hazırlanman için her gün güncel sorular ve hatırlatmalar seni bekliyor.',
+        time: 'Bugün',
+        type: 'system',
+        isRead: false,
+    },
+    {
+        id: 'welcome-notif-2',
+        title: 'Günlük Pratik Yapmayı Unutma 🚦',
+        message: 'Günde 10 soru çözerek sınava hazırlık sürecini hızlandırabilirsin.',
+        time: 'Bugün',
+        type: 'info',
+        isRead: false,
+    }
+];
+
 export const useNotificationStore = create<NotificationState>()(
     persist(
         (set) => ({
-            notifications: [],
+            notifications: DEFAULT_NOTIFICATIONS,
             addNotification: (notif) => set((state) => {
-                // Aynı ID'ye sahip bildirim tekrar eklenmesin (spama karşı)
+                // Aynı başlık ve mesajdaki bildirimin tekrar eklenmesini önle (spama karşı)
+                const exists = state.notifications.some(
+                    (n) => n.title === notif.title && n.message === notif.message
+                );
+                if (exists) return state;
+
                 return {
                     notifications: [
                         {
