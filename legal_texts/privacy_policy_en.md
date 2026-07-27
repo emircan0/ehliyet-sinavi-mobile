@@ -20,7 +20,7 @@ The data we collect is processed solely to provide you with a better educational
 - **AI Tutor Support:** Analyzing your mistakes and providing personalized, tailored educational feedback on your weak areas via the "AI Hoca" feature.
 - **Leaderboard:** Displaying your success statistics on a global ranking to encourage competition among users. (Note: Users can choose to hide their profile pictures and names from the "Settings" section if they wish).
 - **In-App Purchases:** Identifying and managing premium features (e.g., ad-free usage, unlimited AI credits).
-- **Ad Delivery:** Displaying ads via AdMob for free users and providing a personalized ad experience.
+- **Ad Delivery and Rewarded Ads:** Displaying standard and "Rewarded Ads" via AdMob for free users. For users who earn in-app virtual Credits by watching rewarded ads, their ad interactions may be processed using their device advertising identifier (IDFA/GAID) to ensure rewards are correctly credited to their accounts and to prevent fraudulent activities.
 - **Debugging and Development:** Monitoring app performance, detecting crashes, and making improvements.
 
 ## 4. Sharing Data with Third Parties

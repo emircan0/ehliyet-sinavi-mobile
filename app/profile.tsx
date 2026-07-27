@@ -406,28 +406,6 @@ export default function ProfileScreen() {
                     </View>
                 </View>
 
-                {/* --- ÇALIŞMA PROGRAMIM --- */}
-                <View className="px-6 mb-8">
-                    <Text className="text-slate-900 dark:text-white font-bold text-lg mb-4 ml-1">Çalışma Programım</Text>
-                    <View className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
-                        <SettingItem
-                            icon={Car} color="#3b82f6" title="Ehliyet Sınıfı"
-                            value={getLabel('license_type', preferences.license_type)}
-                            onPress={() => openSettingModal('license_type')} isFirst
-                        />
-                        <SettingItem
-                            icon={Calendar} color="#8b5cf6" title="Sınav Hedefi"
-                            value={getLabel('exam_date', preferences.exam_date)}
-                            onPress={() => openSettingModal('exam_date')}
-                        />
-                        <SettingItem
-                            icon={Clock} color="#f59e0b" title="Günlük Hedef"
-                            value={getLabel('daily_goal', preferences.daily_goal)}
-                            onPress={() => openSettingModal('daily_goal')} isLast
-                        />
-                    </View>
-                </View>
-
                 {/* --- BİLDİRİM VE TERCİHLER --- */}
                 <View className="px-6 mb-8">
                     <Text className="text-slate-900 dark:text-white font-bold text-lg mb-4 ml-1">Tercihler</Text>

@@ -40,7 +40,8 @@ import {
   Award,
   UserCheck,
   MousePointerClick,
-  RefreshCw
+  RefreshCw,
+  Trophy
 } from 'lucide-react';
 
 interface Exam {
@@ -210,7 +211,31 @@ function MetricCard({
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'exams' | 'pool' | 'analytics' | 'reported' | 'settings'>('analytics');
+  const [activeTab, setActiveTab] = useState<'exams' | 'pool' | 'analytics' | 'reported' | 'settings' | 'leaderboard'>('analytics');
+  const [leaderboardType, setLeaderboardType] = useState<'success' | 'activity'>('success');
+  const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
+  const [isLeaderboardLoading, setIsLeaderboardLoading] = useState(false);
+
+  const loadLeaderboard = async () => {
+    setIsLeaderboardLoading(true);
+    try {
+      const fnName = leaderboardType === 'success' ? 'get_leaderboard_success_rate' : 'get_leaderboard_activity';
+      const { data, error } = await supabase.rpc(fnName, { month_offset: 0 });
+      if (error) throw error;
+      setLeaderboardData(data || []);
+    } catch(err: any) {
+      console.error(err);
+      setAlert({ type: 'error', message: err.message || 'Bilinmeyen bir hata oluştu' });
+    } finally {
+      setIsLeaderboardLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'leaderboard') {
+      loadLeaderboard();
+    }
+  }, [activeTab, leaderboardType]);
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [exams, setExams] = useState<Exam[]>([]);
@@ -1897,6 +1922,13 @@ function App() {
             <AlertCircle size={18} /> Raporlananlar
           </button>
           <button 
+            onClick={() => setActiveTab('leaderboard')}
+            className={`btn ${activeTab === 'leaderboard' ? 'btn-primary' : 'btn-ghost'}`}
+            style={{ justifyContent: 'flex-start', width: '100%' }}
+          >
+            <Trophy size={18} /> Liderlik Tablosu
+          </button>
+          <button 
             onClick={() => setActiveTab('settings')}
             className={`btn ${activeTab === 'settings' ? 'btn-primary' : 'btn-ghost'}`}
             style={{ justifyContent: 'flex-start', width: '100%' }}
@@ -3128,6 +3160,85 @@ function App() {
             </form>
           </div>
         )}
+        {activeTab === 'leaderboard' && (
+          <div className="animate-fade-in">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+              <div>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: 700, margin: '0 0 0.5rem 0' }}>Liderlik Tablosu</h2>
+                <p style={{ color: 'var(--text-secondary)', margin: 0 }}>Uygulamadaki en başarılı ve en aktif kullanıcıları görüntüleyin.</p>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
+              <button
+                className={`btn ${leaderboardType === 'success' ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setLeaderboardType('success')}
+              >
+                Başarı Oranı (En Yüksek)
+              </button>
+              <button
+                className={`btn ${leaderboardType === 'activity' ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setLeaderboardType('activity')}
+              >
+                En Çok Çözenler
+              </button>
+            </div>
+
+            <div className="card">
+              <div className="table-container">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: '80px' }}>Sıra</th>
+                      <th>Kullanıcı</th>
+                      <th style={{ textAlign: 'right' }}>{leaderboardType === 'success' ? 'Başarı Oranı' : 'Çözülen Soru'}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {isLeaderboardLoading ? (
+                      <tr>
+                        <td colSpan={3} style={{ textAlign: 'center', padding: '3rem' }}>
+                          <Loader2 className="spin" size={32} style={{ color: 'var(--color-primary)' }} />
+                          <p style={{ marginTop: '1rem', color: 'var(--text-secondary)' }}>Yükleniyor...</p>
+                        </td>
+                      </tr>
+                    ) : leaderboardData.length === 0 ? (
+                      <tr>
+                        <td colSpan={3} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-secondary)' }}>
+                          Gösterilecek veri bulunamadı.
+                        </td>
+                      </tr>
+                    ) : (
+                      leaderboardData.map((user, index) => (
+                        <tr key={user.user_id}>
+                          <td style={{ fontWeight: 'bold', color: index < 3 ? 'var(--color-primary)' : 'var(--text-secondary)' }}>
+                            #{index + 1}
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                              <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--bg-secondary)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                {user.avatar_url ? (
+                                  <img src={user.avatar_url} alt={user.full_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                ) : (
+                                  <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--text-secondary)' }}>{user.full_name?.charAt(0) || '?'}</span>
+                                )}
+                              </div>
+                              <span style={{ fontWeight: 500 }}>{user.full_name || 'İsimsiz Kullanıcı'}</span>
+                            </div>
+                          </td>
+                          <td style={{ textAlign: 'right', fontWeight: 'bold' }}>
+                            {leaderboardType === 'success' ? `%${user.average_score || 0}` : user.total_solved || 0}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
       </main>
 
       {/* Exam Create/Edit Modal */}

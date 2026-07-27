@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, Animated, Alert } from 'react-native';
 import {
     BrainCircuit, Target, BookOpen, ChevronRight,
     MessageSquare, Lightbulb, TrendingDown, Lock,
@@ -17,6 +17,8 @@ import { MasteryCard } from '../../src/components/quiz/MasteryCard';
 import { useAuth } from '../../src/hooks/useAuth';
 import * as Haptics from 'expo-haptics';
 import Svg, { Path, Circle, Line, Text as SvgText, Defs, LinearGradient as SvgGradient, Stop, G } from 'react-native-svg';
+import { usePremiumAccess } from '../../src/hooks/usePremiumAccess';
+import { adService } from '../../src/services/adService';
 
 // ─── TYPES ───────────────────────────────────────────────────────────
 type MasteryItem = {
@@ -245,6 +247,21 @@ export default function AITutorScreen() {
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const { user, loading: authLoading } = useAuth();
     const { isDarkMode } = useThemeMode();
+    const addCredits = useSubscriptionStore(state => state.addCredits);
+    const { checkAccess } = usePremiumAccess();
+
+    const triggerRandomAd = () => {
+        const adShown = adService.showRewarded(() => {
+            addCredits(3);
+            Alert.alert("Tebrikler!", "3 Kredi kazandınız.");
+        });
+        if (!adShown) Alert.alert("Bilgi", "Video reklam henüz yüklenmedi, lütfen birkaç saniye sonra tekrar deneyin.");
+    };
+
+    const openPaywall = async () => {
+        const ok = await purchaseService.presentPaywall();
+        if (ok) await checkSubscriptionStatus();
+    };
 
     useEffect(() => {
         if (authLoading) return;
@@ -263,10 +280,6 @@ export default function AITutorScreen() {
         })();
     }, [user, authLoading]);
 
-    const openPaywall = async () => {
-        const ok = await purchaseService.presentPaywall();
-        if (ok) await checkSubscriptionStatus();
-    };
 
     if (loading) return (
         <ScreenLayout className="bg-base justify-center items-center">
@@ -513,7 +526,12 @@ export default function AITutorScreen() {
                         <TouchableOpacity
                             onPress={() => {
                                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                isPremium ? router.push('/notes') : openPaywall();
+                                checkAccess({
+                                    onSuccess: () => router.push('/notes'),
+                                    featureName: 'Sınav Notları',
+                                    onAdRequired: triggerRandomAd,
+                                    creditCost: 20
+                                });
                             }}
                             activeOpacity={0.6}
                             className="bg-white dark:bg-slate-900 items-center justify-center py-4 rounded-[20px] border border-slate-100 dark:border-slate-800 flex-1 mr-2 shadow-sm shadow-slate-200/30 dark:shadow-none"

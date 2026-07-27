@@ -127,6 +127,15 @@ export default function StatisticsScreen() {
         });
     };
 
+    const handleNotes = () => {
+        checkAccess({
+            onSuccess: () => router.push('/notes' as any),
+            featureName: 'Sınav Notları',
+            onAdRequired: triggerRewardedCreditAd,
+            creditCost: 20
+        });
+    };
+
     const openPaywall = async () => {
         const success = await purchaseService.presentPaywall();
         if (success) await checkSubscriptionStatus();
@@ -581,7 +590,7 @@ export default function StatisticsScreen() {
                                     <Text className="text-[11px] font-bold text-slate-700 dark:text-slate-300">AI Hoca</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
-                                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/notes' as any); }}
+                                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); handleNotes(); }}
                                     activeOpacity={0.7}
                                     className="flex-1 bg-white dark:bg-slate-900 items-center py-4 rounded-[20px] border border-slate-100 dark:border-slate-800 shadow-sm"
                                 >

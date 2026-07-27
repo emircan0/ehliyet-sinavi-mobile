@@ -1,223 +1,438 @@
-import React, { useState } from 'react';
-import { View, Text, Pressable, Dimensions } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router'; 
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import {
+    View,
+    Text,
+    TouchableOpacity,
+    Dimensions,
+    StyleSheet,
+    useColorScheme,
+    Animated,
+    StatusBar,
+    ScrollView,
+} from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Trophy, PlayCircle, Crown, Rocket, BellRing, Check } from 'lucide-react-native';
+
 import { supabase } from '../src/api/supabase';
-import { Car, Bike, Truck, Calendar, Clock, Bell, ChevronRight, CheckCircle2 } from 'lucide-react-native';
-import { useThemeMode } from '../src/hooks/useThemeMode';
-import { useSettingsStore } from '../src/store/useSettingsStore';
 import { scheduleDailyReminder, cancelAllReminders } from '../src/api/notifications';
+import { useSettingsStore } from '../src/store/useSettingsStore';
 import { analytics } from '../src/services/analytics';
 
 const { width } = Dimensions.get('window');
 
-// Sorular ve Seçenekler
-const ONBOARDING_STEPS = [
+// ─── Apple-like System Colors ────────────────────────────────────────────────
+const COLORS = {
+    blue: '#007AFF',
+    orange: '#FF9500',
+    purple: '#AF52DE',
+    green: '#34C759',
+    red: '#FF3B30',
+    gray: '#8E8E93',
+    lightGray: '#E5E5EA',
+    darkGray: '#1C1C1E',
+    black: '#000000',
+    white: '#FFFFFF',
+};
+
+// ─── Slide Definitions (Psychology & Persuasion) ─────────────────────────────
+const SLIDES = [
     {
-        id: 'license_type',
-        title: 'Hangi ehliyet sınıfı için hazırlanıyorsun?',
-        subtitle: 'Sana uygun soruları seçebilmemiz için önemli.',
-        options: [
-            { label: 'B Sınıfı (Otomobil)', value: 'B', icon: Car },
-            { label: 'A Sınıfı (Motosiklet)', value: 'A', icon: Bike },
-            { label: 'C/D Sınıfı (Ağır Vasıta)', value: 'C', icon: Truck },
-        ]
+        id: 'welcome',
+        Icon: Trophy,
+        color: COLORS.blue,
+        title: 'Ehliyet Sınavı\nGözünü Korkutmasın.',
+        description: 'Neye çalışacağını düşünme. Yapay zekamız seni analiz eder, eksiklerini bulur. Sen sadece sınavı geçmeye odaklan.',
     },
     {
-        id: 'exam_date',
-        title: 'Sınav tarihin belli mi?',
-        subtitle: 'Çalışma programının yoğunluğunu ayarlayacağız.',
-        options: [
-            { label: '1 Ay İçinde (Yoğun Program)', value: 'urgent', icon: Calendar },
-            { label: '2-3 Ay Sonra (Normal Program)', value: 'normal', icon: Calendar },
-            { label: 'Henüz Belli Değil (Rahat Program)', value: 'relaxed', icon: Calendar },
-        ]
+        id: 'credits',
+        Icon: PlayCircle,
+        color: COLORS.orange,
+        title: 'Para Ödemek\nZorunda Değilsin.',
+        description: 'Kısa bir reklam izle, anında 3 kredi kazan. Bu kredileri kullanarak kilitli denemeleri aç ve yapay zekaya dilediğince soru sor.',
     },
     {
-        id: 'daily_goal',
-        title: 'Günde ne kadar vakit ayırabilirsin?',
-        subtitle: 'İstikrarlı olmak, çok çalışmaktan daha önemlidir.',
-        options: [
-            { label: 'Günde 10 Dakika (Hızlı Tekrar)', value: '10', icon: Clock },
-            { label: 'Günde 20 Dakika (Önerilen)', value: '20', icon: Clock },
-            { label: 'Günde 45+ Dakika (Hızlı)', value: '45', icon: Clock },
-        ]
+        id: 'premium',
+        Icon: Crown,
+        color: COLORS.purple,
+        title: 'Vaktim Yok\nDiyenlere.',
+        description: 'Kredi kazanmakla vakit kaybetmek istemiyorsan Premium tam sana göre. Reklamsız, sınırsız ve beklemeden tüm özelliklere ömür boyu eriş.',
     },
     {
-        id: 'notification_time',
-        title: 'Sana ne zaman hatırlatalım?',
-        subtitle: 'Düzenli çalışmak için bildirimler çok faydalıdır.',
-        options: [
-            { label: 'Sabah (09:00)', value: '09:00', icon: Bell },
-            { label: 'Öğle Arası (12:30)', value: '12:30', icon: Bell },
-            { label: 'Akşam (20:00)', value: '20:00', icon: Bell },
-        ]
-    }
+        id: 'ready',
+        Icon: Rocket,
+        color: COLORS.green,
+        title: 'Direksiyona\nGeçme Vakti.',
+        description: 'Hadi ilk denemeni çözerek seviyeni görelim. Eksiklerini tespit edip hemen sana özel bir çalışma programı oluşturalım.',
+    },
 ];
 
-export default function OnboardingScreen() {
-    const { isDarkMode } = useThemeMode();
-    const [currentStep, setCurrentStep] = useState(0);
-    const [preferences, setPreferences] = useState<Record<string, string>>({});
+const NOTIFICATION_OPTIONS = [
+    { label: 'Sabah 09:00', value: '09:00', desc: 'Sabah enerjisiyle zihnini aç' },
+    { label: 'Öğle 12:30', value: '12:30', desc: 'Gün ortasında kısa bir tekrar' },
+    { label: 'Akşam 20:00', value: '20:00', desc: 'Günü kapatmadan son bir pekiştirme' },
+    { label: 'Kendim Hatırlarım', value: 'off', desc: 'Bildirim almak istemiyorum' },
+];
 
-    React.useEffect(() => {
+// ─── Icon Component ──────────────────────────────────────────────────────────
+const GlowingIcon = ({ Icon, color, isDark }: { Icon: any, color: string, isDark: boolean }) => (
+    <View style={styles.iconContainer}>
+        {/* Soft backdrop glow effect */}
+        <View style={[
+            styles.glow,
+            { backgroundColor: color, opacity: isDark ? 0.15 : 0.08 }
+        ]} />
+        <View style={[
+            styles.squircle,
+            {
+                backgroundColor: isDark ? `${color}25` : `${color}15`,
+                borderColor: isDark ? `${color}40` : `${color}20`,
+            }
+        ]}>
+            <Icon size={48} color={color} strokeWidth={2} />
+        </View>
+    </View>
+);
+
+// ─── Main Component ──────────────────────────────────────────────────────────
+export default function OnboardingScreen() {
+    const colorScheme = useColorScheme();
+    const isDark = colorScheme === 'dark';
+    const insets = useSafeAreaInsets();
+
+    const [step, setStep] = useState(0);
+    const [notifTime, setNotifTime] = useState<string | null>(null);
+    const [finishing, setFinishing] = useState(false);
+
+    // Animations
+    const fadeAnim = useRef(new Animated.Value(1)).current;
+    const textSlideAnim = useRef(new Animated.Value(0)).current;
+    const buttonScale = useRef(new Animated.Value(1)).current;
+
+    const isSlides = step < SLIDES.length;
+    const isNotifStep = step === SLIDES.length;
+    const slide = isSlides ? SLIDES[step] : SLIDES[SLIDES.length - 1];
+
+    useEffect(() => {
         analytics.trackEvent({ eventName: 'onboarding_started' });
+        // Initial entrance
+        textSlideAnim.setValue(20);
+        fadeAnim.setValue(0);
+        Animated.parallel([
+            Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+            Animated.spring(textSlideAnim, { toValue: 0, tension: 50, friction: 8, useNativeDriver: true }),
+        ]).start();
     }, []);
 
-    const handleSelect = (value: string) => {
-        const stepId = ONBOARDING_STEPS[currentStep].id;
-        setPreferences(prev => ({ ...prev, [stepId]: value }));
-    };
+    const transitionTo = useCallback((nextStep: number) => {
+        Animated.parallel([
+            Animated.timing(fadeAnim, { toValue: 0, duration: 150, useNativeDriver: true }),
+            Animated.timing(textSlideAnim, { toValue: -15, duration: 150, useNativeDriver: true }),
+        ]).start(() => {
+            setStep(nextStep);
+            textSlideAnim.setValue(20);
+            Animated.parallel([
+                Animated.timing(fadeAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
+                Animated.spring(textSlideAnim, { toValue: 0, tension: 60, friction: 8, useNativeDriver: true }),
+            ]).start();
+        });
+    }, []);
 
-    const handleNext = async () => {
-        if (currentStep < ONBOARDING_STEPS.length - 1) {
-            setCurrentStep(prev => prev + 1);
-        } else {
-            // SON ADIM: Verileri kaydet ve Bildirimi ayarla
-            await AsyncStorage.setItem('user_preferences', JSON.stringify(preferences));
-            await AsyncStorage.setItem('has_completed_onboarding', 'true');
-
-            // Sunucu tarafında profil varsa güncelliyoruz
-            try {
-                const { data: { session } } = await supabase.auth.getSession();
-                if (session) {
-                    let calculatedExamDate = null;
-                    const examPref = preferences['exam_date'];
-                    if (examPref) {
-                        const d = new Date();
-                        if (examPref === 'urgent') d.setMonth(d.getMonth() + 1);
-                        else if (examPref === 'normal') d.setMonth(d.getMonth() + 2);
-                        else if (examPref === 'relaxed') d.setMonth(d.getMonth() + 6);
-                        calculatedExamDate = d.toISOString().split('T')[0];
-                    }
-
-                    const dailyGoalMins = parseInt(preferences['daily_goal'] || '20', 10);
-                    const notifEnabled = preferences['notification_time'] !== 'off';
-                    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-                    await supabase
-                        .from('profiles')
-                        .update({ 
-                            onboarding_completed: true,
-                            license_type: preferences['license_type'],
-                            exam_date: calculatedExamDate,
-                            daily_goal_minutes: dailyGoalMins,
-                            daily_question_goal: dailyGoalMins * 2,
-                            notification_time: preferences['notification_time'],
-                            notification_enabled: notifEnabled,
-                            timezone: tz,
-                            last_active_at: new Date().toISOString()
-                        })
-                        .eq('id', session.user.id);
-                }
-            } catch (e) {
-                console.warn('Onboarding: could not update server flag', e);
-            }
-
-            // Bildirim saatini ayarla
-            try {
-                const notif = preferences['notification_time'];
-                const settingsStore = useSettingsStore.getState();
-
-                if (notif === 'off') {
-                    settingsStore.setReminderEnabled(false);
-                    await cancelAllReminders();
-                } else if (notif && typeof notif === 'string' && notif.includes(':')) {
-                    const timeParts = notif.split(':');
-                    const hour = parseInt(timeParts[0], 10);
-                    const minute = parseInt(timeParts[1], 10);
-                    
-                    if (!Number.isNaN(hour) && !Number.isNaN(minute)) {
-                        settingsStore.setReminderEnabled(true);
-                        settingsStore.setReminderTime(hour, minute);
-                        await scheduleDailyReminder(hour, minute);
-                    } else {
-                        console.warn('Onboarding: notification_time parsed to NaN');
-                    }
-                }
-            } catch (e) {
-                console.warn('scheduleDailyReminder failed:', e);
-            }
-
-            analytics.trackEvent({ eventName: 'onboarding_completed', metadata: preferences });
-            // Ana sayfaya yönlendir
-            router.replace('/(tabs)/'); 
+    const handleNext = () => {
+        if (step < SLIDES.length) {
+            transitionTo(step + 1);
         }
     };
 
-    const stepData = ONBOARDING_STEPS[currentStep];
-    const isOptionSelected = !!preferences[stepData.id];
+    const pressIn = () => Animated.spring(buttonScale, { toValue: 0.95, useNativeDriver: true }).start();
+    const pressOut = () => Animated.spring(buttonScale, { toValue: 1, useNativeDriver: true }).start();
 
-    return (
-        <SafeAreaView className="flex-1 bg-white dark:bg-slate-950" edges={['top']}>
-            {/* Üst İlerleme Çubuğu (Progress Bar) */}
-            <View className="px-6 pt-8 pb-4">
-                <View className="h-2 w-full bg-slate-100 dark:bg-slate-900 rounded-full overflow-hidden flex-row">
-                    <View
-                        className="h-full bg-blue-600 rounded-full transition-all duration-300 shadow-sm shadow-blue-500/50"
-                        style={{ width: `${((currentStep + 1) / ONBOARDING_STEPS.length) * 100}%` }}
-                    />
-                </View>
-                <Text className="text-slate-400 dark:text-slate-500 text-xs font-bold text-center mt-3 uppercase tracking-widest">
-                    Adım {currentStep + 1} / {ONBOARDING_STEPS.length}
-                </Text>
-            </View>
+    const handleFinish = async () => {
+        if (finishing) return;
+        setFinishing(true);
 
-            {/* Soru İçeriği */}
-            <View className="flex-1 px-6 pt-6">
-                <Text className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-2">
-                    {stepData.title}
-                </Text>
-                <Text className="text-slate-500 dark:text-slate-400 text-base mb-10 leading-6">
-                    {stepData.subtitle}
-                </Text>
+        try {
+            await AsyncStorage.setItem('has_completed_onboarding', 'true');
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                await supabase.from('profiles')
+                    .update({ onboarding_completed: true })
+                    .eq('id', session.user.id);
+            }
+        } catch (_) {}
 
-                {/* Seçenekler */}
-                <View className="gap-4">
-                    {stepData.options.map((option, index) => {
-                        const isSelected = preferences[stepData.id] === option.value;
+        try {
+            const store = useSettingsStore.getState();
+            if (!notifTime || notifTime === 'off') {
+                store.setReminderEnabled(false);
+                await cancelAllReminders();
+            } else {
+                const [h, m] = notifTime.split(':').map(Number);
+                if (!isNaN(h) && !isNaN(m)) {
+                    store.setReminderEnabled(true);
+                    store.setReminderTime(h, m);
+                    await scheduleDailyReminder(h, m);
+                }
+            }
+        } catch (_) {}
 
-                        return (
-                            <Pressable
-                                key={index}
-                                onPress={() => handleSelect(option.value)}
-                                className={`flex-row items-center p-5 rounded-[24px] border-2 transition-colors ${isSelected 
-                                    ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/10' 
-                                    : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900'
-                                }`}
+        analytics.trackEvent({ eventName: 'onboarding_completed' });
+        router.replace('/(tabs)/');
+    };
+
+    const bgColor = isDark ? COLORS.black : COLORS.white;
+    const textColor = isDark ? COLORS.white : COLORS.black;
+    const subtitleColor = isDark ? '#A1A1A6' : '#8E8E93';
+
+    // ─── Notification Step ───────────────────────────────────────────────────
+    if (isNotifStep) {
+        return (
+            <View style={[styles.root, { backgroundColor: bgColor }]}>
+                <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+                <SafeAreaView style={{ flex: 1 }}>
+                    <ScrollView 
+                        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}
+                        showsVerticalScrollIndicator={false}
+                    >
+                        <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: textSlideAnim }] }}>
+                            
+                            <View style={styles.headerArea}>
+                                <GlowingIcon Icon={BellRing} color={COLORS.red} isDark={isDark} />
+                                <Text style={[styles.title, { color: textColor, marginTop: 32 }]}>
+                                    Kazananlar{'\n'}Düzenli Çalışır.
+                                </Text>
+                                <Text style={[styles.subtitle, { color: subtitleColor }]}>
+                                    Günde sadece 15 dakika ayırarak başarı şansını %80 artırabilirsin. Sana ne zaman hatırlatalım?
+                                </Text>
+                            </View>
+
+                            <View style={[styles.listContainer, { backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7' }]}>
+                                {NOTIFICATION_OPTIONS.map((opt, index) => {
+                                    const selected = notifTime === opt.value;
+                                    const isLast = index === NOTIFICATION_OPTIONS.length - 1;
+                                    return (
+                                        <TouchableOpacity
+                                            key={opt.value}
+                                            onPress={() => setNotifTime(opt.value)}
+                                            activeOpacity={0.7}
+                                            style={[
+                                                styles.listItem,
+                                                !isLast && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: isDark ? '#38383A' : '#C6C6C8' }
+                                            ]}
+                                        >
+                                            <View style={styles.listTextContainer}>
+                                                <Text style={[
+                                                    styles.listLabel, 
+                                                    { color: selected ? COLORS.red : textColor }
+                                                ]}>
+                                                    {opt.label}
+                                                </Text>
+                                                {opt.desc ? <Text style={[styles.listDesc, { color: subtitleColor }]}>{opt.desc}</Text> : null}
+                                            </View>
+                                            {selected && <Check size={22} color={COLORS.red} strokeWidth={2.5} />}
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </View>
+
+                        </Animated.View>
+                    </ScrollView>
+                    
+                    <View style={[styles.bottomArea, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+                        <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
+                            <TouchableOpacity
+                                onPress={handleFinish}
+                                onPressIn={pressIn}
+                                onPressOut={pressOut}
+                                disabled={!notifTime || finishing}
+                                activeOpacity={0.8}
+                                style={[
+                                    styles.button,
+                                    { backgroundColor: notifTime ? (isDark ? '#FFFFFF' : '#000000') : (isDark ? '#38383A' : '#E5E5EA') }
+                                ]}
                             >
-                                <View className={`p-3 rounded-xl mr-4 ${isSelected ? 'bg-blue-600' : 'bg-slate-100 dark:bg-slate-800'}`}>
-                                    <option.icon size={24} color={isSelected ? 'white' : (isDarkMode ? '#475569' : '#94a3b8')} />
-                                </View>
-                                <View className="flex-1">
-                                    <Text className={`font-black text-[16px] ${isSelected ? 'text-blue-900 dark:text-blue-400' : 'text-slate-700 dark:text-slate-300'}`}>
-                                        {option.label}
-                                    </Text>
-                                </View>
-                                {isSelected && <CheckCircle2 size={24} color={isDarkMode ? "#60a5fa" : "#2563eb"} />}
-                            </Pressable>
-                        );
-                    })}
-                </View>
+                                <Text style={[
+                                    styles.buttonText,
+                                    { color: notifTime ? (isDark ? '#000000' : '#FFFFFF') : (isDark ? '#8E8E93' : '#A1A1A6') }
+                                ]}>
+                                    {finishing ? 'Hazırlanıyor...' : 'Maceraya Başla'}
+                                </Text>
+                            </TouchableOpacity>
+                        </Animated.View>
+                    </View>
+                </SafeAreaView>
             </View>
+        );
+    }
 
-            {/* İleri Butonu */}
-            <View className="p-6 pb-12 border-t border-slate-50 dark:border-slate-900 bg-white dark:bg-slate-950">
-                <Pressable
-                    disabled={!isOptionSelected}
-                    onPress={handleNext}
-                    className={`h-16 rounded-2xl flex-row items-center justify-center ${isOptionSelected
-                        ? 'bg-blue-600 shadow-lg shadow-blue-600/30' 
-                        : 'bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800'
-                    }`}
-                >
-                    <Text className={`font-black text-lg mr-2 ${isOptionSelected ? 'text-white' : 'text-slate-400 dark:text-slate-600'}`}>
-                        {currentStep === ONBOARDING_STEPS.length - 1 ? 'Programımı Oluştur' : 'Devam Et'}
-                    </Text>
-                    <ChevronRight size={22} color={isOptionSelected ? 'white' : (isDarkMode ? '#334155' : '#cbd5e1')} strokeWidth={3} />
-                </Pressable>
-            </View>
-        </SafeAreaView>
+    // ─── Slides ──────────────────────────────────────────────────────────────
+    return (
+        <View style={[styles.root, { backgroundColor: bgColor }]}>
+            <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+            <SafeAreaView style={{ flex: 1 }}>
+                
+                {/* Modern Segmented Progress Bar */}
+                <View style={styles.topBar}>
+                    {SLIDES.map((_, i) => (
+                        <View
+                            key={i}
+                            style={[
+                                styles.segment,
+                                {
+                                    backgroundColor: i <= step ? textColor : (isDark ? '#38383A' : '#E5E5EA'),
+                                }
+                            ]}
+                        />
+                    ))}
+                </View>
+
+                <View style={styles.contentArea}>
+                    <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: textSlideAnim }], flex: 1, justifyContent: 'center' }}>
+                        <GlowingIcon Icon={slide.Icon} color={slide.color} isDark={isDark} />
+                        
+                        <View style={styles.textArea}>
+                            <Text style={[styles.title, { color: textColor }]}>
+                                {slide.title}
+                            </Text>
+                            <Text style={[styles.subtitle, { color: subtitleColor }]}>
+                                {slide.description}
+                            </Text>
+                        </View>
+                    </Animated.View>
+                </View>
+
+                <View style={[styles.bottomArea, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+                    <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
+                        <TouchableOpacity
+                            onPress={handleNext}
+                            onPressIn={pressIn}
+                            onPressOut={pressOut}
+                            activeOpacity={1}
+                            style={[styles.button, { backgroundColor: textColor }]}
+                        >
+                            <Text style={[styles.buttonText, { color: bgColor }]}>
+                                {step === SLIDES.length - 1 ? 'Devam Et' : 'Sonraki'}
+                            </Text>
+                        </TouchableOpacity>
+                    </Animated.View>
+                </View>
+
+            </SafeAreaView>
+        </View>
     );
 }
+
+// ─── Styles ──────────────────────────────────────────────────────────────────
+const styles = StyleSheet.create({
+    root: {
+        flex: 1,
+    },
+    topBar: {
+        flexDirection: 'row',
+        paddingHorizontal: 24,
+        paddingTop: 12, // Reduced
+        gap: 6,
+    },
+    segment: {
+        flex: 1,
+        height: 4,
+        borderRadius: 2,
+    },
+    contentArea: {
+        flex: 1,
+        paddingHorizontal: 28, // Reduced from 32
+    },
+    iconContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 10,
+        marginBottom: 30, // Reduced from 50
+    },
+    glow: {
+        position: 'absolute',
+        width: 120, // Reduced from 140
+        height: 120, // Reduced from 140
+        borderRadius: 60,
+        filter: 'blur(20px)',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.1,
+        shadowRadius: 30,
+    },
+    squircle: {
+        width: 96, // Reduced from 110
+        height: 96, // Reduced from 110
+        borderRadius: 28, // Reduced from 32
+        borderWidth: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    textArea: {
+        alignItems: 'flex-start',
+        width: '100%',
+    },
+    title: {
+        fontSize: 34, // Reduced from 36
+        fontWeight: '900',
+        letterSpacing: -1.2,
+        lineHeight: 40, // Reduced from 44
+        marginBottom: 12, // Reduced from 16
+    },
+    subtitle: {
+        fontSize: 17, // Reduced from 18
+        fontWeight: '400',
+        lineHeight: 24, // Reduced from 26
+        letterSpacing: -0.2,
+    },
+    bottomArea: {
+        paddingHorizontal: 24,
+        paddingTop: 12, // Reduced from 16
+    },
+    button: {
+        height: 56, // Reduced from 60
+        borderRadius: 16, // Reduced from 18
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexDirection: 'row',
+    },
+    buttonText: {
+        fontSize: 17,
+        fontWeight: '700',
+        letterSpacing: -0.3,
+    },
+    // Notification Step
+    scrollContent: {
+        paddingHorizontal: 24,
+        paddingTop: 16, // Reduced from 20
+    },
+    headerArea: {
+        alignItems: 'flex-start',
+        marginBottom: 24, // Reduced from 40
+    },
+    listContainer: {
+        borderRadius: 16,
+        overflow: 'hidden',
+    },
+    listItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 14, // Reduced from 18
+        paddingHorizontal: 16, // Reduced from 20
+    },
+    listTextContainer: {
+        flex: 1,
+        paddingRight: 12, // Reduced from 16
+    },
+    listLabel: {
+        fontSize: 16, // Reduced from 17
+        fontWeight: '600',
+        letterSpacing: -0.3,
+    },
+    listDesc: {
+        fontSize: 13, // Reduced from 14
+        fontWeight: '400',
+        marginTop: 4, // Reduced from 6
+        lineHeight: 18, // Reduced from 20
+    },
+});

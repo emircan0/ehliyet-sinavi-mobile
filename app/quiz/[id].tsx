@@ -302,15 +302,16 @@ export default function QuizScreen() {
             if (user) {
 
                 let quizType = 'practice';
-                if (id === 'quick') quizType = 'quick';
-                else if (id === 'mistakes') quizType = 'mistakes';
-                else if (id === 'favorites') quizType = 'favorites';
+                let resolvedCategory = id as string;
+                if (id === 'quick') { quizType = 'quick'; resolvedCategory = 'general'; }
+                else if (id === 'mistakes') { quizType = 'mistakes'; resolvedCategory = 'general'; }
+                else if (id === 'favorites') { quizType = 'favorites'; resolvedCategory = 'general'; }
                 else if (typeof id === 'string' && (/^\d+$/.test(id) || /^[0-9a-f]{8}-/i.test(id))) quizType = 'exam';
                 else quizType = 'category';
 
                 const wasSaved = await saveQuizResults(
                     user.id, 
-                    id as string, 
+                    resolvedCategory, 
                     score, 
                     correctCount, 
                     wrongCount, 

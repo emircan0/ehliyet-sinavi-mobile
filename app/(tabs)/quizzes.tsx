@@ -59,21 +59,7 @@ export default function QuizzesScreen() {
         });
     };
 
-    const handleAdGatedAccess = (onSuccess: () => void) => {
-        if (isPremium) { onSuccess(); return; }
-        Alert.alert(
-            "Kilidi Aç",
-            "Bu özelliğe erişmek için kısa bir video izleyebilir veya Premium'a geçebilirsiniz.",
-            [
-                { text: "İptal", style: "cancel" },
-                { text: "Reklam İzle", onPress: () => {
-                    const adShown = adService.showRewarded(() => onSuccess());
-                    if (!adShown) Alert.alert("Bilgi", "Video reklam henüz hazır değil.");
-                }},
-                { text: "Premium'a Geç", onPress: () => router.push('/premium' as any) }
-            ]
-        );
-    };
+
 
     const loadData = async () => {
         try {
@@ -180,7 +166,12 @@ export default function QuizzesScreen() {
                                 onPress={() => {
                                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                     if ((counts?.wrongCount || 0) > 0) {
-                                        handleAdGatedAccess(() => router.push('/quiz/mistakes'));
+                                        checkAccess({
+                                            onSuccess: () => router.push('/quiz/mistakes'),
+                                            featureName: 'Hatalarım',
+                                            onAdRequired: triggerRandomAd,
+                                            creditCost: 2
+                                        });
                                     } else {
                                         Alert.alert("Bilgi", "Henüz hata yaptığınız soru bulunmuyor.");
                                     }
@@ -200,7 +191,12 @@ export default function QuizzesScreen() {
                                 onPress={() => {
                                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                     if ((counts?.favoriteCount || 0) > 0) {
-                                        handleAdGatedAccess(() => router.push('/quiz/favorites'));
+                                        checkAccess({
+                                            onSuccess: () => router.push('/quiz/favorites'),
+                                            featureName: 'Favoriler',
+                                            onAdRequired: triggerRandomAd,
+                                            creditCost: 2
+                                        });
                                     } else {
                                         Alert.alert("Bilgi", "Favorilere eklediğiniz soru bulunmuyor.");
                                     }

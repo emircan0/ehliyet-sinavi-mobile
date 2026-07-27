@@ -20,7 +20,7 @@ Topladığımız veriler, tamamen size daha iyi bir eğitim deneyimi sunmak amac
 - **AI Hoca (Yapay Zeka) Desteği:** Yaptığınız hataların analiz edilmesi ve "AI Hoca" özelliği ile zayıf olduğunuz konularda size özel, kişiselleştirilmiş eğitim geri bildirimleri sağlanması.
 - **Liderlik Tablosu (Leaderboard):** Kullanıcılar arası rekabeti artırmak amacıyla başarı istatistiklerinizin genel sıralamada gösterilmesi. (Not: Kullanıcılar dilerlerse profil resimlerini ve bilgilerini "Ayarlar" bölümünden gizleyebilirler).
 - **Uygulama İçi Satın Alımlar:** Premium özelliklerin (örn. reklamsız kullanım, sınırsız yapay zeka hakları) tanımlanması ve yönetimi.
-- **Reklam Sunumu:** Ücretsiz kullanıcılar için AdMob aracılığıyla reklam gösterimi ve kişiselleştirilmiş reklam deneyimi.
+- **Reklam Sunumu ve Ödüllü Reklamlar:** Ücretsiz kullanıcılar için AdMob aracılığıyla standart ve "Ödüllü Reklamlar" gösterimi. Ödüllü reklamları izleyerek uygulama içi sanal Kredi kazanan kullanıcıların reklam etkileşimleri, cihaz reklam kimliği (IDFA/GAID) aracılığıyla ödüllerin hesaba doğru yansıtılması ve hileli işlemlerin önlenmesi amacıyla işlenebilir.
 - **Hata Ayıklama ve Geliştirme:** Uygulamanın performansının izlenmesi, çökmelerin tespit edilmesi ve iyileştirmeler yapılması.
 
 ## 4. Verilerin Üçüncü Taraflarla Paylaşımı

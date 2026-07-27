@@ -29,6 +29,10 @@ export const ensureUserProfile = async (userId: string, fullName?: string) => {
         .insert([{ id: userId, full_name: fullName || null }]);
 
     if (insertError) {
+        // Eğer trigger vb. sebeple zaten oluşmuşsa yoksay
+        if (insertError.code === '23505') {
+            return { id: userId };
+        }
         throw insertError;
     }
 
@@ -201,7 +205,10 @@ export const saveQuizResults = async (
                 .from('user_answers')
                 .upsert(answersToInsert, { onConflict: 'user_id,question_id' });
 
-            if (answersError) throw answersError;
+            if (answersError) {
+                console.warn("user_answers kaydedilemedi (RLS UPDATE izni veya unique constraint eksik olabilir):", answersError);
+                // throw yapmıyoruz ki ana sınav sonucu exam_results tablosuna kaydedilebilsin.
+            }
         }
 
         // 2. Cevaplar kaydedildikten sonra özet sonucu kaydet.

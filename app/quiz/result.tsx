@@ -19,6 +19,7 @@ import * as Haptics from 'expo-haptics';
 import { useSubscriptionStore } from '../../src/store/useSubscriptionStore';
 import { adService } from '../../src/services/adService';
 import { useQuizStore } from '../../src/store/useQuizStore';
+import { usePremiumAccess } from '../../src/hooks/usePremiumAccess';
 
 const { width, height } = Dimensions.get('window');
 const isSmall = height < 700;
@@ -127,11 +128,25 @@ export default function QuizResultScreen() {
         total?: string | string[];
     }>();
     const isPremium = useSubscriptionStore(state => state.isPremium);
+    const addCredits = useSubscriptionStore(state => state.addCredits);
     const mistakesUnlocked = useQuizStore(state => state.mistakesUnlocked);
     const unlockMistakes = useQuizStore(state => state.unlockMistakes);
+    const { checkAccess } = usePremiumAccess();
+    
     const [isLoading, setIsLoading] = useState(true);
     const [result, setResult] = useState<QuizResult | null>(null);
     const [displayScore, setDisplayScore] = useState(0);
+
+    const triggerRandomAd = () => {
+        const adShown = adService.showRewarded(() => {
+            addCredits(3);
+            Alert.alert("Tebrikler!", "3 Kredi kazandınız.");
+        });
+        
+        if (!adShown) {
+            Alert.alert("Bilgi", "Video reklam henüz yüklenmedi, lütfen birkaç saniye sonra tekrar deneyin.");
+        }
+    };
 
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const cardSlide = useRef(new Animated.Value(24)).current;
@@ -310,20 +325,15 @@ export default function QuizResultScreen() {
                                 if (isPremium || mistakesUnlocked) {
                                     router.push({ pathname: '/quiz/mistakes', params: { fromResult: 'true' } });
                                 } else {
-                                    Alert.alert(
-                                        "Analiz Hakkı",
-                                        "Hatalarınızı tekrar edebilmek için kısa bir video izleyebilirsiniz.",
-                                        [
-                                            { text: "İptal", style: "cancel" },
-                                            { text: "Reklam İzle", onPress: () => {
-                                                const adShown = adService.showRewarded(() => {
-                                                    unlockMistakes();
-                                                    router.push({ pathname: '/quiz/mistakes', params: { fromResult: 'true' } });
-                                                });
-                                                if (!adShown) Alert.alert("Bilgi", "Video reklam henüz hazır değil, lütfen biraz bekleyip tekrar deneyin.");
-                                            }}
-                                        ]
-                                    );
+                                    checkAccess({
+                                        onSuccess: () => {
+                                            unlockMistakes();
+                                            router.push({ pathname: '/quiz/mistakes', params: { fromResult: 'true' } });
+                                        },
+                                        featureName: 'Hataları Tekrar Et',
+                                        onAdRequired: triggerRandomAd,
+                                        creditCost: 2
+                                    });
                                 }
                             }}
                             activeOpacity={0.8}
