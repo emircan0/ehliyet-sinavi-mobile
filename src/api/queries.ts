@@ -113,11 +113,15 @@ export const fetchQuestionsByCategory = async (category: string, userId?: string
             return data || [];
         }
 
-        let query = supabase
+        const { data: allQuestions, error } = await supabase
             .from('questions')
             .select('*')
             .eq('category', category)
             .eq('is_active', true);
+
+        if (error) throw error;
+
+        let availableQuestions = allQuestions || [];
 
         // Eğer kullanıcı ID'si varsa, daha önce çözülmüş soruları ele
         if (userId) {
@@ -126,20 +130,20 @@ export const fetchQuestionsByCategory = async (category: string, userId?: string
                 .select('question_id')
                 .eq('user_id', userId);
 
-            const solvedIds = solvedData?.map(s => s.question_id) || [];
+            const solvedIds = new Set(solvedData?.map(s => s.question_id) || []);
             
             // Eğer çözülmüş soru varsa listeden çıkar
-            if (solvedIds.length > 0) {
-                // Postgrest URL limitlerine takılmamak için virgülle ayrılmış ID listesi
-                query = query.not('id', 'in', `(${solvedIds.join(',')})`);
+            if (solvedIds.size > 0) {
+                availableQuestions = availableQuestions.filter(q => !solvedIds.has(q.id));
             }
         }
 
-        const { data, error } = await query;
-        if (error) throw error;
-
-        // Konu testleri için her seferinde farklı bir sırayla gelmesi daha iyi olur (karıştır)
-        const shuffled = (data || []).sort(() => 0.5 - Math.random());
+        // Fisher-Yates Karıştırma Algoritması (Adil rastgelelik için)
+        const shuffled = [...availableQuestions];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
         return shuffled;
     } catch (error) {
         return handleApiError('fetchQuestionsByCategory', error, []);
@@ -155,22 +159,26 @@ export const fetchQuickPracticeQuestions = async (userId: string) => {
             .eq('user_id', userId)
             .eq('is_correct', true);
 
-        const correctIds = correctAnswers?.map(a => a.question_id) || [];
+        const correctIds = new Set(correctAnswers?.map(a => a.question_id) || []);
 
-        let query = supabase
+        const { data: allQuestions, error } = await supabase
             .from('questions')
             .select('*')
-            .eq('is_active', true)
-            .limit(50);
+            .eq('is_active', true);
 
-        if (correctIds.length > 0) {
-            query = query.not('id', 'in', `(${correctIds.join(',')})`);
-        }
-
-        const { data, error } = await query;
         if (error) throw error;
 
-        const shuffled = (data || []).sort(() => 0.5 - Math.random());
+        let availableQuestions = allQuestions || [];
+
+        if (correctIds.size > 0) {
+            availableQuestions = availableQuestions.filter(q => !correctIds.has(q.id));
+        }
+
+        const shuffled = [...availableQuestions];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
         return shuffled.slice(0, 10);
     } catch (error) {
         return handleApiError('fetchQuickPracticeQuestions', error, []);
@@ -216,13 +224,12 @@ export const saveQuizResults = async (
                 .upsert(answersToInsert, { onConflict: 'user_id,question_id' });
 
             if (answersError) {
-                console.warn("user_answers upsert hatası, normal insert deneniyor:", answersError.message);
-                const { error: insertError } = await supabase
-                    .from('user_answers')
-                    .insert(answersToInsert);
-
-                if (insertError) {
-                    console.error("user_answers insert de başarısız oldu:", insertError.message);
+                console.warn("user_answers upsert hatası:", answersError.message);
+                
+                // Hatayı ekranda göster ki sorunu anlayabilelim
+                if (answersError.code !== '23505') {
+                    // Alert import edilmediyse app/quiz/id.tsx içinde fırlatılan hatadan görürüz
+                    throw answersError;
                 }
             }
         }
@@ -270,6 +277,37 @@ export const saveQuizResults = async (
         return true;
     } catch (error) {
         return handleApiError('saveQuizResults', error, false);
+    }
+};
+
+// Yarıda bırakılan sınavlar için sadece cevapları (istatistikleri güncellesin diye) kaydeder
+export const savePartialAnswers = async (
+    userId: string,
+    answers: { questionId: string; selectedOption: number; isCorrect: boolean }[]
+): Promise<void> => {
+    try {
+        const completedAt = new Date().toISOString();
+        const answersToInsert = answers
+            .filter(ans => ans != null)
+            .map(ans => ({
+                user_id: userId,
+                question_id: ans.questionId || (ans as any).question_id,
+                selected_option: ans.selectedOption ?? (ans as any).selected_option ?? 0,
+                is_correct: ans.isCorrect ?? (ans as any).is_correct ?? false,
+                solved_at: completedAt
+            }));
+
+        if (answersToInsert.length > 0) {
+            const { error } = await supabase
+                .from('user_answers')
+                .upsert(answersToInsert, { onConflict: 'user_id,question_id' });
+            
+            if (error) {
+                console.error("Partial save upsert failed:", error);
+            }
+        }
+    } catch (e) {
+        console.warn("Partial save failed", e);
     }
 };
 

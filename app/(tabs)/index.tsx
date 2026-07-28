@@ -120,8 +120,9 @@ export default function Home() {
                 // Eğer isimsiz ise veya uygunsuz bir ismi varsa isim sorma ekranını çıkar
                 const nameCheck = data.fullName ? data.fullName.trim() : '';
                 const placeholderNames = ['İsimsiz Sürücü', 'Sürücü Adayı', 'Misafir Sürücü', 'Misafir', 'Sürücü'];
+                const isGuest = await AsyncStorage.getItem('is_guest') === 'true';
                 
-                if (!nameCheck || placeholderNames.includes(nameCheck) || containsProfanity(nameCheck)) {
+                if (!isGuest && (!nameCheck || placeholderNames.includes(nameCheck) || containsProfanity(nameCheck))) {
                     setShowNamePrompt(true);
                 }
             }

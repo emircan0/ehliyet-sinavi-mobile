@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { ChevronLeft, Trophy, Medal, Star, Flame, Crown } from 'lucide-react-native';
 import { supabase } from '../../src/api/supabase';
 import { useAuth } from '../../src/hooks/useAuth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type LeaderboardType = 'success' | 'activity';
 type MonthOffset = 0 | 1; // 0 = Bu Ay, 1 = Geçen Ay
@@ -32,9 +33,19 @@ export default function LeaderboardScreen() {
     const [monthOffset, setMonthOffset] = useState<MonthOffset>(0);
     const [data, setData] = useState<LeaderboardEntry[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isGuest, setIsGuest] = useState(false);
 
     useEffect(() => {
-        loadData();
+        const checkGuest = async () => {
+            const guestFlag = await AsyncStorage.getItem('is_guest');
+            if (guestFlag === 'true') {
+                setIsGuest(true);
+                setLoading(false);
+            } else {
+                loadData();
+            }
+        };
+        checkGuest();
     }, [type, monthOffset]);
 
     const loadData = async () => {
@@ -76,6 +87,31 @@ export default function LeaderboardScreen() {
         if (rank <= 10) return `İlk 10'dasın! Podyuma çık 🔥`;
         return `Yukarı çık, ${rank - 1} kişiyi geç! 💪`;
     };
+
+    if (isGuest) {
+        return (
+            <SafeAreaView className="flex-1 bg-slate-50 dark:bg-[#0f172a]" edges={['top', 'bottom']}>
+                <View className="px-6 py-4 flex-row items-center justify-center">
+                    <Text className="text-lg font-black text-slate-900 dark:text-white">Liderlik Tablosu</Text>
+                </View>
+                <View className="flex-1 items-center justify-center px-6">
+                    <View className="w-20 h-20 bg-amber-50 dark:bg-amber-900/30 rounded-[28px] items-center justify-center mb-5 border border-amber-100 dark:border-amber-800">
+                        <Trophy size={36} color="#f59e0b" />
+                    </View>
+                    <Text className="text-2xl font-black text-slate-900 dark:text-white mb-2 text-center tracking-tight">Sıralamaya Katıl</Text>
+                    <Text className="text-slate-500 dark:text-slate-400 text-center mb-8 leading-6 px-4 text-[14px]">
+                        Misafir olarak liderlik tablosunu görüntüleyemezsiniz. Binlerce aday arasında nerede olduğunu görmek için ücretsiz hesap oluşturun.
+                    </Text>
+                    <TouchableOpacity onPress={() => router.push('/auth/register')} className="bg-amber-500 w-full py-4 rounded-2xl items-center mb-3">
+                        <Text className="text-white font-black text-[16px]">Ücretsiz Kullanmaya Başla</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => router.push('/auth/login')} className="w-full py-4 rounded-2xl items-center border border-slate-200 dark:border-slate-800">
+                        <Text className="text-slate-700 dark:text-slate-300 font-bold text-[15px]">Zaten Hesabım Var</Text>
+                    </TouchableOpacity>
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView className="flex-1 bg-slate-50 dark:bg-[#0f172a]" edges={['top', 'bottom']}>

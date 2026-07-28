@@ -12,7 +12,8 @@ import { supabase } from '../../src/api/supabase';
 import { 
     fetchQuestionsByCategory, 
     fetchQuickPracticeQuestions, 
-    saveQuizResults, 
+    saveQuizResults,
+    savePartialAnswers, 
     reportQuestion, 
     fetchQuestionsByExamId, 
     fetchMistakeQuestions, 
@@ -182,6 +183,12 @@ export default function QuizScreen() {
                     } else {
                         data = await fetchQuestionsByCategory(idString, user?.id);
                     }
+                }
+
+                // Misafir kullanıcılar için test limitini 10 soruyla sınırla
+                const guestFlag = await AsyncStorage.getItem('is_guest');
+                if (guestFlag === 'true' && data && data.length > 10) {
+                    data = data.slice(0, 10);
                 }
 
                 if (data && data.length > 0) {
@@ -386,6 +393,12 @@ export default function QuizScreen() {
                     currentQuestionId: questions[currentIndex]?.id,
                     questions: questions
                 }));
+
+                // Kullanıcının şu ana kadar çözdüğü soruları arka planda DB'ye kaydet ki
+                // ana ekrana döndüğünde istatistikleri ve doğru/yanlış sayıları güncel görünsün.
+                if (validAnswers.length > 0) {
+                    await savePartialAnswers(user.id, validAnswers);
+                }
             }
 
             analytics.trackQuizAbandoned(

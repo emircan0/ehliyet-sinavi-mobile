@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
 import { View, Text, ScrollView, RefreshControl, TouchableOpacity, Alert, Animated } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import {
     TrendingUp, Clock, Target, Zap,
     AlertCircle, CheckCircle2, AlertTriangle, Lock,
@@ -141,8 +141,10 @@ export default function StatisticsScreen() {
         if (success) await checkSubscriptionStatus();
     };
 
-    const loadStats = async () => {
-        setIsLoading(true);
+    const loadStats = async (isRefresh = false) => {
+        if (!isRefresh) {
+            setIsLoading(true);
+        }
         setError(null);
         try {
             const guestFlag = await AsyncStorage.getItem('is_guest');
@@ -157,7 +159,9 @@ export default function StatisticsScreen() {
             const evalDate = await AsyncStorage.getItem(GENERAL_EVALUATION_ACCESS_KEY);
             setIsGeneralEvaluationUnlocked(evalDate === getTodayKey());
 
-            Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
+            if (!isRefresh) {
+                Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
+            }
         } catch (err: any) {
             setError("Verilere ulaşırken bir sorun oluştu. İnternet bağlantınızı kontrol edin.");
         } finally {
@@ -166,7 +170,13 @@ export default function StatisticsScreen() {
         }
     };
 
-    useEffect(() => { loadStats(); }, []);
+    useFocusEffect(
+        useCallback(() => {
+            // Arka planda sessizce yenile (sayfa zaten yüklüyse loading gösterme)
+            // Eğer stats henüz null ise (ilk açılış), isRefresh'i false vererek skeleton göster
+            loadStats(stats !== null);
+        }, [stats !== null])
+    );
 
     const pd = useMemo(() => {
         const answers = stats?.answers || [];
@@ -174,7 +184,9 @@ export default function StatisticsScreen() {
         const correct = answers.filter((a: any) => a.is_correct).length;
         const wrong = total - correct;
         const rate = total > 0 ? Math.round((correct / total) * 100) : 0;
-        const exams = stats?.results?.length || 0;
+        
+        // Sadece Genel Deneme sınavlarını saysın
+        const exams = stats?.results?.filter((r: any) => r.quiz_type === 'exam' || r.quiz_type === 'general').length || 0;
 
         const cats = CATEGORIES.map(cat => {
             const catA = answers.filter((a: any) => a.questions?.category === cat.id);
@@ -254,7 +266,7 @@ export default function StatisticsScreen() {
                 </View>
                 <Text className="text-xl font-black text-slate-900 dark:text-white mb-2 tracking-tight">Hata Oluştu</Text>
                 <Text className="text-slate-500 dark:text-slate-400 text-center mb-8 text-[14px]">{error}</Text>
-                <TouchableOpacity onPress={loadStats} className="bg-slate-900 dark:bg-white w-full py-4 rounded-2xl items-center">
+                <TouchableOpacity onPress={() => loadStats()} className="bg-slate-900 dark:bg-white w-full py-4 rounded-2xl items-center">
                     <Text className="text-white dark:text-slate-900 font-bold text-lg">Tekrar Dene</Text>
                 </TouchableOpacity>
             </View>
@@ -267,7 +279,7 @@ export default function StatisticsScreen() {
                 style={{ opacity: fadeAnim }}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: 120 }}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadStats(); }} />}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadStats(true); }} />}
             >
                 {/* ─── HEADER ─── */}
                 <View className="px-6 py-2 flex-row justify-between items-center mt-2 mb-4">
@@ -348,7 +360,7 @@ export default function StatisticsScreen() {
                                                 { label: 'Toplam Soru',   value: pd.total.toString(),   icon: Target,      color: '#2563eb' },
                                                 { label: 'Doğru',         value: pd.correct.toString(), icon: CheckCircle2,color: '#10b981' },
                                                 { label: 'Yanlış',        value: pd.wrong.toString(),   icon: AlertCircle, color: '#ef4444' },
-                                                { label: 'Sınav',         value: pd.exams.toString(),   icon: Award,       color: '#f59e0b' },
+                                                { label: 'Bitmiş Sınav',        value: pd.exams.toString(),   icon: Award,       color: '#f59e0b' },
                                             ].map(({ label, value, icon: Icon, color }) => (
                                                 <View key={label} className="flex-row items-center justify-between mb-2">
                                                     <View className="flex-row items-center">
