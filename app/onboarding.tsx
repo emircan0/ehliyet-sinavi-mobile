@@ -178,7 +178,13 @@ export default function OnboardingScreen() {
         } catch (_) {}
 
         analytics.trackEvent({ eventName: 'onboarding_completed' });
-        router.replace('/(tabs)/');
+        
+        const { data: { session: checkSession } } = await supabase.auth.getSession();
+        if (!checkSession) {
+            router.replace('/auth/register');
+        } else {
+            router.replace('/(tabs)/');
+        }
     };
 
     const bgColor = isDark ? COLORS.black : COLORS.white;
@@ -193,7 +199,15 @@ export default function OnboardingScreen() {
                 <SafeAreaView style={{ flex: 1 }}>
                     <View style={{ alignItems: 'flex-end', paddingHorizontal: 24, paddingTop: 12 }}>
                         <TouchableOpacity
-                            onPress={() => router.replace('/auth/login')}
+                            onPress={async () => {
+                                await AsyncStorage.setItem('has_completed_onboarding', 'true');
+                                const { data: { session } } = await supabase.auth.getSession();
+                                if (!session) {
+                                    router.replace('/auth/register');
+                                } else {
+                                    router.replace('/(tabs)/');
+                                }
+                            }}
                             activeOpacity={0.7}
                             style={[styles.closeIconBtn, { backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7' }]}
                         >
@@ -298,7 +312,15 @@ export default function OnboardingScreen() {
                         ))}
                     </View>
                     <TouchableOpacity
-                        onPress={() => router.replace('/auth/login')}
+                        onPress={async () => {
+                            await AsyncStorage.setItem('has_completed_onboarding', 'true');
+                            const { data: { session } } = await supabase.auth.getSession();
+                            if (!session) {
+                                router.replace('/auth/register');
+                            } else {
+                                router.replace('/(tabs)/');
+                            }
+                        }}
                         activeOpacity={0.7}
                         style={[styles.closeIconBtn, { backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7' }]}
                     >

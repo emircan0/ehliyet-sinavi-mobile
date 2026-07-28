@@ -28,8 +28,13 @@ export default function Index() {
                 const isGuest = isGuestStr === 'true';
 
                 if (!session && !isGuest) {
-                    // Oturum ve misafir yoksa direkt login'e gönder
-                    setInitialRoute('/auth/login');
+                    // Oturum ve misafir yoksa, onboarding tamamlanmış mı diye bak
+                    const hasCompletedOnboarding = await AsyncStorage.getItem('has_completed_onboarding');
+                    if (hasCompletedOnboarding !== 'true') {
+                        setInitialRoute('/onboarding');
+                    } else {
+                        setInitialRoute('/auth/login');
+                    }
                     return;
                 }
 
