@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StatusBar, RefreshControl, Alert } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import {
@@ -28,6 +28,14 @@ export default function QuizzesScreen() {
 
     const { checkAccess } = usePremiumAccess();
     const addCredits = useSubscriptionStore(state => state.addCredits);
+
+    // ─── LOCAL CACHE (3 dakika) ────────────────────────────────────────
+    const cacheRef = useRef<{
+        exams: any[];
+        counts: { wrongCount: number; favoriteCount: number };
+        timestamp: number;
+    } | null>(null);
+    const CACHE_TTL_MS = 3 * 60 * 1000; // 3 dakika
 
     const triggerRandomAd = () => {
         const adShown = adService.showRewarded(() => {
@@ -61,7 +69,19 @@ export default function QuizzesScreen() {
 
 
 
-    const loadData = async () => {
+    const loadData = async (forceRefresh = false) => {
+        // Cache geçerliyse Supabase'e gitme, direk local veriden dön
+        if (
+            !forceRefresh &&
+            cacheRef.current &&
+            Date.now() - cacheRef.current.timestamp < CACHE_TTL_MS
+        ) {
+            setExams(cacheRef.current.exams);
+            setCounts(cacheRef.current.counts);
+            setIsLoading(false);
+            return;
+        }
+
         try {
             setHasError(false);
             const { data: { user } } = await supabase.auth.getUser();
@@ -77,8 +97,21 @@ export default function QuizzesScreen() {
                     const vals = await AsyncStorage.multiGet(unlockedKeys);
                     unlockedMap = Object.fromEntries(vals);
                 }
-                setExams(examsArray.map((e: any) => ({ ...e, isUnlocked: unlockedMap[`@unlocked_exam_${e.id}`] === 'true' })));
-                setCounts(smartCounts || { wrongCount: 0, favoriteCount: 0 });
+                const enrichedExams = examsArray.map((e: any) => ({
+                    ...e,
+                    isUnlocked: unlockedMap[`@unlocked_exam_${e.id}`] === 'true'
+                }));
+                const newCounts = smartCounts || { wrongCount: 0, favoriteCount: 0 };
+
+                // Cache'e kaydet
+                cacheRef.current = {
+                    exams: enrichedExams,
+                    counts: newCounts,
+                    timestamp: Date.now(),
+                };
+
+                setExams(enrichedExams);
+                setCounts(newCounts);
             }
         } catch (e) {
             setHasError(true);
@@ -89,7 +122,7 @@ export default function QuizzesScreen() {
     };
 
     useFocusEffect(useCallback(() => { loadData(); }, []));
-    const onRefresh = useCallback(() => { setRefreshing(true); loadData(); }, []);
+    const onRefresh = useCallback(() => { setRefreshing(true); loadData(true); }, []);
 
     const firstUncompletedIndex = exams.findIndex(e => (Number(e.progress_percentage) || 0) < 100);
     const featuredIndex = firstUncompletedIndex !== -1 ? firstUncompletedIndex : 0;

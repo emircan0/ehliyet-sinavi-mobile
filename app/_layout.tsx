@@ -16,6 +16,7 @@ import { useThemeMode } from "../src/hooks/useThemeMode";
 import { useSettingsStore } from "../src/store/useSettingsStore";
 import { useSubscriptionStore } from "../src/store/useSubscriptionStore";
 import { useAuth } from "../src/hooks/useAuth";
+import { useAuthStore } from "../src/store/useAuthStore";
 import { cancelAllReminders, registerForPushNotificationsAsync, scheduleDailyReminder } from "../src/api/notifications";
 import mobileAds from 'react-native-google-mobile-ads';
 import { adService } from '../src/services/adService';
@@ -63,6 +64,12 @@ export default function RootLayout() {
             analytics.trackScreenView(pathname);
         }
     }, [pathname]);
+
+    // Initialize Auth Store
+    const initializeAuth = useAuthStore(state => state.initializeAuth);
+    useEffect(() => {
+        initializeAuth();
+    }, []);
 
     // Purchase and Ads initialization
     const initializePurchases = useSubscriptionStore(state => state.initializePurchases);
@@ -170,23 +177,22 @@ export default function RootLayout() {
         setColorScheme(isDarkMode ? 'dark' : 'light');
     }, [isDarkMode, setColorScheme]);
 
-    // 2.5 Global Auth Observer
+    // 2.5 SIGNED_OUT Navigation — Reactive approach:
+    // useAuthStore'un tek listener'ı session state'i günceller.
+    // Burada sadece user null olduğunda (auth yüklemesi bitmiş, oturum yok) login'e yönlendiriyoruz.
     useEffect(() => {
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-            if (event === 'SIGNED_OUT') {
-                // Clear any guest state just in case
-                AsyncStorage.removeItem('is_guest').catch(() => {});
-                
-                // Reset navigation and go to login
-                if (router.canDismiss()) {
-                    router.dismissAll();
-                }
-                router.replace('/auth/login');
-            }
-        });
+        if (authLoading) return; // Auth henüz hazır değil, bekliyoruz
+        if (!user) {
+            // Clear any guest state just in case
+            AsyncStorage.removeItem('is_guest').catch(() => {});
 
-        return () => subscription.unsubscribe();
-    }, []);
+            // Reset navigation and go to login
+            if (router.canDismiss()) {
+                router.dismissAll();
+            }
+            router.replace('/auth/login');
+        }
+    }, [authLoading, user]);
 
     // 3. Notification Listeners 
     useEffect(() => {

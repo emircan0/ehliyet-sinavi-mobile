@@ -102,6 +102,8 @@ export default function StatisticsScreen() {
     const [stats, setStats] = useState<any>(null);
     const [isGuest, setIsGuest] = useState(false);
     const [isGeneralEvaluationUnlocked, setIsGeneralEvaluationUnlocked] = useState(false);
+    // Tracks whether initial data has been loaded (to suppress skeleton on re-focus)
+    const hasLoadedRef = useRef(false);
 
     const getTodayKey = () => new Date().toISOString().slice(0, 10);
 
@@ -167,15 +169,16 @@ export default function StatisticsScreen() {
         } finally {
             setIsLoading(false);
             setRefreshing(false);
+            hasLoadedRef.current = true;
         }
     };
 
     useFocusEffect(
         useCallback(() => {
-            // Arka planda sessizce yenile (sayfa zaten yüklüyse loading gösterme)
-            // Eğer stats henüz null ise (ilk açılış), isRefresh'i false vererek skeleton göster
-            loadStats(stats !== null);
-        }, [stats !== null])
+            // isRefresh=true ise skeleton gösterilmez, arka planda sessizce yenilenir.
+            // isRefresh=false (ilk açılış) ise skeleton gösterilir.
+            loadStats(!hasLoadedRef.current ? false : true);
+        }, []) // Bağımlılık yok — hasLoadedRef bir ref olduğu için re-render tetiklemez
     );
 
     const pd = useMemo(() => {

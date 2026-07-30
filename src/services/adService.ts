@@ -23,32 +23,46 @@ class AdService {
   private interstitial: InterstitialAd | null = null;
   private rewarded: RewardedAd | null = null;
   private rewardedInterstitial: RewardedInterstitialAd | null = null;
+  
   private appStartedAt = Date.now();
-  private lastInterstitialShownAt = 0;
+  private lastFullScreenAdShownAt = 0; // Tracks both Interstitial + RewardedInterstitial
   private interstitialShowsThisSession = 0;
 
   private readonly minSessionAgeBeforeInterstitialMs = 5 * 60 * 1000;
-  private readonly minInterstitialGapMs = 8 * 60 * 1000;
-  private readonly maxInterstitialsPerSession = 4;
+  private readonly minFullScreenAdGapMs = 8 * 60 * 1000; // Min gap between ANY full-screen ad
+  private readonly maxInterstitialsPerSession = 5; // +1 to compensate for removed mid-quiz ad
+
+  // Store unsubscribe functions to prevent memory leaks
+  private interstitialUnsubscribers: (() => void)[] = [];
+  private rewardedUnsubscribers: (() => void)[] = [];
+  private rewardedInterstitialUnsubscribers: (() => void)[] = [];
+
+  private clearUnsubscribers(unsubscribers: (() => void)[]) {
+    unsubscribers.forEach(unsub => unsub());
+    unsubscribers.length = 0;
+  }
 
   public loadInterstitial() {
+    this.clearUnsubscribers(this.interstitialUnsubscribers);
+
     this.interstitial = InterstitialAd.createForAdRequest(interstitialAdUnitId, {
       keywords: ['education', 'driving', 'test', 'exam'],
     });
 
-    this.interstitial.addAdEventListener(AdEventType.LOADED, () => {
+    const unsubLoaded = this.interstitial.addAdEventListener(AdEventType.LOADED, () => {
       console.log('Interstitial Ad loaded.');
     });
 
-    this.interstitial.addAdEventListener(AdEventType.CLOSED, () => {
+    const unsubClosed = this.interstitial.addAdEventListener(AdEventType.CLOSED, () => {
       console.log('Interstitial Ad closed.');
       this.loadInterstitial(); // Preload next ad
     });
 
-    this.interstitial.addAdEventListener(AdEventType.ERROR, (error) => {
+    const unsubError = this.interstitial.addAdEventListener(AdEventType.ERROR, (error) => {
       console.log('Interstitial Ad failed to load: ', error);
     });
 
+    this.interstitialUnsubscribers.push(unsubLoaded, unsubClosed, unsubError);
     this.interstitial.load();
   }
 
@@ -62,8 +76,10 @@ class AdService {
       };
 
       closeListener = this.interstitial.addAdEventListener(AdEventType.CLOSED, cleanup);
+      this.interstitialUnsubscribers.push(closeListener);
+
       this.interstitial.show();
-      this.lastInterstitialShownAt = Date.now();
+      this.lastFullScreenAdShownAt = Date.now(); // Track all full-screen ads
       this.interstitialShowsThisSession += 1;
       return true;
     }
@@ -77,8 +93,9 @@ class AdService {
 
     const now = Date.now();
     const sessionAge = now - this.appStartedAt;
-    const timeSinceLastShow = now - this.lastInterstitialShownAt;
+    const timeSinceLastAd = now - this.lastFullScreenAdShownAt;
 
+    // Don't show in the first 5 minutes of a session (warm-up period)
     if (sessionAge < this.minSessionAgeBeforeInterstitialMs) {
       this.loadInterstitial();
       return false;
@@ -88,7 +105,8 @@ class AdService {
       return false;
     }
 
-    if (this.lastInterstitialShownAt > 0 && timeSinceLastShow < this.minInterstitialGapMs) {
+    // Guard against double-ads: if any full-screen ad was shown recently, skip
+    if (this.lastFullScreenAdShownAt > 0 && timeSinceLastAd < this.minFullScreenAdGapMs) {
       this.loadInterstitial();
       return false;
     }
@@ -100,13 +118,14 @@ class AdService {
     if (isPremium) return false;
 
     const now = Date.now();
-    const timeSinceLastShow = now - this.lastInterstitialShownAt;
+    const timeSinceLastAd = now - this.lastFullScreenAdShownAt;
 
     if (this.interstitialShowsThisSession >= this.maxInterstitialsPerSession) {
       return false;
     }
 
-    if (this.lastInterstitialShownAt > 0 && timeSinceLastShow < this.minInterstitialGapMs) {
+    // Guard: if a RewardedInterstitial just showed, don't stack another ad
+    if (this.lastFullScreenAdShownAt > 0 && timeSinceLastAd < this.minFullScreenAdGapMs) {
       this.loadInterstitial();
       return false;
     }
@@ -115,23 +134,26 @@ class AdService {
   }
 
   public loadRewarded() {
+    this.clearUnsubscribers(this.rewardedUnsubscribers);
+
     this.rewarded = RewardedAd.createForAdRequest(rewardedAdUnitId, {
       keywords: ['education', 'driving', 'test', 'exam'],
     });
 
-    this.rewarded.addAdEventListener(RewardedAdEventType.LOADED, () => {
+    const unsubLoaded = this.rewarded.addAdEventListener(RewardedAdEventType.LOADED, () => {
       console.log('Rewarded Ad loaded.');
     });
 
-    this.rewarded.addAdEventListener(AdEventType.CLOSED, () => {
+    const unsubClosed = this.rewarded.addAdEventListener(AdEventType.CLOSED, () => {
       console.log('Rewarded Ad closed.');
       this.loadRewarded(); // Preload next ad
     });
 
-    this.rewarded.addAdEventListener(AdEventType.ERROR, (error) => {
+    const unsubError = this.rewarded.addAdEventListener(AdEventType.ERROR, (error) => {
       console.log('Rewarded Ad failed to load: ', error);
     });
 
+    this.rewardedUnsubscribers.push(unsubLoaded, unsubClosed, unsubError);
     this.rewarded.load();
   }
 
@@ -151,6 +173,7 @@ class AdService {
       });
       
       closeListener = this.rewarded.addAdEventListener(AdEventType.CLOSED, cleanup);
+      this.rewardedUnsubscribers.push(rewardListener, closeListener);
 
       this.rewarded.show();
       return true;
@@ -161,23 +184,26 @@ class AdService {
   }
 
   public loadRewardedInterstitial() {
+    this.clearUnsubscribers(this.rewardedInterstitialUnsubscribers);
+
     this.rewardedInterstitial = RewardedInterstitialAd.createForAdRequest(rewardedInterstitialAdUnitId, {
       keywords: ['education', 'driving', 'test', 'exam'],
     });
 
-    this.rewardedInterstitial.addAdEventListener(RewardedAdEventType.LOADED, () => {
+    const unsubLoaded = this.rewardedInterstitial.addAdEventListener(RewardedAdEventType.LOADED, () => {
       console.log('Rewarded Interstitial Ad loaded.');
     });
 
-    this.rewardedInterstitial.addAdEventListener(AdEventType.CLOSED, () => {
+    const unsubClosed = this.rewardedInterstitial.addAdEventListener(AdEventType.CLOSED, () => {
       console.log('Rewarded Interstitial Ad closed.');
       this.loadRewardedInterstitial();
     });
 
-    this.rewardedInterstitial.addAdEventListener(AdEventType.ERROR, (error) => {
+    const unsubError = this.rewardedInterstitial.addAdEventListener(AdEventType.ERROR, (error) => {
       console.log('Rewarded Interstitial Ad failed to load: ', error);
     });
 
+    this.rewardedInterstitialUnsubscribers.push(unsubLoaded, unsubClosed, unsubError);
     this.rewardedInterstitial.load();
   }
 
@@ -199,8 +225,11 @@ class AdService {
       });
       
       closeListener = this.rewardedInterstitial.addAdEventListener(AdEventType.CLOSED, cleanup);
+      this.rewardedInterstitialUnsubscribers.push(rewardListener, closeListener);
 
       this.rewardedInterstitial.show();
+      this.lastFullScreenAdShownAt = Date.now(); // Track so Interstitial guard picks it up
+      this.interstitialShowsThisSession += 1;
       return true;
     }
     console.log('Rewarded Interstitial ad not loaded yet.');

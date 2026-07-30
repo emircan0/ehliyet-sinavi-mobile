@@ -44,10 +44,19 @@ export const ensureUserProfile = async (userId: string, fullName?: string) => {
     return { id: userId };
 };
 
-export const fetchHomeDashboardData = async () => {
+let dashboardCache: { userId: string | null; fullName: string; counts: any } | null = null;
+let dashboardCacheTime = 0;
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+export const fetchHomeDashboardData = async (forceRefresh = false) => {
     try {
         const { data, error: userError } = await supabase.auth.getUser();
         const user = data?.user;
+        const currentUserId = user?.id || null;
+
+        if (!forceRefresh && dashboardCache && dashboardCache.userId === currentUserId && (Date.now() - dashboardCacheTime) < CACHE_TTL) {
+            return { fullName: dashboardCache.fullName, counts: dashboardCache.counts };
+        }
 
         let fullName = 'Misafir Sürücü';
         const PLACEHOLDER_NAMES = ['İsimsiz Sürücü', 'Sürücü Adayı', 'Misafir Sürücü', 'Misafir', 'Sürücü', 'Kullanıcı'];
@@ -92,6 +101,9 @@ export const fetchHomeDashboardData = async () => {
                 }
             })
         );
+
+        dashboardCache = { userId: currentUserId, fullName, counts };
+        dashboardCacheTime = Date.now();
 
         return { fullName, counts };
     } catch (error) {

@@ -49,7 +49,6 @@ export default function QuizScreen() {
 
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isCheckpointAdShowing, setIsCheckpointAdShowing] = useState(false);
 
     const [reportModalVisible, setReportModalVisible] = useState(false);
     const [reportReason, setReportReason] = useState('');
@@ -254,29 +253,6 @@ export default function QuizScreen() {
 
     const handleNext = async () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-        const shouldShowTopicCheckpointAd =
-            isTopicQuiz &&
-            !isPremium &&
-            currentIndex > 0 &&
-            (currentIndex + 1) % 10 === 0 &&
-            currentIndex < questions.length - 1;
-
-        if (shouldShowTopicCheckpointAd) {
-            setIsCheckpointAdShowing(true);
-            const adShown = adService.showInterstitial(() => {
-                setIsCheckpointAdShowing(false);
-                nextQuestion();
-                questionStartTime.current = Date.now();
-            });
-
-            if (!adShown) {
-                setIsCheckpointAdShowing(false);
-                nextQuestion();
-                questionStartTime.current = Date.now();
-            }
-            return;
-        }
 
         if (currentIndex < questions.length - 1) {
             nextQuestion();
@@ -623,11 +599,10 @@ export default function QuizScreen() {
 
                 <TouchableOpacity
                     onPress={handleNext}
-                    disabled={isCheckpointAdShowing}
                     className="h-14 flex-1 rounded-2xl bg-slate-900 dark:bg-slate-50 items-center justify-center"
                 >
                     <Text className="text-white dark:text-slate-900 font-black">
-                        {isCheckpointAdShowing ? 'Devam Hazırlanıyor...' : currentIndex === questions.length - 1 ? 'Sınavı Bitir' : 'Sıradaki Soru'}
+                        {currentIndex === questions.length - 1 ? 'Sınavı Bitir' : 'Sıradaki Soru'}
                     </Text>
                 </TouchableOpacity>
             </View>

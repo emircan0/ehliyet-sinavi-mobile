@@ -98,9 +98,9 @@ export default function Home() {
         };
     }, [isPremium]);
 
-    const performDataLoad = async () => {
+    const performDataLoad = async (forceRefresh = false) => {
         try {
-            const data = await fetchHomeDashboardData();
+            const data = await fetchHomeDashboardData(forceRefresh);
             return data;
         } catch (error) {
             console.error("Dashboard verisi çekilirken hata:", error);
@@ -133,7 +133,7 @@ export default function Home() {
 
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
-        const data = await performDataLoad();
+        const data = await performDataLoad(true);
         setUserName(data.fullName);
         setQuestionCounts(data.counts);
         setRefreshing(false);
