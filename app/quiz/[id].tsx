@@ -281,17 +281,16 @@ export default function QuizScreen() {
             const { data: { user } } = await supabase.auth.getUser();
             const { correctCount, wrongCount, emptyCount, score } = calculateScore();
             const validAnswers = selectedAnswers.filter(a => a != null);
+
+            let quizType = 'practice';
+            let resolvedCategory = id as string;
+            if (id === 'quick') { quizType = 'quick'; resolvedCategory = 'general'; }
+            else if (id === 'mistakes') { quizType = 'mistakes'; resolvedCategory = 'general'; }
+            else if (id === 'favorites') { quizType = 'favorites'; resolvedCategory = 'general'; }
+            else if (typeof id === 'string' && (/^\d+$/.test(id) || /^[0-9a-f]{8}-/i.test(id))) quizType = 'exam';
+            else quizType = 'category';
             
             if (user) {
-
-                let quizType = 'practice';
-                let resolvedCategory = id as string;
-                if (id === 'quick') { quizType = 'quick'; resolvedCategory = 'general'; }
-                else if (id === 'mistakes') { quizType = 'mistakes'; resolvedCategory = 'general'; }
-                else if (id === 'favorites') { quizType = 'favorites'; resolvedCategory = 'general'; }
-                else if (typeof id === 'string' && (/^\d+$/.test(id) || /^[0-9a-f]{8}-/i.test(id))) quizType = 'exam';
-                else quizType = 'category';
-
                 const wasSaved = await saveQuizResults(
                     user.id, 
                     resolvedCategory, 
@@ -334,7 +333,7 @@ export default function QuizScreen() {
                 durationSeconds
             );
 
-            adService.showPostQuizAd(isPremium, () => {
+            adService.showPostQuizAd(isPremium, quizType, () => {
                 useQuizStore.getState().unlockMistakes();
             });
             router.replace({
@@ -394,7 +393,16 @@ export default function QuizScreen() {
         } finally {
             setIsSubmitting(false);
             if (shouldExit) {
-                router.back();
+                let quizType = 'practice';
+                if (id === 'quick') quizType = 'quick';
+                else if (id === 'mistakes') quizType = 'mistakes';
+                else if (id === 'favorites') quizType = 'favorites';
+                else if (typeof id === 'string' && (/^\d+$/.test(id) || /^[0-9a-f]{8}-/i.test(id))) quizType = 'exam';
+                else quizType = 'category';
+
+                adService.showAdOnQuizExit(isPremium, quizType, () => {
+                    router.back();
+                });
             }
         }
     };

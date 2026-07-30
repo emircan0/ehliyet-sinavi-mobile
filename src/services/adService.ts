@@ -28,9 +28,9 @@ class AdService {
   private lastFullScreenAdShownAt = 0; // Tracks both Interstitial + RewardedInterstitial
   private interstitialShowsThisSession = 0;
 
-  private readonly minSessionAgeBeforeInterstitialMs = 5 * 60 * 1000;
-  private readonly minFullScreenAdGapMs = 8 * 60 * 1000; // Min gap between ANY full-screen ad
-  private readonly maxInterstitialsPerSession = 5; // +1 to compensate for removed mid-quiz ad
+  private readonly minSessionAgeBeforeInterstitialMs = 30 * 1000; // 30 seconds
+  private readonly minFullScreenAdGapMs = 2 * 60 * 1000; // 2 minutes (lower gap for more frequent ads)
+  private readonly maxInterstitialsPerSession = 10; // Increased limit
 
   // Store unsubscribe functions to prevent memory leaks
   private interstitialUnsubscribers: (() => void)[] = [];
@@ -237,14 +237,55 @@ class AdService {
     return false;
   }
 
-  public showPostQuizAd(isPremium: boolean, onReward?: () => void): boolean {
-    if (isPremium) return false;
+  public showPostQuizAd(isPremium: boolean, quizType: string, onReward?: () => void): boolean {
+    if (isPremium) {
+      if (onReward) onReward();
+      return false;
+    }
 
+    // Hata ve favorilerde çıkmasın (veya istersen direkt interstitial koyabiliriz, şimdilik atlıyoruz)
+    if (quizType === 'mistakes' || quizType === 'favorites') {
+      if (onReward) onReward();
+      return false;
+    }
+
+    // Sınav bittiğinde uzun reklam (RewardedInterstitial veya Rewarded)
     if (this.rewardedInterstitial && this.rewardedInterstitial.loaded) {
       return this.showRewardedInterstitial(onReward || (() => {}), isPremium);
     }
 
-    return this.showInterstitialAfterQuiz(isPremium);
+    // Yüklenmemişse Interstitial'e (kısa reklam) düş
+    if (this.interstitial && this.interstitial.loaded) {
+      return this.showInterstitial(onReward);
+    }
+
+    // Hiçbiri yoksa işlemi bekletme
+    if (onReward) onReward();
+    this.loadRewardedInterstitial();
+    return false;
+  }
+
+  public showAdOnQuizExit(isPremium: boolean, quizType: string, onClosed?: () => void): boolean {
+    if (isPremium) {
+      if (onClosed) onClosed();
+      return false;
+    }
+
+    // Hata veya favorilerde çıkmasın
+    if (quizType === 'mistakes' || quizType === 'favorites') {
+      if (onClosed) onClosed();
+      return false;
+    }
+
+    // Sınavdan çıkışta kısa reklam (Interstitial)
+    if (this.interstitial && this.interstitial.loaded) {
+      return this.showInterstitial(onClosed);
+    }
+
+    // Reklam yüklü değilse işlemi bekletme
+    if (onClosed) onClosed();
+    this.loadInterstitial();
+    return false;
   }
 }
 
